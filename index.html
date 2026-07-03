@@ -197,13 +197,28 @@ const CASE_SIZES = {A:'65x65x30',B:'90x65x30',C:'90x90x30',D:'105x105x35',E:'105
 
 let role = 'viewer';
 let currentGameId = null;
-let currentMode = '2';
+let currentMode = '1';
 let currentPhotoIdx = 0;
 let searchQuery = '';
 let games = [];
 let draggingMarker = null;
 let draggingBox = null;
 let editorCode = '';
+const _measureCanvas = document.createElement('canvas');
+
+/**
+ * 입력창의 실제 글자 폭을 측정해서 그만큼 너비를 넓혀줍니다.
+ * (CSS만으로는 브라우저마다 자동 크기 조절이 불안정해서, 직접 측정하는 방식을 씁니다)
+ */
+function autoSizeTextInput(inp){
+  const style = getComputedStyle(inp);
+  const font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+  const ctx = _measureCanvas.getContext('2d');
+  ctx.font = font;
+  const textWidth = ctx.measureText(inp.value || '').width;
+  const min = 50, max = 220;
+  inp.style.width = Math.min(max, Math.max(min, textWidth + 22)) + 'px';
+}
 
 function showToast(message, type='info'){
   const container = document.getElementById('toast');
@@ -345,8 +360,8 @@ function renderDetail(app){
       </div>
     </div>
     <div class="tabs">
-      <button class="${currentMode==='1'?'active':''}" onclick="setMode('1')">1안 · 사진 연결형</button>
-      <button class="${currentMode==='2'?'active':''}" onclick="setMode('2')">2안 · 표 형태</button>
+      <button class="${currentMode==='1'?'active':''}" onclick="setMode('1')">사진</button>
+      <button class="${currentMode==='2'?'active':''}" onclick="setMode('2')">표</button>
     </div>
   `;
   html += currentMode==='2' ? renderTablePanel(g) : renderPhotoPanel(g);
@@ -425,7 +440,7 @@ function renderPhotoPanel(g){
       <div id="uploadOverlay" class="upload-overlay" style="display:none;">업로드 중...</div>
     </div>
     <div class="hint">${editable ? '마커를 드래그해 위치를 옮기고, 박스에서 케이스종류·구성품·수량을 바로 수정할 수 있습니다. 사진의 빈 곳을 클릭하면 새 마커가 추가됩니다.' : '점이 표시된 위치에 해당 구성품이 담긴 케이스를 배치하세요.'}</div>
-    ${editable && hasImage ? `<div class="hint">사진 URL: <a href="${photo.imageUrl}" target="_blank" rel="noopener" style="color:var(--accent);">${photo.imageUrl}</a></div>` : ''}
+    ${editable && hasImage ? `<div class="hint">사진: <a href="${photo.imageUrl}" target="_blank" rel="noopener" style="color:var(--accent); font-weight:700;">새 탭에서 원본 보기 ↗</a></div>` : ''}
     ${editable && !hasImage ? `<div class="hint">이 사진 페이지에는 아직 업로드된 이미지가 없습니다.</div>` : ''}
     <div class="legend" id="photoLegend"></div>
   </div>`;
@@ -527,6 +542,10 @@ function attachPhotoHandlers(g){
             </div>`).join('')}
           <button class="anno-additem" onclick="addItemRedraw(${m.caseIdx})">+ 항목 추가</button>
         `;
+        box.querySelectorAll('.anno-item input[type=text]').forEach(inp=>{
+          autoSizeTextInput(inp);
+          inp.addEventListener('input', ()=> autoSizeTextInput(inp));
+        });
         box.addEventListener('pointerdown', e=>{
           if (['INPUT','SELECT','BUTTON','OPTION'].includes(e.target.tagName)) return;
           draggingBox = idx;
@@ -757,7 +776,7 @@ function updateMarkerSize(v){
   saveGames();
 }
 
-function openGame(id){ currentGameId=id; currentMode='2'; currentPhotoIdx=0; render(); }
+function openGame(id){ currentGameId=id; currentMode='1'; currentPhotoIdx=0; render(); }
 function closeGame(){ currentGameId=null; render(); }
 function setMode(m){ currentMode=m; currentPhotoIdx=0; render(); }
 function prevPhoto(){ if (currentPhotoIdx>0){ currentPhotoIdx--; render(); } }
