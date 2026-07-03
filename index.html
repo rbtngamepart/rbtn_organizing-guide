@@ -104,7 +104,7 @@
     background-color:#EDEDE8; background-size:cover; background-position:center;
     border:1px solid var(--line); user-select:none; transition:outline .1s;}
   .photo-stage.no-image{background-image:repeating-linear-gradient(45deg, #EDEDE8 0 12px, #F2F2ED 12px 24px);}
-  .stage-img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; z-index:0;}
+  .stage-img{position:absolute; inset:0; width:100%; height:100%; object-fit:contain; z-index:0;}
   .photo-stage.dragover{outline:3px dashed var(--accent); outline-offset:-3px;}
   .photo-actions{display:flex; gap:8px; margin-bottom:10px;}
   .upload-overlay{position:absolute; inset:0; background:rgba(255,255,255,.7); display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; color:var(--accent); z-index:5;}
@@ -142,17 +142,16 @@
   .footer-note{font-size:11.5px; color:var(--ink-soft); margin-top:26px; border-top:1px solid var(--line); padding-top:14px;}
 
   .crop-modal{max-width:560px;}
-  .crop-canvas-wrap{position:relative; width:100%; border-radius:10px; overflow:hidden; background:#111; border:1px solid var(--line);}
-  .crop-canvas-wrap canvas{display:block; width:100%; height:auto; cursor:grab; touch-action:none;}
-  .crop-canvas-wrap canvas:active{cursor:grabbing;}
-  .crop-controls{display:flex; align-items:center; gap:10px; margin-top:14px;}
-  .crop-controls label{font-size:12px; color:var(--ink-soft); white-space:nowrap;}
-  .crop-controls input[type=range]{flex:1;}
-  .crop-edge-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px 16px; margin-top:12px; padding-top:12px; border-top:1px solid var(--line);}
-  .crop-edge-row{display:flex; align-items:center; gap:8px;}
-  .crop-edge-row label{font-size:11.5px; color:var(--ink-soft); white-space:nowrap; width:70px; flex-shrink:0;}
-  .crop-edge-row input[type=range]{flex:1;}
-  .crop-hint{font-size:11.5px; color:var(--ink-soft); margin-top:8px;}
+  .crop-canvas-wrap{position:relative; width:100%; border-radius:10px; overflow:hidden; background:#111; border:1px solid var(--line); touch-action:none; user-select:none;}
+  .crop-canvas-wrap canvas{display:block; width:100%; height:auto; pointer-events:none;}
+  .crop-box{position:absolute; border:2px solid #fff; box-shadow:0 0 0 2000px rgba(0,0,0,.55); cursor:move;}
+  .crop-handle{position:absolute; width:18px; height:18px; border:3px solid #fff; background:transparent;}
+  .handle-nw{top:-3px; left:-3px; border-right:none; border-bottom:none; cursor:nwse-resize;}
+  .handle-ne{top:-3px; right:-3px; border-left:none; border-bottom:none; cursor:nesw-resize;}
+  .handle-sw{bottom:-3px; left:-3px; border-right:none; border-top:none; cursor:nesw-resize;}
+  .handle-se{bottom:-3px; right:-3px; border-left:none; border-top:none; cursor:nwse-resize;}
+  .crop-dim-label{position:absolute; left:50%; bottom:8px; transform:translateX(-50%); background:rgba(0,0,0,.7); color:#fff; font-size:11px; font-family:var(--mono); padding:3px 9px; border-radius:5px; white-space:nowrap; pointer-events:none;}
+  .crop-hint{font-size:11.5px; color:var(--ink-soft); margin-top:10px;}
 
   #toast{position:fixed; bottom:20px; right:20px; z-index:100; display:flex; flex-direction:column; gap:8px; max-width:320px;}
   .toast-msg{background:var(--ink); color:#fff; padding:10px 14px; border-radius:8px; font-size:13px; box-shadow:0 4px 14px rgba(0,0,0,.2); opacity:0; transform:translateY(8px); transition:opacity .2s, transform .2s;}
@@ -183,7 +182,6 @@
     .anno-item input[type=text]{max-width:130px;}
     .modal{max-width:none; width:100%;}
     .crop-modal{max-width:none;}
-    .crop-edge-grid{grid-template-columns:1fr;}
     #toast{left:14px; right:14px; bottom:14px; max-width:none;}
   }
 </style>
@@ -606,7 +604,7 @@ function attachPhotoHandlers(g){
       }
     };
     stage.onclick = e=>{
-      if (e.target !== stage && e.target.id!=='markerLayer' && e.target.id!=='boxLayer') return;
+      if (e.target !== stage && e.target.id!=='markerLayer' && e.target.id!=='boxLayer' && e.target.id!=='stageImg') return;
       const rect = stage.getBoundingClientRect();
       const x=(e.clientX-rect.left)/rect.width*100, y=(e.clientY-rect.top)/rect.height*100;
       g.cases.push({caseType:'A', items:[{name:'새 구성품', qty:1}]});
@@ -633,11 +631,13 @@ function handleFileSelect(e){
 }
 
 /* ============================================================
-   사진 확대/축소 · 이동(크롭) 편집창
+   사진 크롭 편집창 (자유 드래그 방식 - 표준 포토 에디터 스타일)
    ============================================================ */
-const CROP_PREVIEW_W = 480, CROP_PREVIEW_H = 360; // 4:3, photo-stage와 동일 비율
-const CROP_OUTPUT_W = 960, CROP_OUTPUT_H = 720;   // 실제 저장되는 해상도 (2배)
+const CROP_PREVIEW_W = 480, CROP_PREVIEW_H = 360;
+const CROP_OUTPUT_MAX = 1400; // 저장되는 이미지의 최대 가로/세로 길이
+const CROP_MIN_BOX = 40; // 크롭 박스 최소 크기(px, 미리보기 기준)
 let cropState = null;
+let cropDrag = null; // { mode: 'move'|'nw'|'ne'|'sw'|'se', startX, startY, startBox }
 
 function openCropModal(file){
   if (WEB_APP_URL === 'YOUR_WEB_APP_URL'){
@@ -651,12 +651,16 @@ function openCropModal(file){
   const url = URL.createObjectURL(file);
   const img = new Image();
   img.onload = () => {
-    const baseScale = Math.max(CROP_PREVIEW_W/img.width, CROP_PREVIEW_H/img.height);
-    cropState = { img, url, zoom:1, baseScale, panX:0, panY:0, dragging:false,
-      edgeInset: { top:0, bottom:0, left:0, right:0 } };
-    const sW = CROP_PREVIEW_W/baseScale, sH = CROP_PREVIEW_H/baseScale;
-    cropState.panX = (img.width - sW)/2;
-    cropState.panY = (img.height - sH)/2;
+    // 이미지 전체가 보이도록 "contain" 방식으로 배치
+    const containScale = Math.min(CROP_PREVIEW_W/img.width, CROP_PREVIEW_H/img.height);
+    const dispW = img.width * containScale, dispH = img.height * containScale;
+    const dispX = (CROP_PREVIEW_W - dispW) / 2, dispY = (CROP_PREVIEW_H - dispH) / 2;
+
+    cropState = {
+      img, url, containScale,
+      imgBounds: { x: dispX, y: dispY, w: dispW, h: dispH },
+      box: { left: dispX, top: dispY, width: dispW, height: dispH } // 처음엔 전체 선택
+    };
     renderCropModal();
   };
   img.onerror = () => showToast('이미지를 불러오지 못했습니다.', 'error');
@@ -669,130 +673,105 @@ function renderCropModal(){
   backdrop.id = 'cropBackdrop';
   backdrop.innerHTML = `
     <div class="modal crop-modal">
-      <h3>사진 위치·확대 조정</h3>
-      <div class="crop-canvas-wrap">
+      <h3>사진 자르기</h3>
+      <div class="crop-canvas-wrap" id="cropWrap">
         <canvas id="cropCanvas" width="${CROP_PREVIEW_W}" height="${CROP_PREVIEW_H}"></canvas>
+        <div class="crop-box" id="cropBox">
+          <div class="crop-dim-label" id="cropDimLabel"></div>
+          <div class="crop-handle handle-nw" data-h="nw"></div>
+          <div class="crop-handle handle-ne" data-h="ne"></div>
+          <div class="crop-handle handle-sw" data-h="sw"></div>
+          <div class="crop-handle handle-se" data-h="se"></div>
+        </div>
       </div>
-      <div class="crop-controls">
-        <label>축소 · 확대</label>
-        <input type="range" id="cropZoomRange" min="0.3" max="3" step="0.01" value="1">
-      </div>
-      <div class="crop-edge-grid">
-        <div class="crop-edge-row"><label>위쪽 자르기</label><input type="range" id="cropTrimTop" min="0" max="45" value="0"></div>
-        <div class="crop-edge-row"><label>아래쪽 자르기</label><input type="range" id="cropTrimBottom" min="0" max="45" value="0"></div>
-        <div class="crop-edge-row"><label>왼쪽 자르기</label><input type="range" id="cropTrimLeft" min="0" max="45" value="0"></div>
-        <div class="crop-edge-row"><label>오른쪽 자르기</label><input type="range" id="cropTrimRight" min="0" max="45" value="0"></div>
-      </div>
-      <div class="crop-hint">확대/축소 슬라이더로 전체 크기를 조정하고, 아래 4개 슬라이더로 불필요한 상/하/좌/우 영역을 잘라낼 수 있습니다.</div>
+      <div class="crop-hint">모서리를 드래그해 원하는 영역만 선택하고, 박스 안쪽을 드래그하면 위치를 옮길 수 있습니다.</div>
       <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="resetCropBox()">전체 선택으로 초기화</button>
         <button class="btn btn-ghost" onclick="cancelCropModal()">취소</button>
         <button class="btn btn-primary" onclick="applyCrop()">적용 · 업로드</button>
       </div>
     </div>`;
   document.body.appendChild(backdrop);
 
-  const canvas = document.getElementById('cropCanvas');
-  drawCropPreview();
+  drawCropImage();
+  updateCropBoxUI();
 
-  canvas.addEventListener('pointerdown', e=>{
-    cropState.dragging = true;
-    cropState.dragStartX = e.clientX; cropState.dragStartY = e.clientY;
-    cropState.startPanX = cropState.panX; cropState.startPanY = cropState.panY;
-    canvas.setPointerCapture(e.pointerId);
-  });
-  canvas.addEventListener('pointermove', e=>{
-    if (!cropState.dragging) return;
-    const scale = cropState.baseScale * cropState.zoom;
-    const dx = (e.clientX - cropState.dragStartX) / scale;
-    const dy = (e.clientY - cropState.dragStartY) / scale;
-    cropState.panX = cropState.startPanX - dx;
-    cropState.panY = cropState.startPanY - dy;
-    clampCropPan();
-    drawCropPreview();
-  });
-  canvas.addEventListener('pointerup', ()=>{ cropState.dragging = false; });
-  canvas.addEventListener('pointerleave', ()=>{ cropState.dragging = false; });
+  const wrap = document.getElementById('cropWrap');
+  const cropBox = document.getElementById('cropBox');
 
-  document.getElementById('cropZoomRange').addEventListener('input', e=>{
-    cropState.zoom = Number(e.target.value);
-    clampCropPan();
-    drawCropPreview();
+  cropBox.addEventListener('pointerdown', e=>{
+    if (e.target.classList.contains('crop-handle')) return; // 핸들은 별도 처리
+    cropDrag = { mode:'move', startX:e.clientX, startY:e.clientY, startBox:{...cropState.box} };
+    wrap.setPointerCapture(e.pointerId);
+    e.stopPropagation();
   });
 
-  ['Top','Bottom','Left','Right'].forEach(side=>{
-    document.getElementById('cropTrim'+side).addEventListener('input', e=>{
-      cropState.edgeInset[side.toLowerCase()] = Number(e.target.value) / 100;
-      normalizeEdgeInset();
-      drawCropPreview();
+  cropBox.querySelectorAll('.crop-handle').forEach(handle=>{
+    handle.addEventListener('pointerdown', e=>{
+      cropDrag = { mode: handle.dataset.h, startX:e.clientX, startY:e.clientY, startBox:{...cropState.box} };
+      wrap.setPointerCapture(e.pointerId);
+      e.stopPropagation();
     });
   });
+
+  wrap.addEventListener('pointermove', e=>{
+    if (!cropDrag) return;
+    const dx = e.clientX - cropDrag.startX;
+    const dy = e.clientY - cropDrag.startY;
+    updateCropBoxFromDrag(dx, dy);
+  });
+  wrap.addEventListener('pointerup', ()=>{ cropDrag = null; });
+  wrap.addEventListener('pointerleave', ()=>{ cropDrag = null; });
 }
 
-/**
- * 상하 / 좌우 트림 값의 합이 너무 커서 남는 영역이 없어지는 걸 방지합니다.
- */
-function normalizeEdgeInset(){
-  const e = cropState.edgeInset;
-  if (e.left + e.right > 0.85){
-    const ratio = 0.85 / (e.left + e.right);
-    e.left *= ratio; e.right *= ratio;
-  }
-  if (e.top + e.bottom > 0.85){
-    const ratio = 0.85 / (e.top + e.bottom);
-    e.top *= ratio; e.bottom *= ratio;
-  }
-}
+function updateCropBoxFromDrag(dx, dy){
+  const { imgBounds } = cropState;
+  const start = cropDrag.startBox;
+  let { left, top, width, height } = start;
+  const minB = imgBounds, maxX = imgBounds.x + imgBounds.w, maxY = imgBounds.y + imgBounds.h;
 
-/**
- * 확대/축소(zoom)와 이동(pan), 상하좌우 트림(edgeInset)을 모두 반영한
- * 최종 소스 영역(원본 이미지 좌표계)을 계산합니다.
- */
-function getEffectiveSourceRect(){
-  const { img, baseScale, zoom, panX, panY, edgeInset } = cropState;
-  const scale = baseScale * zoom;
-  const sW = CROP_PREVIEW_W/scale, sH = CROP_PREVIEW_H/scale;
-
-  const trimLeft = sW * edgeInset.left;
-  const trimRight = sW * edgeInset.right;
-  const trimTop = sH * edgeInset.top;
-  const trimBottom = sH * edgeInset.bottom;
-
-  return {
-    sx: panX + trimLeft,
-    sy: panY + trimTop,
-    sW: Math.max(1, sW - trimLeft - trimRight),
-    sH: Math.max(1, sH - trimTop - trimBottom)
-  };
-}
-
-function clampCropPan(){
-  const { img, baseScale, zoom } = cropState;
-  const scale = baseScale * zoom;
-  const sW = CROP_PREVIEW_W/scale, sH = CROP_PREVIEW_H/scale;
-
-  // 축소해서 이미지가 프레임보다 작아지면(여백 생김) 가운데로 고정
-  if (sW >= img.width) {
-    cropState.panX = (img.width - sW) / 2;
+  if (cropDrag.mode === 'move'){
+    left = start.left + dx; top = start.top + dy;
+    left = Math.max(minB.x, Math.min(maxX - width, left));
+    top = Math.max(minB.y, Math.min(maxY - height, top));
   } else {
-    cropState.panX = Math.max(0, Math.min(img.width - sW, cropState.panX));
+    let right = start.left + start.width, bottom = start.top + start.height;
+    if (cropDrag.mode.includes('w')) left = Math.min(right - CROP_MIN_BOX, Math.max(minB.x, start.left + dx));
+    if (cropDrag.mode.includes('e')) right = Math.max(left + CROP_MIN_BOX, Math.min(maxX, right + dx));
+    if (cropDrag.mode.includes('n')) top = Math.min(bottom - CROP_MIN_BOX, Math.max(minB.y, start.top + dy));
+    if (cropDrag.mode.includes('s')) bottom = Math.max(top + CROP_MIN_BOX, Math.min(maxY, bottom + dy));
+    width = right - left; height = bottom - top;
   }
-  if (sH >= img.height) {
-    cropState.panY = (img.height - sH) / 2;
-  } else {
-    cropState.panY = Math.max(0, Math.min(img.height - sH, cropState.panY));
-  }
+
+  cropState.box = { left, top, width, height };
+  updateCropBoxUI();
 }
 
-function drawCropPreview(){
+function updateCropBoxUI(){
+  const box = document.getElementById('cropBox');
+  if (!box) return;
+  const { left, top, width, height } = cropState.box;
+  box.style.left = left+'px'; box.style.top = top+'px';
+  box.style.width = width+'px'; box.style.height = height+'px';
+
+  const realW = Math.round(width / cropState.containScale);
+  const realH = Math.round(height / cropState.containScale);
+  document.getElementById('cropDimLabel').textContent = `${realW} x ${realH}`;
+}
+
+function resetCropBox(){
+  cropState.box = { ...cropState.imgBounds };
+  updateCropBoxUI();
+}
+
+function drawCropImage(){
   const canvas = document.getElementById('cropCanvas');
-  if (!canvas) return;
   const ctx = canvas.getContext('2d');
-  const { img } = cropState;
-  const { sx, sy, sW, sH } = getEffectiveSourceRect();
+  const { img, imgBounds } = cropState;
   ctx.clearRect(0,0,CROP_PREVIEW_W,CROP_PREVIEW_H);
-  ctx.fillStyle = '#F6F6F3';
+  ctx.fillStyle = '#111';
   ctx.fillRect(0,0,CROP_PREVIEW_W,CROP_PREVIEW_H);
-  ctx.drawImage(img, sx, sy, sW, sH, 0, 0, CROP_PREVIEW_W, CROP_PREVIEW_H);
+  ctx.drawImage(img, 0, 0, img.width, img.height, imgBounds.x, imgBounds.y, imgBounds.w, imgBounds.h);
 }
 
 function cancelCropModal(){
@@ -800,20 +779,28 @@ function cancelCropModal(){
   if (backdrop) backdrop.remove();
   if (cropState) URL.revokeObjectURL(cropState.url);
   cropState = null;
+  cropDrag = null;
 }
 
 function applyCrop(){
-  const { img } = cropState;
-  const { sx, sy, sW, sH } = getEffectiveSourceRect();
+  const { img, imgBounds, containScale, box } = cropState;
+
+  // 미리보기 좌표계 -> 원본 이미지 좌표계로 변환
+  const sx = (box.left - imgBounds.x) / containScale;
+  const sy = (box.top - imgBounds.y) / containScale;
+  const sW = box.width / containScale;
+  const sH = box.height / containScale;
+
+  const aspect = sW / sH;
+  const outW = aspect >= 1 ? CROP_OUTPUT_MAX : Math.round(CROP_OUTPUT_MAX * aspect);
+  const outH = aspect >= 1 ? Math.round(CROP_OUTPUT_MAX / aspect) : CROP_OUTPUT_MAX;
 
   const outCanvas = document.createElement('canvas');
-  outCanvas.width = CROP_OUTPUT_W; outCanvas.height = CROP_OUTPUT_H;
+  outCanvas.width = outW; outCanvas.height = outH;
   const ctx = outCanvas.getContext('2d');
-  ctx.fillStyle = '#F6F6F3';
-  ctx.fillRect(0,0,CROP_OUTPUT_W,CROP_OUTPUT_H);
-  ctx.drawImage(img, sx, sy, sW, sH, 0, 0, CROP_OUTPUT_W, CROP_OUTPUT_H);
+  ctx.drawImage(img, sx, sy, sW, sH, 0, 0, outW, outH);
 
-  const dataUrl = outCanvas.toDataURL('image/jpeg', 0.85);
+  const dataUrl = outCanvas.toDataURL('image/jpeg', 0.88);
   cancelCropModal();
   applyPhotoDataUrl(dataUrl);
 }
