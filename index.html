@@ -587,12 +587,13 @@ function renderPhotoPanel(g){
       <div class="photo-actions">
         <input type="file" id="photoFileInput" accept="image/*" style="display:none;" onchange="handleFileSelect(event)">
         <button class="btn btn-ghost" onclick="document.getElementById('photoFileInput').click()">📷 사진 업로드</button>
-        <span class="hint" style="margin:0;">또는 아래 사진 영역에 파일을 끌어다 놓으세요</span>
+        <button class="btn btn-ghost" onclick="autoGenerateMarkers()" title="표에 있지만 사진에 마커가 없는 케이스를 자동으로 배치합니다">📍 표 기준 마커 자동 생성</button>
         <div class="marker-size-control" style="margin-left:auto;">
           <label>마커 크기</label>
           <input type="range" min="16" max="44" value="${g.markerSize||24}" oninput="previewMarkerSize(this.value)" onchange="updateMarkerSize(this.value)">
         </div>
-      </div>` : ''}
+      </div>
+      <div class="hint" style="margin-top:-4px;">또는 아래 사진 영역에 파일을 끌어다 놓으세요</div>` : ''}
     <div class="photo-stage ${hasImage?'':'no-image'}" id="photoStage" style="--marker-size:${g.markerSize||24}px;">
       ${hasImage
         ? `<img class="stage-img" id="stageImg" src="${photo.imageUrl}" onerror="handleStageImgError(this)">`
@@ -1230,6 +1231,7 @@ function helpEditorContent_(){
       <li><b>새 가이드 만들기</b> — 상단 "+ 새 가이드" 버튼으로 게임 ID·이름을 입력해 새로 생성합니다.</li>
       <li><b>사진 등록</b> — 사진 탭에서 "사진 업로드" 또는 사진 영역에 파일을 끌어다 놓으면, 자르기(크롭)·이동·확대·축소 편집창이 뜹니다. 필요한 부분만 선택해서 적용하세요. "+ 사진 페이지 추가"로 사진을 여러 장 등록하고 넘겨가며 관리할 수 있습니다.</li>
       <li><b>마커(케이스 위치) 추가·편집</b> — 사진의 빈 곳을 클릭하면 새 마커와 텍스트박스가 생깁니다. 마커와 텍스트박스는 각각 드래그로 위치를 옮길 수 있고, 텍스트박스 안에서 케이스종류·구성품명·수량을 바로 수정할 수 있습니다.</li>
+      <li><b>표 기준 마커 자동 생성</b> — 표에는 등록돼있지만 아직 사진에 마커가 없는 케이스들을, "📍 표 기준 마커 자동 생성" 버튼으로 한 번에 격자 배치할 수 있습니다. 이후 실제 배치에 맞게 위치만 드래그로 옮겨주면 됩니다. (일괄로 데이터만 먼저 등록한 게임에 유용합니다)</li>
       <li><b>라벨 미리보기</b> — 텍스트박스 상단의 검정 "라벨" 버튼을 누르면, 실제 라벨기로 인쇄해 붙였을 때의 모습(검정 바탕 흰 글씨)을 미리 볼 수 있는 박스가 따로 생깁니다. 내용 수정, 줄바꿈, 글자 크기 조절(A-/A+), 모서리 드래그로 크기 조절(글자도 같이 커짐/작아짐)이 모두 가능합니다.</li>
       <li><b>표에서 직접 수정</b> — 표 탭에서도 케이스종류·구성품·수량을 셀에서 바로 편집하거나, 케이스/항목을 추가·삭제할 수 있습니다. 사진과 표는 같은 데이터를 공유합니다.</li>
       <li><b>게임 삭제</b> — 목록 화면 카드의 ✕ 버튼으로 삭제할 수 있습니다 (되돌릴 수 없으니 주의).</li>
@@ -1287,6 +1289,48 @@ function setMode(m){ currentMode=m; currentPhotoIdx=0; render(); }
 function prevPhoto(){ if (currentPhotoIdx>0){ currentPhotoIdx--; render(); } }
 function nextPhoto(){ const g=games.find(x=>x.id===currentGameId); if (currentPhotoIdx<g.photos.length-1){ currentPhotoIdx++; render(); } }
 function goToPhoto(i){ currentPhotoIdx=i; render(); }
+/**
+ * 표(g.cases)에는 있지만 어떤 사진에도 마커가 없는 케이스들을,
+ * 현재 보고 있는 사진 위에 격자 형태로 자동 배치합니다.
+ */
+function autoGenerateMarkers(){
+  const g = games.find(x=>x.id===currentGameId);
+  const photo = g.photos[currentPhotoIdx];
+
+  const placedCaseIdx = new Set();
+  g.photos.forEach(p => (p.markers||[]).forEach(m => placedCaseIdx.add(m.caseIdx)));
+
+  const missing = [];
+  g.cases.forEach((c, ci) => { if (!placedCaseIdx.has(ci)) missing.push(ci); });
+
+  if (missing.length === 0){
+    showToast('이미 모든 케이스에 마커가 있습니다.');
+    return;
+  }
+
+  const positions = computeGridPositions_(missing.length);
+  missing.forEach((ci, i) => {
+    photo.markers.push({ x: positions[i].x, y: positions[i].y, caseIdx: ci });
+  });
+
+  saveGames();
+  render();
+  showToast(missing.length + '개 마커를 자동 생성했습니다. 위치를 드래그해서 실제 배치에 맞게 옮겨주세요.');
+}
+
+function computeGridPositions_(count){
+  const cols = Math.max(1, Math.ceil(Math.sqrt(count)));
+  const rows = Math.max(1, Math.ceil(count / cols));
+  const positions = [];
+  for (let i = 0; i < count; i++){
+    const col = i % cols, row = Math.floor(i / cols);
+    const x = cols === 1 ? 50 : 12 + col * (76 / (cols - 1));
+    const y = rows === 1 ? 50 : 12 + row * (76 / (rows - 1));
+    positions.push({ x, y });
+  }
+  return positions;
+}
+
 function addPhoto(){
   const g = games.find(x=>x.id===currentGameId);
   g.photos.push({markers:[]});
