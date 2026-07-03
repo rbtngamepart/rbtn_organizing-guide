@@ -91,8 +91,12 @@
   .photo-count{font-size:12px; color:var(--ink-soft); font-family:var(--mono);}
 
   .photo-stage{position:relative; width:100%; aspect-ratio:4/3; border-radius:10px; overflow:hidden;
-    background:repeating-linear-gradient(45deg, #EDEDE8 0 12px, #F2F2ED 12px 24px);
-    border:1px solid var(--line); user-select:none;}
+    background-color:#EDEDE8; background-size:cover; background-position:center;
+    border:1px solid var(--line); user-select:none; transition:outline .1s;}
+  .photo-stage.no-image{background-image:repeating-linear-gradient(45deg, #EDEDE8 0 12px, #F2F2ED 12px 24px);}
+  .photo-stage.dragover{outline:3px dashed var(--accent); outline-offset:-3px;}
+  .photo-actions{display:flex; gap:8px; margin-bottom:10px;}
+  .upload-overlay{position:absolute; inset:0; background:rgba(255,255,255,.7); display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; color:var(--accent); z-index:5;}
   .photo-stage .ph-label{position:absolute; top:10px; left:12px; font-size:11px; color:var(--ink-soft); background:var(--surface); padding:3px 8px; border-radius:5px; border:1px solid var(--line);}
   .marker{position:absolute; width:24px; height:24px; border-radius:50%; border:2.5px solid #fff; background:var(--c); color:#fff; font-family:var(--mono); font-weight:700; font-size:11px;
     display:flex; align-items:center; justify-content:center; transform:translate(-50%,-50%); box-shadow:0 1px 4px rgba(0,0,0,.35); cursor:default; z-index:2;}
@@ -152,7 +156,7 @@ let draggingMarker = null;
 let editorCode = '';
 
 // ⚠️ 배포한 Apps Script 웹앱 URL로 교체하세요 (.../exec 로 끝나는 주소)
-const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbz7Bwa0gOb5R2W_TBqUlHNjfTKAcu5CjbfAjR_0XVKvYr376gNLbq240FfopNuw6W8/exec';
+const WEB_APP_URL = 'https://script.google.com/macros/library/d/13lhGgjGz2jC3_VeOK1SrKUXNteeK2ZOTXWqUteHysO06GY4C_BIWvOVw/2';
 
 const SEED = [
   { id:'487', name:'캐스캐디아',
@@ -321,11 +325,14 @@ function caseSelectHtml(current, ci){
 function renderPhotoPanel(g){
   const editable = role==='editor';
   const total = g.photos.length;
+  const photo = g.photos[currentPhotoIdx];
   const dots = g.photos.map((_,i)=>`<button class="${i===currentPhotoIdx?'active':''}" onclick="goToPhoto(${i})" aria-label="사진 ${i+1}"></button>`).join('');
+  const hasImage = !!photo.imageUrl;
+  const stageStyle = hasImage ? `background-image:url('${photo.imageUrl}');` : '';
   return `<div class="panel">
     <div class="panel-label">
       <span>박스 배치 가이드</span>
-      ${editable ? `<button class="add-row" onclick="addPhoto()">+ 사진 추가</button>` : ''}
+      ${editable ? `<button class="add-row" onclick="addPhoto()">+ 사진 페이지 추가</button>` : ''}
     </div>
     <div class="photo-pager">
       <button class="pager-btn" onclick="prevPhoto()" ${currentPhotoIdx===0?'disabled':''}>‹</button>
@@ -334,13 +341,20 @@ function renderPhotoPanel(g){
       <button class="pager-btn" onclick="nextPhoto()" ${currentPhotoIdx===total-1?'disabled':''}>›</button>
       ${editable && total>1 ? `<button class="btn btn-ghost" style="margin-left:auto; padding:5px 10px; font-size:12px;" onclick="deletePhoto(${currentPhotoIdx})">이 사진 삭제</button>` : ''}
     </div>
-    <div class="photo-stage" id="photoStage">
-      <div class="ph-label">사진 자리표시 (실제 배치 사진 예정 위치)</div>
+    ${editable ? `
+      <div class="photo-actions">
+        <input type="file" id="photoFileInput" accept="image/*" style="display:none;" onchange="handleFileSelect(event)">
+        <button class="btn btn-ghost" onclick="document.getElementById('photoFileInput').click()">📷 사진 업로드</button>
+        <span class="hint" style="margin:0;">또는 아래 사진 영역에 파일을 끌어다 놓으세요</span>
+      </div>` : ''}
+    <div class="photo-stage ${hasImage?'':'no-image'}" id="photoStage" style="${stageStyle}">
+      ${hasImage ? '' : '<div class="ph-label">사진 없음 · 편집자 모드에서 업로드하세요</div>'}
       <svg id="lineLayer" style="position:absolute; inset:0; width:100%; height:100%; pointer-events:none;"></svg>
       <div id="markerLayer"></div>
       <div id="boxLayer"></div>
+      <div id="uploadOverlay" class="upload-overlay" style="display:none;">업로드 중...</div>
     </div>
-    <div class="hint">${editable ? '마커를 드래그해 위치를 옮기고, 박스에서 케이스종류·구성품·수량을 바로 수정할 수 있습니다. 빈 곳을 클릭하면 새 마커가 추가됩니다.' : '점이 표시된 위치에 해당 구성품이 담긴 케이스를 배치하세요.'}</div>
+    <div class="hint">${editable ? '마커를 드래그해 위치를 옮기고, 박스에서 케이스종류·구성품·수량을 바로 수정할 수 있습니다. 사진의 빈 곳을 클릭하면 새 마커가 추가됩니다.' : '점이 표시된 위치에 해당 구성품이 담긴 케이스를 배치하세요.'}</div>
     <div class="legend" id="photoLegend"></div>
   </div>`;
 }
@@ -450,7 +464,70 @@ function attachPhotoHandlers(g){
       saveGames();
       draw();
     };
+    stage.addEventListener('dragover', e=>{ e.preventDefault(); stage.classList.add('dragover'); });
+    stage.addEventListener('dragleave', ()=> stage.classList.remove('dragover'));
+    stage.addEventListener('drop', e=>{
+      e.preventDefault();
+      stage.classList.remove('dragover');
+      const file = e.dataTransfer.files && e.dataTransfer.files[0];
+      if (file && file.type.startsWith('image/')) uploadPhotoFile(file);
+      else alert('이미지 파일만 업로드할 수 있습니다.');
+    });
   }
+}
+
+function handleFileSelect(e){
+  const file = e.target.files[0];
+  if (file) uploadPhotoFile(file);
+  e.target.value = ''; // 같은 파일 다시 선택 가능하도록 초기화
+}
+
+async function uploadPhotoFile(file){
+  if (WEB_APP_URL === 'YOUR_WEB_APP_URL'){
+    alert('WEB_APP_URL이 아직 설정되지 않아 업로드할 수 없습니다.');
+    return;
+  }
+  if (!editorCode){
+    alert('편집자 코드가 확인되지 않았습니다. 편집자 모드로 다시 전환해주세요.');
+    return;
+  }
+
+  const g = games.find(x=>x.id===currentGameId);
+  const photo = g.photos[currentPhotoIdx];
+  const overlay = document.getElementById('uploadOverlay');
+  if (overlay) overlay.style.display = 'flex';
+
+  const reader = new FileReader();
+  reader.onload = async () => {
+    const base64 = reader.result.split(',')[1];
+    try{
+      const res = await fetch(WEB_APP_URL, {
+        method:'POST',
+        headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body: JSON.stringify({
+          action:'uploadPhoto',
+          editorCode,
+          imageBase64: base64,
+          mimeType: file.type,
+          filename: `${currentGameId}_${currentPhotoIdx+1}_${Date.now()}.jpg`
+        })
+      });
+      const result = await res.json();
+      if (result.success){
+        photo.imageUrl = result.url;
+        await saveGames();
+        render();
+      } else {
+        alert('업로드 실패: ' + (result.error || '알 수 없는 오류'));
+      }
+    }catch(err){
+      console.error(err);
+      alert('업로드 중 오류가 발생했습니다. 네트워크 상태를 확인해주세요.');
+    }finally{
+      if (overlay) overlay.style.display = 'none';
+    }
+  };
+  reader.readAsDataURL(file);
 }
 
 function openGame(id){ currentGameId=id; currentMode='2'; currentPhotoIdx=0; render(); }
