@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>오거나이징 가이드</title>
+<style>
+  :root{
+    --bg: #F6F6F3;
+    --surface: #FFFFFF;
+    --ink: #1B1C1A;
+    --ink-soft: #63645F;
+    --line: #E3E3DE;
+    --accent: #2F6F5E;
+    --accent-soft: #E6EFEC;
+    --danger: #B3492B;
+    --mono: 'SFMono-Regular', Menlo, Consolas, 'Courier New', monospace;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Pretendard', 'Malgun Gothic', sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans); line-height:1.5;}
+
+  .case-A{--c:#C1440E;} .case-B{--c:#B08900;} .case-C{--c:#4C7A1F;} .case-D{--c:#1F7A5C;}
+  .case-E{--c:#1F7A8C;} .case-F{--c:#2A5CA6;} .case-G{--c:#5B3FA6;} .case-H{--c:#9C2E8C;}
+  .case-I{--c:#B32E5C;} .case-J{--c:#8C3A2E;} .case-K{--c:#5C5C1F;} .case-L{--c:#3A5C3A;}
+
+  .topbar{position:sticky; top:0; z-index:20; background:var(--surface); border-bottom:1px solid var(--line);
+    padding:14px 24px; display:flex; align-items:center; gap:16px;}
+  .brand{font-weight:800; font-size:16px; letter-spacing:-0.02em; white-space:nowrap;}
+  .brand span{color:var(--accent);}
+  .search{flex:1; max-width:420px; position:relative;}
+  .search input{width:100%; padding:9px 12px 9px 34px; border:1px solid var(--line); border-radius:8px;
+    font-size:14px; background:var(--bg); color:var(--ink); font-family:var(--sans);}
+  .search input:focus{outline:2px solid var(--accent); outline-offset:1px; background:var(--surface);}
+  .search::before{content:"⌕"; position:absolute; left:11px; top:50%; transform:translateY(-50%); color:var(--ink-soft); font-size:16px;}
+  .role-toggle{display:flex; align-items:center; gap:6px; background:var(--bg); border:1px solid var(--line); border-radius:999px; padding:3px;}
+  .role-toggle button{border:none; background:transparent; padding:6px 12px; border-radius:999px; font-size:13px; font-weight:600; cursor:pointer; color:var(--ink-soft); font-family:var(--sans);}
+  .role-toggle button.active{background:var(--ink); color:#fff;}
+  .btn{border:none; border-radius:8px; padding:9px 14px; font-size:13px; font-weight:700; cursor:pointer; font-family:var(--sans); white-space:nowrap;}
+  .btn-primary{background:var(--accent); color:#fff;}
+  .btn-primary:hover{background:#255a4c;}
+  .btn-ghost{background:transparent; color:var(--ink-soft); border:1px solid var(--line);}
+  .btn-ghost:hover{color:var(--ink); border-color:var(--ink-soft);}
+
+  main{max-width:1080px; margin:0 auto; padding:28px 24px 80px;}
+  .view-note{font-size:12px; color:var(--ink-soft); background:var(--accent-soft); border:1px solid #cfe3dc; padding:8px 12px; border-radius:8px; margin-bottom:20px;}
+
+  .grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(230px,1fr)); gap:14px;}
+  .card{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:16px; cursor:pointer; transition:border-color .15s, transform .15s;}
+  .card:hover{border-color:var(--accent); transform:translateY(-2px);}
+  .card-id{font-family:var(--mono); font-size:11px; color:var(--ink-soft);}
+  .card-name{font-size:16px; font-weight:800; margin:4px 0 10px; letter-spacing:-0.01em;}
+  .card-badges{display:flex; flex-wrap:wrap; gap:5px;}
+  .empty{text-align:center; padding:60px 20px; color:var(--ink-soft); border:1px dashed var(--line); border-radius:12px; font-size:14px;}
+
+  .chip{display:inline-flex; align-items:center; gap:5px; font-family:var(--mono); font-weight:700; font-size:11px; padding:3px 7px 3px 5px; border-radius:4px; border:1.4px solid var(--c); color:var(--c); background:color-mix(in srgb, var(--c) 8%, white);}
+  .chip .dot{width:7px; height:7px; border-radius:50%; background:var(--c);}
+
+  .detail-head{display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:18px;}
+  .back{background:none; border:none; color:var(--ink-soft); font-size:13px; cursor:pointer; padding:0; margin-bottom:10px; font-family:var(--sans);}
+  .back:hover{color:var(--ink);}
+  .detail-title{font-size:24px; font-weight:800; letter-spacing:-0.02em;}
+  .detail-id{font-family:var(--mono); font-size:12px; color:var(--ink-soft); margin-top:2px;}
+
+  .tabs{display:flex; gap:4px; background:var(--bg); border:1px solid var(--line); border-radius:9px; padding:3px; margin-bottom:20px; width:fit-content;}
+  .tabs button{border:none; background:transparent; padding:8px 16px; border-radius:7px; font-size:13px; font-weight:700; cursor:pointer; color:var(--ink-soft); font-family:var(--sans);}
+  .tabs button.active{background:var(--surface); color:var(--ink); box-shadow:0 1px 3px rgba(0,0,0,.08);}
+
+  .panel{background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:22px;}
+  .panel-label{font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-soft); margin-bottom:14px; display:flex; justify-content:space-between; align-items:center;}
+
+  table{width:100%; border-collapse:collapse; font-size:13.5px;}
+  th{text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); padding:8px 10px; border-bottom:2px solid var(--ink);}
+  td{padding:10px; border-bottom:1px solid var(--line); vertical-align:middle;}
+  tr:last-child td{border-bottom:none;}
+  td input, td select{width:100%; border:1px solid transparent; background:transparent; padding:5px 6px; border-radius:5px; font-size:13.5px; font-family:var(--sans); color:var(--ink);}
+  td input:focus, td select:focus{border-color:var(--accent); background:var(--bg); outline:none;}
+  .qty-col{width:70px;}
+  .type-col{width:140px;}
+  .row-del{background:none; border:none; color:var(--ink-soft); cursor:pointer; font-size:15px; padding:2px 6px;}
+  .row-del:hover{color:var(--danger);}
+  .add-row{font-size:13px; color:var(--accent); background:none; border:none; font-weight:700; cursor:pointer; padding:4px 0; font-family:var(--sans);}
+
+  /* photo stage */
+  .photo-pager{display:flex; align-items:center; gap:10px; margin-bottom:12px;}
+  .pager-btn{width:30px; height:30px; border-radius:50%; border:1px solid var(--line); background:var(--surface); cursor:pointer; font-size:14px; color:var(--ink);}
+  .pager-btn:hover{border-color:var(--accent); color:var(--accent);}
+  .pager-btn:disabled{opacity:.35; cursor:default;}
+  .pager-dots{display:flex; gap:6px;}
+  .pager-dots button{width:8px; height:8px; border-radius:50%; border:none; background:var(--line); cursor:pointer; padding:0;}
+  .pager-dots button.active{background:var(--accent); width:18px; border-radius:4px;}
+  .photo-count{font-size:12px; color:var(--ink-soft); font-family:var(--mono);}
+
+  .photo-stage{position:relative; width:100%; aspect-ratio:4/3; border-radius:10px; overflow:hidden;
+    background:repeating-linear-gradient(45deg, #EDEDE8 0 12px, #F2F2ED 12px 24px);
+    border:1px solid var(--line); user-select:none;}
+  .photo-stage .ph-label{position:absolute; top:10px; left:12px; font-size:11px; color:var(--ink-soft); background:var(--surface); padding:3px 8px; border-radius:5px; border:1px solid var(--line);}
+  .marker{position:absolute; width:24px; height:24px; border-radius:50%; border:2.5px solid #fff; background:var(--c); color:#fff; font-family:var(--mono); font-weight:700; font-size:11px;
+    display:flex; align-items:center; justify-content:center; transform:translate(-50%,-50%); box-shadow:0 1px 4px rgba(0,0,0,.35); cursor:default; z-index:2;}
+  .marker.editable{cursor:grab;}
+  .marker.editable:active{cursor:grabbing;}
+  .annot-line{stroke-width:1.6; fill:none; opacity:.75;}
+  .anno-box{position:absolute; width:190px; background:var(--surface); border:1px solid var(--line); border-left:4px solid var(--c); border-radius:6px; padding:8px 10px; font-size:12px; box-shadow:0 2px 6px rgba(0,0,0,.08); transform:translateY(-50%); z-index:3;}
+  .anno-box.readonly{width:auto; max-width:170px;}
+  .anno-head{display:flex; align-items:center; gap:6px; margin-bottom:6px;}
+  .anno-head select{font-family:var(--mono); font-weight:700; font-size:11px; border:1px solid var(--line); border-radius:4px; padding:2px 4px; background:var(--bg);}
+  .anno-remove{margin-left:auto; border:none; background:none; color:var(--ink-soft); cursor:pointer; font-size:13px; line-height:1;}
+  .anno-remove:hover{color:var(--danger);}
+  .anno-item{display:flex; gap:5px; margin-bottom:4px;}
+  .anno-item input[type=text]{flex:1; min-width:0; border:1px solid var(--line); border-radius:4px; padding:3px 5px; font-size:11.5px; font-family:var(--sans);}
+  .anno-item input[type=number]{width:42px; border:1px solid var(--line); border-radius:4px; padding:3px 4px; font-size:11.5px; font-family:var(--sans);}
+  .anno-item button{border:none; background:none; color:var(--ink-soft); cursor:pointer; font-size:12px;}
+  .anno-additem{font-size:11px; color:var(--accent); background:none; border:none; font-weight:700; cursor:pointer; padding:2px 0; font-family:var(--sans);}
+  .hint{font-size:12px; color:var(--ink-soft); margin-top:10px;}
+  .legend{display:flex; flex-wrap:wrap; gap:6px; margin-top:14px;}
+
+  .field{margin-bottom:12px;}
+  .field label{display:block; font-size:12px; font-weight:700; color:var(--ink-soft); margin-bottom:5px;}
+  .field input{width:100%; padding:9px 10px; border:1px solid var(--line); border-radius:7px; font-size:14px; font-family:var(--sans); background:var(--bg); color:var(--ink);}
+  .modal-backdrop{position:fixed; inset:0; background:rgba(20,20,18,.4); display:flex; align-items:center; justify-content:center; z-index:50; padding:20px;}
+  .modal{background:var(--surface); border-radius:14px; padding:22px; width:100%; max-width:380px;}
+  .modal h3{margin:0 0 16px; font-size:16px;}
+  .modal-actions{display:flex; gap:8px; justify-content:flex-end; margin-top:16px;}
+  .footer-note{font-size:11.5px; color:var(--ink-soft); margin-top:26px; border-top:1px solid var(--line); padding-top:14px;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">오거나이징 <span>가이드</span></div>
+  <div class="search"><input id="searchInput" placeholder="게임 이름 검색 (초성 가능, 예: ㅋㅅㅋㄷㅇ)"></div>
+  <div class="role-toggle">
+    <button id="roleViewerBtn" class="active">뷰어</button>
+    <button id="roleEditorBtn">편집자</button>
+  </div>
+  <button class="btn btn-primary" id="newGameBtn" style="display:none;">+ 새 가이드</button>
+</div>
+
+<main id="app"></main>
+
+<script>
+const CASE_TYPES = ['A','B','C','D','E','F','G','H','I','J','K','L'];
+const CASE_SIZES = {A:'65x65x30',B:'90x65x30',C:'90x90x30',D:'105x105x35',E:'105x150x35',F:'150x150x35',
+  G:'185x85x45',H:'185x125x45',I:'188x105x18',J:'220x150x45',K:'250x180x50',L:'300x220x60'};
+
+let role = 'viewer';
+let currentGameId = null;
+let currentMode = '2';
+let currentPhotoIdx = 0;
+let searchQuery = '';
+let games = [];
+let draggingMarker = null;
+let editorCode = '';
+
+// ⚠️ 배포한 Apps Script 웹앱 URL로 교체하세요 (.../exec 로 끝나는 주소)
+const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbz7Bwa0gOb5R2W_TBqUlHNjfTKAcu5CjbfAjR_0XVKvYr376gNLbq240FfopNuw6W8/exec';
+
+const SEED = [
+  { id:'487', name:'캐스캐디아',
+    cases:[
+      {caseType:'D', items:[{name:'지형 타일', qty:2}]},
+      {caseType:'B', items:[{name:'시작타일 5개, 지형타일', qty:1}]},
+      {caseType:'A', items:[{name:'솔방울토큰', qty:1}]},
+      {caseType:'G', items:[{name:'주머니', qty:1},{name:'원형 토큰', qty:1}]},
+      {caseType:'I', items:[{name:'점수 기록지', qty:1},{name:'볼펜', qty:1}]}
+    ],
+    photos:[
+      { markers:[{x:22,y:28,caseIdx:0},{x:58,y:22,caseIdx:1},{x:30,y:62,caseIdx:2}] },
+      { markers:[{x:72,y:55,caseIdx:3},{x:50,y:80,caseIdx:4}] }
+    ]
+  },
+  { id:'112', name:'윙스팬',
+    cases:[
+      {caseType:'F', items:[{name:'새 카드', qty:170}]},
+      {caseType:'C', items:[{name:'먹이 토큰', qty:60}]},
+      {caseType:'B', items:[{name:'알 토큰', qty:75}]}
+    ],
+    photos:[
+      { markers:[{x:35,y:35,caseIdx:0},{x:65,y:40,caseIdx:1},{x:50,y:70,caseIdx:2}] }
+    ]
+  },
+  { id:'203', name:'스플렌더',
+    cases:[
+      {caseType:'A', items:[{name:'보석 토큰', qty:40}]},
+      {caseType:'C', items:[{name:'발전 카드', qty:90}]}
+    ],
+    photos:[ { markers:[{x:40,y:40,caseIdx:0},{x:60,y:60,caseIdx:1}] } ]
+  }
+];
+
+const CHO = ['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+function getChosung(str){
+  let out='';
+  for (const ch of str){
+    const code = ch.charCodeAt(0) - 0xAC00;
+    out += (code>=0 && code<=11171) ? CHO[Math.floor(code/588)] : ch;
+  }
+  return out;
+}
+
+async function loadGames(){
+  if (WEB_APP_URL === 'YOUR_WEB_APP_URL'){
+    console.warn('WEB_APP_URL이 설정되지 않아 데모 데이터로 동작합니다.');
+    games = SEED;
+    return;
+  }
+  try{
+    const res = await fetch(WEB_APP_URL);
+    const data = await res.json();
+    games = (data.games && data.games.length) ? data.games : SEED;
+  }catch(e){
+    console.error('불러오기 실패, 데모 데이터로 대체합니다.', e);
+    games = SEED;
+  }
+}
+
+async function saveGames(){
+  if (WEB_APP_URL === 'YOUR_WEB_APP_URL') return; // 데모 모드에서는 저장 생략
+  try{
+    const res = await fetch(WEB_APP_URL, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'}, // CORS 프리플라이트 회피용
+      body: JSON.stringify({ editorCode, games })
+    });
+    const result = await res.json();
+    if (!result.success){
+      alert('저장 실패: 편집자 코드가 올바른지 확인해주세요. (' + (result.error||'') + ')');
+    }
+  }catch(e){
+    console.error('저장 실패', e);
+    alert('서버에 연결하지 못했습니다. 네트워크 상태 또는 WEB_APP_URL 설정을 확인해주세요.');
+  }
+}
+
+function render(){
+  const app = document.getElementById('app');
+  document.getElementById('newGameBtn').style.display = role==='editor' ? 'inline-block' : 'none';
+  currentGameId ? renderDetail(app) : renderList(app);
+}
+
+function renderList(app){
+  const filtered = games.filter(g=>{
+    if(!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return g.name.toLowerCase().includes(q) || getChosung(g.name).includes(searchQuery) || g.id.includes(searchQuery);
+  });
+  let html = `<div class="view-note">${role==='viewer'
+    ? '뷰어 모드입니다. 가이드를 볼 수만 있고 편집은 불가합니다.'
+    : '편집자 모드입니다. 저장 시 서버에서 편집자 코드를 확인합니다. 코드가 틀리면 저장되지 않습니다.'}</div>`;
+  if (filtered.length===0){
+    html += `<div class="empty">검색 결과가 없습니다.</div>`;
+  } else {
+    html += `<div class="grid">`;
+    filtered.forEach(g=>{
+      const types = [...new Set(g.cases.map(c=>c.caseType))];
+      html += `<div class="card" onclick="openGame('${g.id}')">
+        <div class="card-id">ID ${g.id}</div>
+        <div class="card-name">${g.name}</div>
+        <div class="card-badges">${types.map(t=>`<span class="chip case-${t}"><span class="dot"></span>${t}</span>`).join('')}</div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+  app.innerHTML = html;
+}
+
+function renderDetail(app){
+  const g = games.find(x=>x.id===currentGameId);
+  if (!g){ currentGameId=null; renderList(app); return; }
+  if (!g.photos || g.photos.length===0) g.photos = [{markers:[]}];
+  if (currentPhotoIdx >= g.photos.length) currentPhotoIdx = 0;
+
+  let html = `
+    <button class="back" onclick="closeGame()">← 목록으로</button>
+    <div class="detail-head">
+      <div>
+        <div class="detail-title">${g.name}</div>
+        <div class="detail-id">ID ${g.id}</div>
+      </div>
+    </div>
+    <div class="tabs">
+      <button class="${currentMode==='1'?'active':''}" onclick="setMode('1')">1안 · 사진 연결형</button>
+      <button class="${currentMode==='2'?'active':''}" onclick="setMode('2')">2안 · 표 형태</button>
+    </div>
+  `;
+  html += currentMode==='2' ? renderTablePanel(g) : renderPhotoPanel(g);
+  html += `<div class="footer-note">데모 안내 · 실제 사진 대신 자리표시(placeholder)를 사용했습니다. 실 서비스에서는 드라이브에 업로드된 실제 배치 사진이 표시됩니다.</div>`;
+  app.innerHTML = html;
+  if (currentMode==='1') attachPhotoHandlers(g);
+}
+
+function renderTablePanel(g){
+  const editable = role==='editor';
+  let rows='';
+  g.cases.forEach((c,ci)=>{
+    c.items.forEach((item,ii)=>{
+      rows += `<tr>`;
+      if (ii===0){
+        rows += `<td rowspan="${c.items.length}" class="type-col">
+          ${editable ? caseSelectHtml(c.caseType,ci) : `<span class="chip case-${c.caseType}"><span class="dot"></span>${c.caseType} · ${CASE_SIZES[c.caseType]}mm</span>`}
+        </td>`;
+      }
+      rows += `
+        <td>${editable ? `<input value="${item.name}" onchange="updateItem(${ci},${ii},'name',this.value)">` : item.name}</td>
+        <td class="qty-col">${editable ? `<input type="number" value="${item.qty}" onchange="updateItem(${ci},${ii},'qty',this.value)">` : item.qty}</td>
+        ${editable ? `<td style="width:32px;"><button class="row-del" onclick="deleteItem(${ci},${ii})">✕</button></td>` : ''}
+      </tr>`;
+    });
+  });
+  return `<div class="panel">
+    <div class="panel-label"><span>구성표</span>${editable?`<button class="add-row" onclick="addCase()">+ 케이스 추가</button>`:''}</div>
+    <table><thead><tr><th>제품종류</th><th>구성품</th><th>수량</th>${editable?'<th></th>':''}</tr></thead>
+    <tbody>${rows || '<tr><td colspan="4" style="color:var(--ink-soft);">등록된 구성품이 없습니다.</td></tr>'}</tbody></table>
+  </div>`;
+}
+function caseSelectHtml(current, ci){
+  return `<select onchange="updateCaseType(${ci}, this.value)">
+    ${CASE_TYPES.map(t=>`<option value="${t}" ${t===current?'selected':''}>${t} · ${CASE_SIZES[t]}mm</option>`).join('')}
+  </select>`;
+}
+
+function renderPhotoPanel(g){
+  const editable = role==='editor';
+  const total = g.photos.length;
+  const dots = g.photos.map((_,i)=>`<button class="${i===currentPhotoIdx?'active':''}" onclick="goToPhoto(${i})" aria-label="사진 ${i+1}"></button>`).join('');
+  return `<div class="panel">
+    <div class="panel-label">
+      <span>박스 배치 가이드</span>
+      ${editable ? `<button class="add-row" onclick="addPhoto()">+ 사진 추가</button>` : ''}
+    </div>
+    <div class="photo-pager">
+      <button class="pager-btn" onclick="prevPhoto()" ${currentPhotoIdx===0?'disabled':''}>‹</button>
+      <span class="photo-count">사진 ${currentPhotoIdx+1} / ${total}</span>
+      <div class="pager-dots">${dots}</div>
+      <button class="pager-btn" onclick="nextPhoto()" ${currentPhotoIdx===total-1?'disabled':''}>›</button>
+      ${editable && total>1 ? `<button class="btn btn-ghost" style="margin-left:auto; padding:5px 10px; font-size:12px;" onclick="deletePhoto(${currentPhotoIdx})">이 사진 삭제</button>` : ''}
+    </div>
+    <div class="photo-stage" id="photoStage">
+      <div class="ph-label">사진 자리표시 (실제 배치 사진 예정 위치)</div>
+      <svg id="lineLayer" style="position:absolute; inset:0; width:100%; height:100%; pointer-events:none;"></svg>
+      <div id="markerLayer"></div>
+      <div id="boxLayer"></div>
+    </div>
+    <div class="hint">${editable ? '마커를 드래그해 위치를 옮기고, 박스에서 케이스종류·구성품·수량을 바로 수정할 수 있습니다. 빈 곳을 클릭하면 새 마커가 추가됩니다.' : '점이 표시된 위치에 해당 구성품이 담긴 케이스를 배치하세요.'}</div>
+    <div class="legend" id="photoLegend"></div>
+  </div>`;
+}
+
+function attachPhotoHandlers(g){
+  const stage = document.getElementById('photoStage');
+  const lineLayer = document.getElementById('lineLayer');
+  const markerLayer = document.getElementById('markerLayer');
+  const boxLayer = document.getElementById('boxLayer');
+  const legendEl = document.getElementById('photoLegend');
+  const editable = role==='editor';
+  const photo = g.photos[currentPhotoIdx];
+
+  function layoutBoxes(){
+    const h = stage.clientHeight;
+    const left=[], right=[];
+    photo.markers.forEach((m,idx)=>(m.x<50?left:right).push({m,idx}));
+    left.sort((a,b)=>a.m.y-b.m.y); right.sort((a,b)=>a.m.y-b.m.y);
+    const pos = {};
+    const gapL = Math.max(56, (h*0.92)/Math.max(left.length,1));
+    left.forEach((e,i)=>pos[e.idx]={side:'left', top:24+i*gapL});
+    const gapR = Math.max(56, (h*0.92)/Math.max(right.length,1));
+    right.forEach((e,i)=>pos[e.idx]={side:'right', top:24+i*gapR});
+    return pos;
+  }
+
+  function draw(){
+    const w = stage.clientWidth, h = stage.clientHeight;
+    const boxPos = layoutBoxes();
+    markerLayer.innerHTML=''; boxLayer.innerHTML=''; lineLayer.innerHTML='';
+    let legendHtml = '';
+
+    photo.markers.forEach((m, idx)=>{
+      const c = g.cases[m.caseIdx];
+      if (!c) return;
+      const mx = w*m.x/100, my = h*m.y/100;
+
+      const el = document.createElement('div');
+      el.className = `marker case-${c.caseType} ${editable?'editable':''}`;
+      el.style.left = mx+'px'; el.style.top = my+'px';
+      el.textContent = c.caseType;
+      if (editable) el.addEventListener('pointerdown', e=>{ draggingMarker = idx; e.stopPropagation(); });
+      markerLayer.appendChild(el);
+
+      const pos = boxPos[idx] || {side:'left', top:24};
+      const box = document.createElement('div');
+      box.className = 'anno-box case-'+c.caseType + (editable ? '' : ' readonly');
+      box.style.top = pos.top+'px';
+      box.style[pos.side] = '10px';
+
+      if (editable){
+        box.innerHTML = `
+          <div class="anno-head">
+            <select onchange="updateCaseType(${m.caseIdx}, this.value)">
+              ${CASE_TYPES.map(t=>`<option value="${t}" ${t===c.caseType?'selected':''}>${t}</option>`).join('')}
+            </select>
+            <span style="font-size:10px; color:var(--ink-soft);">${CASE_SIZES[c.caseType]}mm</span>
+            <button class="anno-remove" onclick="removeMarkerCase(${idx})">✕</button>
+          </div>
+          ${c.items.map((item,ii)=>`
+            <div class="anno-item">
+              <input type="text" value="${item.name}" onchange="updateItem(${m.caseIdx},${ii},'name',this.value)">
+              <input type="number" value="${item.qty}" onchange="updateItem(${m.caseIdx},${ii},'qty',this.value)">
+              <button onclick="deleteItemRedraw(${m.caseIdx},${ii})">✕</button>
+            </div>`).join('')}
+          <button class="anno-additem" onclick="addItemRedraw(${m.caseIdx})">+ 항목 추가</button>
+        `;
+      } else {
+        box.innerHTML = `<b style="font-family:var(--mono);">${c.caseType}</b> · ${c.items.map(i=>i.name+' x'+i.qty).join(', ')}`;
+      }
+      boxLayer.appendChild(box);
+
+      const bx = pos.side==='left' ? 10 : w-10;
+      const by = pos.top;
+      const ln = document.createElementNS('http://www.w3.org/2000/svg','line');
+      ln.setAttribute('x1',mx); ln.setAttribute('y1',my);
+      ln.setAttribute('x2',bx); ln.setAttribute('y2',by);
+      ln.setAttribute('class','annot-line');
+      const colorVar = getComputedStyle(el).getPropertyValue('--c') || '#333';
+      ln.setAttribute('style', `stroke:${colorVar};`);
+      lineLayer.appendChild(ln);
+
+      legendHtml += `<span class="chip case-${c.caseType}"><span class="dot"></span>${c.caseType} · ${c.items.map(i=>i.name).join(', ')}</span>`;
+    });
+
+    legendEl.innerHTML = legendHtml;
+  }
+
+  draw();
+
+  if (editable){
+    stage.onpointermove = e=>{
+      if (draggingMarker===null) return;
+      const rect = stage.getBoundingClientRect();
+      let x=(e.clientX-rect.left)/rect.width*100, y=(e.clientY-rect.top)/rect.height*100;
+      x=Math.max(3,Math.min(97,x)); y=Math.max(3,Math.min(97,y));
+      photo.markers[draggingMarker].x=x; photo.markers[draggingMarker].y=y;
+      draw();
+    };
+    window.onpointerup = ()=>{ if (draggingMarker!==null){ draggingMarker=null; saveGames(); } };
+    stage.onclick = e=>{
+      if (e.target !== stage && e.target.id!=='markerLayer' && e.target.id!=='boxLayer') return;
+      const rect = stage.getBoundingClientRect();
+      const x=(e.clientX-rect.left)/rect.width*100, y=(e.clientY-rect.top)/rect.height*100;
+      g.cases.push({caseType:'A', items:[{name:'새 구성품', qty:1}]});
+      photo.markers.push({x, y, caseIdx:g.cases.length-1});
+      saveGames();
+      draw();
+    };
+  }
+}
+
+function openGame(id){ currentGameId=id; currentMode='2'; currentPhotoIdx=0; render(); }
+function closeGame(){ currentGameId=null; render(); }
+function setMode(m){ currentMode=m; currentPhotoIdx=0; render(); }
+function prevPhoto(){ if (currentPhotoIdx>0){ currentPhotoIdx--; render(); } }
+function nextPhoto(){ const g=games.find(x=>x.id===currentGameId); if (currentPhotoIdx<g.photos.length-1){ currentPhotoIdx++; render(); } }
+function goToPhoto(i){ currentPhotoIdx=i; render(); }
+function addPhoto(){
+  const g = games.find(x=>x.id===currentGameId);
+  g.photos.push({markers:[]});
+  currentPhotoIdx = g.photos.length-1;
+  saveGames(); render();
+}
+function deletePhoto(idx){
+  const g = games.find(x=>x.id===currentGameId);
+  if (g.photos.length<=1) return;
+  if (!confirm('이 사진의 마커 정보도 함께 삭제됩니다. 계속할까요?')) return;
+  g.photos.splice(idx,1);
+  currentPhotoIdx = Math.max(0, idx-1);
+  saveGames(); render();
+}
+
+function updateItem(ci, ii, field, value){
+  const g = games.find(x=>x.id===currentGameId);
+  g.cases[ci].items[ii][field] = field==='qty' ? Number(value) : value;
+  saveGames();
+  if (currentMode==='2') render();
+}
+function deleteItemRedraw(ci, ii){
+  const g = games.find(x=>x.id===currentGameId);
+  g.cases[ci].items.splice(ii,1);
+  if (g.cases[ci].items.length===0) removeCaseEverywhere(g, ci);
+  saveGames(); render();
+}
+function addItemRedraw(ci){
+  const g = games.find(x=>x.id===currentGameId);
+  g.cases[ci].items.push({name:'새 구성품', qty:1});
+  saveGames(); render();
+}
+function updateCaseType(ci, value){
+  const g = games.find(x=>x.id===currentGameId);
+  g.cases[ci].caseType = value;
+  saveGames(); render();
+}
+function deleteItem(ci, ii){
+  const g = games.find(x=>x.id===currentGameId);
+  g.cases[ci].items.splice(ii,1);
+  if (g.cases[ci].items.length===0) removeCaseEverywhere(g, ci);
+  saveGames(); render();
+}
+function addCase(){
+  const g = games.find(x=>x.id===currentGameId);
+  g.cases.push({caseType:'A', items:[{name:'', qty:1}]});
+  saveGames(); render();
+}
+function removeMarkerCase(markerIdxInCurrentPhoto){
+  const g = games.find(x=>x.id===currentGameId);
+  const photo = g.photos[currentPhotoIdx];
+  const caseIdx = photo.markers[markerIdxInCurrentPhoto].caseIdx;
+  photo.markers.splice(markerIdxInCurrentPhoto,1);
+  removeCaseEverywhere(g, caseIdx);
+  saveGames(); render();
+}
+// 케이스를 전역 목록에서 제거하고, 모든 사진의 마커 캐이스 참조 인덱스를 보정합니다.
+function removeCaseEverywhere(g, caseIdx){
+  g.cases.splice(caseIdx,1);
+  g.photos.forEach(p=>{
+    p.markers = p.markers.filter(m=>m.caseIdx!==caseIdx);
+    p.markers.forEach(m=>{ if (m.caseIdx>caseIdx) m.caseIdx--; });
+  });
+}
+
+document.getElementById('searchInput').addEventListener('input', e=>{ searchQuery=e.target.value.trim(); render(); });
+document.getElementById('roleViewerBtn').addEventListener('click', ()=>setRole('viewer'));
+document.getElementById('roleEditorBtn').addEventListener('click', ()=>setRole('editor'));
+function setRole(r){
+  if (r === 'editor' && role !== 'editor'){
+    const code = prompt('편집자 코드를 입력해주세요.');
+    if (!code) return;
+    editorCode = code;
+  }
+  role=r;
+  document.getElementById('roleViewerBtn').classList.toggle('active', r==='viewer');
+  document.getElementById('roleEditorBtn').classList.toggle('active', r==='editor');
+  render();
+}
+document.getElementById('newGameBtn').addEventListener('click', ()=>{
+  const backdrop = document.createElement('div');
+  backdrop.className='modal-backdrop';
+  backdrop.innerHTML = `<div class="modal"><h3>새 가이드 만들기</h3>
+    <div class="field"><label>게임 ID</label><input id="newId" placeholder="예: 501"></div>
+    <div class="field"><label>게임명</label><input id="newName" placeholder="예: 아그리콜라"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="this.closest('.modal-backdrop').remove()">취소</button>
+      <button class="btn btn-primary" id="createConfirm">생성</button>
+    </div></div>`;
+  document.body.appendChild(backdrop);
+  document.getElementById('createConfirm').addEventListener('click', ()=>{
+    const id = document.getElementById('newId').value.trim();
+    const name = document.getElementById('newName').value.trim();
+    if (!id || !name){ alert('게임 ID와 게임명을 입력해주세요.'); return; }
+    games.push({id, name, cases:[], photos:[{markers:[]}]});
+    saveGames(); backdrop.remove(); openGame(id);
+  });
+});
+
+(async function init(){ await loadGames(); render(); })();
+</script>
+</body>
+</html>
