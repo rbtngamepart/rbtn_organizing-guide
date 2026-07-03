@@ -225,6 +225,8 @@ let searchQuery = '';
 let games = [];
 let draggingMarker = null;
 let draggingBox = null;
+let dragMarkerOffset = null;
+let dragBoxOffset = null;
 let editorCode = '';
 const _measureCanvas = document.createElement('canvas');
 
@@ -523,7 +525,12 @@ function attachPhotoHandlers(g){
       el.className = `marker case-${c.caseType} ${editable?'editable':''}`;
       el.style.left = mx+'px'; el.style.top = my+'px';
       el.textContent = c.caseType;
-      if (editable) el.addEventListener('pointerdown', e=>{ draggingMarker = idx; e.stopPropagation(); });
+      if (editable) el.addEventListener('pointerdown', e=>{
+        draggingMarker = idx;
+        const elRect = el.getBoundingClientRect();
+        dragMarkerOffset = { dx: e.clientX - (elRect.left+elRect.width/2), dy: e.clientY - (elRect.top+elRect.height/2) };
+        e.stopPropagation();
+      });
       markerLayer.appendChild(el);
 
       // 박스 위치: 수동으로 옮긴 적 있으면 그 좌표, 없으면 자동 좌/우 정렬
@@ -571,6 +578,8 @@ function attachPhotoHandlers(g){
         box.addEventListener('pointerdown', e=>{
           if (['INPUT','SELECT','BUTTON','OPTION'].includes(e.target.tagName)) return;
           draggingBox = idx;
+          const boxRect = box.getBoundingClientRect();
+          dragBoxOffset = { dx: e.clientX - boxRect.left, dy: e.clientY - (boxRect.top + boxRect.height/2) };
           e.stopPropagation();
         });
       } else {
@@ -600,26 +609,35 @@ function attachPhotoHandlers(g){
     stage.onpointermove = e=>{
       if (draggingMarker===null && draggingBox===null) return;
       const rect = stage.getBoundingClientRect();
-      let x=(e.clientX-rect.left)/rect.width*100, y=(e.clientY-rect.top)/rect.height*100;
-      x=Math.max(3,Math.min(97,x)); y=Math.max(3,Math.min(97,y));
       if (draggingMarker!==null){
+        const cx = e.clientX - dragMarkerOffset.dx;
+        const cy = e.clientY - dragMarkerOffset.dy;
+        let x=(cx-rect.left)/rect.width*100, y=(cy-rect.top)/rect.height*100;
+        x=Math.max(3,Math.min(97,x)); y=Math.max(3,Math.min(97,y));
         photo.markers[draggingMarker].x=x; photo.markers[draggingMarker].y=y;
       } else if (draggingBox!==null){
+        const cx = e.clientX - dragBoxOffset.dx;
+        const cy = e.clientY - dragBoxOffset.dy;
+        let x=(cx-rect.left)/rect.width*100, y=(cy-rect.top)/rect.height*100;
+        x=Math.max(0,Math.min(100,x)); y=Math.max(0,Math.min(100,y));
         photo.markers[draggingBox].box = {x, y};
       }
       draw();
     };
     window.onpointerup = ()=>{
       if (draggingMarker!==null || draggingBox!==null){
-        draggingMarker=null; draggingBox=null; saveGames();
+        draggingMarker=null; draggingBox=null; dragMarkerOffset=null; dragBoxOffset=null; saveGames();
       }
     };
     stage.onclick = e=>{
       if (e.target !== stage && e.target.id!=='markerLayer' && e.target.id!=='boxLayer' && e.target.id!=='stageImg') return;
       const rect = stage.getBoundingClientRect();
       const x=(e.clientX-rect.left)/rect.width*100, y=(e.clientY-rect.top)/rect.height*100;
+      // 새 텍스트박스는 마커 바로 옆(화면 안쪽 방향)에 생성
+      const boxX = x < 60 ? Math.min(97, x+10) : Math.max(3, x-10);
+      const boxY = Math.max(5, Math.min(95, y-6));
       g.cases.push({caseType:'A', items:[{name:'새 구성품', qty:1}]});
-      photo.markers.push({x, y, caseIdx:g.cases.length-1});
+      photo.markers.push({x, y, caseIdx:g.cases.length-1, box:{x:boxX, y:boxY}});
       saveGames();
       draw();
     };
