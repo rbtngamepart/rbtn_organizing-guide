@@ -127,7 +127,7 @@
   .marker.editable:active{cursor:grabbing;}
   .marker-size-control{display:flex; align-items:center; gap:8px; font-size:12px; color:var(--ink-soft);}
   .marker-size-control input[type=range]{width:110px;}
-  .annot-line{stroke-width:1.6; fill:none; opacity:.75;}
+  .annot-line{stroke-width:3.2; fill:none; opacity:.85;}
   .anno-box{position:absolute; min-width:150px; max-width:280px; background:var(--surface); border:1px solid var(--line); border-left:4px solid var(--c); border-radius:6px; padding:8px 10px; font-size:12px; box-shadow:0 2px 6px rgba(0,0,0,.08); transform:translateY(-50%); z-index:3;}
   .anno-box.draggable{cursor:grab;}
   .anno-box.draggable:active{cursor:grabbing;}
@@ -377,8 +377,11 @@ async function saveGames(gameId){
       body: JSON.stringify({ action:'saveGame', editorCode, game })
     });
     const result = await res.json();
-    if (!result.success){
+    if (result.success){
+      cacheEditorCode(editorCode); // 저장이 잘 되면 10분 창을 갱신
+    } else {
       showToast('저장 실패: 편집자 코드를 확인해주세요. (' + (result.error||'') + ')', 'error');
+      if (result.error === 'INVALID_CODE') clearCachedEditorCode();
     }
   }catch(e){
     console.error('저장 실패', e);
@@ -1158,6 +1161,9 @@ function updateMarkerSize(v){
 let helpTab = 'viewer';
 
 function showHelpModal(){
+  const isEditor = role==='editor';
+  if (!isEditor) helpTab = 'viewer';
+
   const backdrop = document.createElement('div');
   backdrop.className = 'modal-backdrop';
   backdrop.id = 'helpBackdrop';
@@ -1165,10 +1171,11 @@ function showHelpModal(){
     <div class="modal help-modal">
       <h3>이용 방법</h3>
       <p class="help-intro">이 사이트는 보드게임을 <b>가이드에 따라 정해진 플라스틱 케이스에 정리</b>하는 작업을 위해 만들어졌습니다. 게임별로 어떤 케이스종류(A~L)에 어떤 구성품을 담아야 하는지 사진과 표로 확인할 수 있습니다.</p>
-      <div class="tabs" id="helpTabs">
-        <button class="${helpTab==='viewer'?'active':''}" onclick="setHelpTab('viewer')">뷰어용</button>
-        <button class="${helpTab==='editor'?'active':''}" onclick="setHelpTab('editor')">편집자용</button>
-      </div>
+      ${isEditor ? `
+        <div class="tabs" id="helpTabs">
+          <button class="${helpTab==='viewer'?'active':''}" onclick="setHelpTab('viewer')">뷰어용</button>
+          <button class="${helpTab==='editor'?'active':''}" onclick="setHelpTab('editor')">편집자용</button>
+        </div>` : ''}
       <div id="helpContent">${helpTab==='viewer' ? helpViewerContent_() : helpEditorContent_()}</div>
       <div class="modal-actions">
         <button class="btn btn-primary" onclick="document.getElementById('helpBackdrop').remove()">확인</button>
@@ -1339,21 +1346,51 @@ function removeCaseEverywhere(g, caseIdx){
 document.getElementById('searchInput').addEventListener('input', e=>{ searchQuery=e.target.value.trim(); render(); });
 document.getElementById('roleViewerBtn').addEventListener('click', ()=>setRole('viewer'));
 document.getElementById('roleEditorBtn').addEventListener('click', ()=>setRole('editor'));
+const EDITOR_CODE_TTL_MS = 10 * 60 * 1000; // 10분
+
+function getCachedEditorCode(){
+  try{
+    const code = localStorage.getItem('editorCode');
+    const ts = Number(localStorage.getItem('editorCodeTime') || 0);
+    if (code && (Date.now() - ts) < EDITOR_CODE_TTL_MS) return code;
+  }catch(e){ /* localStorage 사용 불가 환경이면 그냥 매번 물어봄 */ }
+  return null;
+}
+function cacheEditorCode(code){
+  try{
+    localStorage.setItem('editorCode', code);
+    localStorage.setItem('editorCodeTime', String(Date.now()));
+  }catch(e){}
+}
+function clearCachedEditorCode(){
+  try{
+    localStorage.removeItem('editorCode');
+    localStorage.removeItem('editorCodeTime');
+  }catch(e){}
+}
+
 async function setRole(r){
   if (r === 'editor' && role !== 'editor'){
-    const code = prompt('편집자 코드를 입력해주세요.');
-    if (!code) return;
-
-    if (WEB_APP_URL === 'YOUR_WEB_APP_URL'){
-      editorCode = code; // 데모 모드(서버 미연결)에서는 검증 없이 통과
+    const cached = getCachedEditorCode();
+    if (cached){
+      editorCode = cached;
+      cacheEditorCode(cached); // 계속 쓰는 중이면 10분 창을 갱신(연장)
     } else {
-      showToast('코드 확인 중...');
-      const valid = await verifyEditorCode(code);
-      if (!valid){
-        showToast('편집자 코드가 올바르지 않습니다.', 'error');
-        return;
+      const code = prompt('편집자 코드를 입력해주세요.');
+      if (!code) return;
+
+      if (WEB_APP_URL === 'YOUR_WEB_APP_URL'){
+        editorCode = code; // 데모 모드(서버 미연결)에서는 검증 없이 통과
+      } else {
+        showToast('코드 확인 중...');
+        const valid = await verifyEditorCode(code);
+        if (!valid){
+          showToast('편집자 코드가 올바르지 않습니다.', 'error');
+          return;
+        }
+        editorCode = code;
+        cacheEditorCode(code);
       }
-      editorCode = code;
     }
   }
   role=r;
