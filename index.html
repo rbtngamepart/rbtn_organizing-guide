@@ -94,6 +94,8 @@
   th{text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); padding:8px 10px; border-bottom:2px solid var(--ink);}
   td{padding:10px; border-bottom:1px solid var(--line); vertical-align:middle;}
   tr:last-child td{border-bottom:none;}
+  tr.case-end td{border-bottom:2px solid var(--ink);}
+  tr.case-end:last-child td{border-bottom:none;}
   td input, td select{width:100%; border:1px solid transparent; background:transparent; padding:5px 6px; border-radius:5px; font-size:13.5px; font-family:var(--sans); color:var(--ink);}
   td input:focus, td select:focus{border-color:var(--accent); background:var(--bg); outline:none;}
   .qty-col{width:70px;}
@@ -532,15 +534,19 @@ function renderTablePanel(g){
   let rows='';
   g.cases.forEach((c,ci)=>{
     c.items.forEach((item,ii)=>{
-      rows += `<tr>`;
+      const isLastOfCase = ii === c.items.length-1;
+      rows += `<tr class="${isLastOfCase ? 'case-end' : ''}">`;
       if (ii===0){
         rows += `<td rowspan="${c.items.length}" class="type-col">
           ${editable ? caseSelectHtml(c.caseType,ci) : `<span class="case-badge case-${c.caseType}"><span class="dot"></span>${c.caseType}<span class="size-label">${CASE_SIZES[c.caseType]}mm</span></span>`}
         </td>`;
       }
+      const qtyDisplay = editable
+        ? `<input type="number" value="${item.qty}" onchange="updateItem(${ci},${ii},'qty',this.value)">`
+        : (Number(item.qty)===0 ? '<span style="color:var(--ink-soft); font-size:12px;">수량 체크 X</span>' : item.qty);
       rows += `
         <td>${editable ? `<input value="${item.name}" onchange="updateItem(${ci},${ii},'name',this.value)">` : item.name}</td>
-        <td class="qty-col">${editable ? `<input type="number" value="${item.qty}" onchange="updateItem(${ci},${ii},'qty',this.value)">` : item.qty}</td>
+        <td class="qty-col">${qtyDisplay}</td>
         ${editable ? `<td style="width:32px;"><button class="row-del" onclick="deleteItem(${ci},${ii})">✕</button></td>` : ''}
       </tr>`;
     });
