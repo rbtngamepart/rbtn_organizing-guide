@@ -560,7 +560,7 @@ function attachPhotoHandlers(g){
           e.stopPropagation();
         });
       } else {
-        box.innerHTML = `<span class="case-badge case-${c.caseType}"><span class="dot"></span>${c.caseType}</span><div style="margin-top:7px; font-size:12.5px; line-height:1.4;">${c.items.map(i=>i.name+' x'+i.qty).join(', ')}</div>`;
+        box.innerHTML = `<span class="case-badge case-${c.caseType}"><span class="dot"></span>${c.caseType}</span><div style="margin-top:7px; font-size:12.5px; line-height:1.6;">${c.items.map(i=>`${i.name} x${i.qty}`).join('<br>')}</div>`;
       }
       boxLayer.appendChild(box);
 
