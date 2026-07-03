@@ -190,7 +190,7 @@ function showToast(message, type='info'){
 }
 
 // ⚠️ 배포한 Apps Script 웹앱 URL로 교체하세요 (.../exec 로 끝나는 주소)
-const WEB_APP_URL = 'YOUR_WEB_APP_URL';
+const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbz7Bwa0gOb5R2W_TBqUlHNjfTKAcu5CjbfAjR_0XVKvYr376gNLbq240FfopNuw6W8/exec';
 
 const SEED = [
   { id:'487', name:'캐스캐디아',
@@ -236,7 +236,7 @@ function getChosung(str){
 }
 
 async function loadGames(){
-  if (WEB_APP_URL === 'https://script.google.com/macros/s/AKfycbz7Bwa0gOb5R2W_TBqUlHNjfTKAcu5CjbfAjR_0XVKvYr376gNLbq240FfopNuw6W8/exec'){
+  if (WEB_APP_URL === 'YOUR_WEB_APP_URL'){
     console.warn('WEB_APP_URL이 설정되지 않아 데모 데이터로 동작합니다.');
     games = SEED;
     return;
@@ -686,47 +686,30 @@ function applyCrop(){
   const ctx = outCanvas.getContext('2d');
   ctx.drawImage(img, panX, panY, sW, sH, 0, 0, CROP_OUTPUT_W, CROP_OUTPUT_H);
 
-  outCanvas.toBlob(blob=>{
-    const reader = new FileReader();
-    reader.onload = () => {
-      const base64 = reader.result.split(',')[1];
-      cancelCropModal();
-      uploadBase64Image(base64, 'image/jpeg');
-    };
-    reader.readAsDataURL(blob);
-  }, 'image/jpeg', 0.85);
+  const dataUrl = outCanvas.toDataURL('image/jpeg', 0.85);
+  cancelCropModal();
+  applyPhotoDataUrl(dataUrl);
 }
 
-async function uploadBase64Image(base64, mimeType){
+/**
+ * 사진을 data URI(base64) 형태로 게임 데이터에 바로 저장합니다.
+ * 별도 업로드 서버 왕복 없이, 일반 저장(saveGames)과 동일하게 처리됩니다.
+ */
+async function applyPhotoDataUrl(dataUrl){
   const g = games.find(x=>x.id===currentGameId);
   const photo = g.photos[currentPhotoIdx];
   const overlay = document.getElementById('uploadOverlay');
   if (overlay) overlay.style.display = 'flex';
 
+  photo.imageUrl = dataUrl;
+  render();
+
   try{
-    const res = await fetch(WEB_APP_URL, {
-      method:'POST',
-      headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body: JSON.stringify({
-        action:'uploadPhoto',
-        editorCode,
-        imageBase64: base64,
-        mimeType,
-        filename: `${currentGameId}_${currentPhotoIdx+1}_${Date.now()}.jpg`
-      })
-    });
-    const result = await res.json();
-    if (result.success){
-      photo.imageUrl = result.url;
-      await saveGames();
-      render();
-      showToast('사진이 업로드되었습니다.');
-    } else {
-      showToast('업로드 실패: ' + (result.error || '알 수 없는 오류'), 'error');
-    }
+    await saveGames();
+    showToast('사진이 저장되었습니다.');
   }catch(err){
     console.error(err);
-    showToast('업로드 중 오류가 발생했습니다. 네트워크 상태를 확인해주세요.', 'error');
+    showToast('사진 저장 중 오류가 발생했습니다.', 'error');
   }finally{
     if (overlay) overlay.style.display = 'none';
   }
