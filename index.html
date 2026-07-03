@@ -239,6 +239,7 @@
     <button id="roleViewerBtn" class="active">뷰어</button>
     <button id="roleEditorBtn">편집자</button>
   </div>
+  <button class="btn btn-ghost" onclick="refreshGames()" title="다른 편집자의 변경사항 불러오기">↻ 새로고침</button>
   <button class="btn btn-ghost" onclick="showHelpModal()">이용 방법</button>
   <button class="btn btn-primary" id="newGameBtn" style="display:none;">+ 새 가이드</button>
 </div>
@@ -357,13 +358,23 @@ async function loadGames(){
   }
 }
 
-async function saveGames(){
+/**
+ * 게임 하나만 서버에 저장합니다. (전체 목록을 통째로 덮어쓰지 않음)
+ * 여러 편집자가 서로 다른 게임을 동시에 작업해도 서로의 저장을 덮어쓰지 않도록 하기 위함입니다.
+ */
+async function saveGames(gameId){
+  gameId = gameId || currentGameId;
+  if (!gameId){ console.warn('저장할 게임을 특정할 수 없습니다.'); return; }
   if (WEB_APP_URL === 'YOUR_WEB_APP_URL') return; // 데모 모드에서는 저장 생략
+
+  const game = games.find(x=>x.id===gameId);
+  if (!game){ console.warn('저장할 게임을 찾지 못했습니다:', gameId); return; }
+
   try{
     const res = await fetch(WEB_APP_URL, {
       method:'POST',
       headers:{'Content-Type':'text/plain;charset=utf-8'}, // CORS 프리플라이트 회피용
-      body: JSON.stringify({ editorCode, games })
+      body: JSON.stringify({ action:'saveGame', editorCode, game })
     });
     const result = await res.json();
     if (!result.success){
@@ -373,6 +384,34 @@ async function saveGames(){
     console.error('저장 실패', e);
     showToast('서버에 연결하지 못했습니다. 네트워크 상태 또는 설정을 확인해주세요.', 'error');
   }
+}
+
+/**
+ * 게임을 서버에서 완전히 삭제합니다.
+ */
+async function deleteGameOnServer(gameId){
+  if (WEB_APP_URL === 'YOUR_WEB_APP_URL') return;
+  try{
+    const res = await fetch(WEB_APP_URL, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify({ action:'deleteGame', editorCode, gameId })
+    });
+    const result = await res.json();
+    if (!result.success){
+      showToast('삭제 실패: ' + (result.error||''), 'error');
+    }
+  }catch(e){
+    console.error('삭제 실패', e);
+    showToast('서버에 연결하지 못했습니다.', 'error');
+  }
+}
+
+async function refreshGames(){
+  showToast('불러오는 중...');
+  await loadGames();
+  render();
+  showToast('최신 데이터를 불러왔습니다.');
 }
 
 function render(){
@@ -456,7 +495,7 @@ function deleteGame(id){
   if (!g) return;
   if (!confirm(`"${g.name}" 게임을 삭제할까요? 이 작업은 되돌릴 수 없습니다.`)) return;
   games = games.filter(x=>x.id!==id);
-  saveGames();
+  deleteGameOnServer(id);
   render();
 }
 
@@ -1354,7 +1393,7 @@ document.getElementById('newGameBtn').addEventListener('click', ()=>{
     const name = document.getElementById('newName').value.trim();
     if (!id || !name){ showToast('게임 ID와 게임명을 입력해주세요.', 'error'); return; }
     games.push({id, name, cases:[], photos:[{markers:[]}]});
-    saveGames(); backdrop.remove(); openGame(id);
+    saveGames(id); backdrop.remove(); openGame(id);
   });
 });
 
