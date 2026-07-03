@@ -11,8 +11,8 @@
     --ink: #1B1C1A;
     --ink-soft: #63645F;
     --line: #E3E3DE;
-    --accent: #2F6F5E;
-    --accent-soft: #E6EFEC;
+    --accent: #E4141B;
+    --accent-soft: #FCE9E8;
     --danger: #B3492B;
     --mono: 'SFMono-Regular', Menlo, Consolas, 'Courier New', monospace;
     --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Pretendard', 'Malgun Gothic', sans-serif;
@@ -26,7 +26,10 @@
 
   .topbar{position:sticky; top:0; z-index:20; background:var(--surface); border-bottom:1px solid var(--line);
     padding:14px 24px; display:flex; align-items:center; gap:16px;}
-  .brand{font-weight:800; font-size:16px; letter-spacing:-0.02em; white-space:nowrap;}
+  .brand{font-weight:900; font-size:19px; letter-spacing:-0.03em; white-space:nowrap; text-transform:uppercase; color:var(--accent); background:none; border:none; cursor:pointer; padding:0; font-family:var(--sans); display:flex; align-items:baseline; gap:1px;}
+  .brand:hover{opacity:.85;}
+  .brand .r-mark{font-size:10px; vertical-align:super; margin-left:1px;}
+  .brand .sub{font-size:10px; font-weight:600; letter-spacing:0; text-transform:none; color:var(--ink-soft); margin-left:8px; white-space:nowrap;}
   .brand span{color:var(--accent);}
   .search{flex:1; max-width:420px; position:relative;}
   .search input{width:100%; padding:9px 12px 9px 34px; border:1px solid var(--line); border-radius:8px;
@@ -38,7 +41,7 @@
   .role-toggle button.active{background:var(--ink); color:#fff;}
   .btn{border:none; border-radius:8px; padding:9px 14px; font-size:13px; font-weight:700; cursor:pointer; font-family:var(--sans); white-space:nowrap;}
   .btn-primary{background:var(--accent); color:#fff;}
-  .btn-primary:hover{background:#255a4c;}
+  .btn-primary:hover{background:#B80F15;}
   .btn-ghost{background:transparent; color:var(--ink-soft); border:1px solid var(--line);}
   .btn-ghost:hover{color:var(--ink); border-color:var(--ink-soft);}
 
@@ -55,6 +58,10 @@
 
   .chip{display:inline-flex; align-items:center; gap:5px; font-family:var(--mono); font-weight:700; font-size:11px; padding:3px 7px 3px 5px; border-radius:4px; border:1.4px solid var(--c); color:var(--c); background:color-mix(in srgb, var(--c) 8%, white);}
   .chip .dot{width:7px; height:7px; border-radius:50%; background:var(--c);}
+
+  .case-badge{display:inline-flex; align-items:center; gap:7px; font-family:var(--mono); font-weight:800; font-size:17px; padding:6px 12px 6px 9px; border-radius:7px; border:2.2px solid var(--c); color:var(--c); background:color-mix(in srgb, var(--c) 10%, white); line-height:1;}
+  .case-badge .dot{width:11px; height:11px; border-radius:50%; background:var(--c); flex-shrink:0;}
+  .case-badge .size-label{font-size:10.5px; font-weight:600; color:var(--ink-soft); font-family:var(--sans); white-space:nowrap;}
 
   .detail-head{display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:18px;}
   .back{background:none; border:none; color:var(--ink-soft); font-size:13px; cursor:pointer; padding:0; margin-bottom:10px; font-family:var(--sans);}
@@ -151,7 +158,8 @@
   /* ---------- 모바일 반응형 ---------- */
   @media (max-width: 640px){
     .topbar{flex-wrap:wrap; padding:10px 14px; gap:10px;}
-    .brand{font-size:14px; order:1;}
+    .brand{font-size:15px; order:1;}
+    .brand .sub{display:none;}
     .role-toggle{order:2; margin-left:auto;}
     #newGameBtn{order:3;}
     .search{order:4; max-width:none; flex-basis:100%;}
@@ -178,7 +186,7 @@
 <body>
 
 <div class="topbar">
-  <div class="brand">오거나이징 <span>가이드</span></div>
+  <button class="brand" onclick="closeGame()" aria-label="게임 목록으로 이동">RED BUTTON<span class="r-mark">®</span><span class="sub">오거나이징 가이드</span></button>
   <div class="search"><input id="searchInput" placeholder="게임 이름 검색 (초성 가능, 예: ㅋㅅㅋㄷㅇ)"></div>
   <div class="role-toggle">
     <button id="roleViewerBtn" class="active">뷰어</button>
@@ -378,7 +386,7 @@ function renderTablePanel(g){
       rows += `<tr>`;
       if (ii===0){
         rows += `<td rowspan="${c.items.length}" class="type-col">
-          ${editable ? caseSelectHtml(c.caseType,ci) : `<span class="chip case-${c.caseType}"><span class="dot"></span>${c.caseType} · ${CASE_SIZES[c.caseType]}mm</span>`}
+          ${editable ? caseSelectHtml(c.caseType,ci) : `<span class="case-badge case-${c.caseType}"><span class="dot"></span>${c.caseType}<span class="size-label">${CASE_SIZES[c.caseType]}mm</span></span>`}
         </td>`;
       }
       rows += `
@@ -552,7 +560,7 @@ function attachPhotoHandlers(g){
           e.stopPropagation();
         });
       } else {
-        box.innerHTML = `<b style="font-family:var(--mono);">${c.caseType}</b> · ${c.items.map(i=>i.name+' x'+i.qty).join(', ')}`;
+        box.innerHTML = `<span class="case-badge case-${c.caseType}"><span class="dot"></span>${c.caseType}</span><div style="margin-top:7px; font-size:12.5px; line-height:1.4;">${c.items.map(i=>i.name+' x'+i.qty).join(', ')}</div>`;
       }
       boxLayer.appendChild(box);
 
