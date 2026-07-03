@@ -104,6 +104,8 @@
   .marker.editable:active{cursor:grabbing;}
   .annot-line{stroke-width:1.6; fill:none; opacity:.75;}
   .anno-box{position:absolute; width:190px; background:var(--surface); border:1px solid var(--line); border-left:4px solid var(--c); border-radius:6px; padding:8px 10px; font-size:12px; box-shadow:0 2px 6px rgba(0,0,0,.08); transform:translateY(-50%); z-index:3;}
+  .anno-box.draggable{cursor:grab;}
+  .anno-box.draggable:active{cursor:grabbing;}
   .anno-box.readonly{width:auto; max-width:170px;}
   .anno-head{display:flex; align-items:center; gap:6px; margin-bottom:6px;}
   .anno-head select{font-family:var(--mono); font-weight:700; font-size:11px; border:1px solid var(--line); border-radius:4px; padding:2px 4px; background:var(--bg);}
@@ -125,6 +127,11 @@
   .modal h3{margin:0 0 16px; font-size:16px;}
   .modal-actions{display:flex; gap:8px; justify-content:flex-end; margin-top:16px;}
   .footer-note{font-size:11.5px; color:var(--ink-soft); margin-top:26px; border-top:1px solid var(--line); padding-top:14px;}
+
+  #toast{position:fixed; bottom:20px; right:20px; z-index:100; display:flex; flex-direction:column; gap:8px; max-width:320px;}
+  .toast-msg{background:var(--ink); color:#fff; padding:10px 14px; border-radius:8px; font-size:13px; box-shadow:0 4px 14px rgba(0,0,0,.2); opacity:0; transform:translateY(8px); transition:opacity .2s, transform .2s;}
+  .toast-msg.show{opacity:1; transform:translateY(0);}
+  .toast-msg.error{background:var(--danger);}
 </style>
 </head>
 <body>
@@ -140,6 +147,7 @@
 </div>
 
 <main id="app"></main>
+<div id="toast"></div>
 
 <script>
 const CASE_TYPES = ['A','B','C','D','E','F','G','H','I','J','K','L'];
@@ -153,10 +161,24 @@ let currentPhotoIdx = 0;
 let searchQuery = '';
 let games = [];
 let draggingMarker = null;
+let draggingBox = null;
 let editorCode = '';
 
+function showToast(message, type='info'){
+  const container = document.getElementById('toast');
+  const el = document.createElement('div');
+  el.className = 'toast-msg' + (type==='error' ? ' error' : '');
+  el.textContent = message;
+  container.appendChild(el);
+  requestAnimationFrame(()=> el.classList.add('show'));
+  setTimeout(()=>{
+    el.classList.remove('show');
+    setTimeout(()=> el.remove(), 250);
+  }, 4000);
+}
+
 // ⚠️ 배포한 Apps Script 웹앱 URL로 교체하세요 (.../exec 로 끝나는 주소)
-const WEB_APP_URL = 'https://script.google.com/macros/library/d/13lhGgjGz2jC3_VeOK1SrKUXNteeK2ZOTXWqUteHysO06GY4C_BIWvOVw/2';
+const WEB_APP_URL = 'YOUR_WEB_APP_URL';
 
 const SEED = [
   { id:'487', name:'캐스캐디아',
@@ -227,11 +249,11 @@ async function saveGames(){
     });
     const result = await res.json();
     if (!result.success){
-      alert('저장 실패: 편집자 코드가 올바른지 확인해주세요. (' + (result.error||'') + ')');
+      showToast('저장 실패: 편집자 코드를 확인해주세요. (' + (result.error||'') + ')', 'error');
     }
   }catch(e){
     console.error('저장 실패', e);
-    alert('서버에 연결하지 못했습니다. 네트워크 상태 또는 WEB_APP_URL 설정을 확인해주세요.');
+    showToast('서버에 연결하지 못했습니다. 네트워크 상태 또는 설정을 확인해주세요.', 'error');
   }
 }
 
@@ -368,10 +390,13 @@ function attachPhotoHandlers(g){
   const editable = role==='editor';
   const photo = g.photos[currentPhotoIdx];
 
-  function layoutBoxes(){
+  function layoutAutoBoxes(){
     const h = stage.clientHeight;
     const left=[], right=[];
-    photo.markers.forEach((m,idx)=>(m.x<50?left:right).push({m,idx}));
+    photo.markers.forEach((m,idx)=>{
+      if (m.box) return; // 수동으로 옮긴 박스는 자동 배치 계산에서 제외
+      (m.x<50?left:right).push({m,idx});
+    });
     left.sort((a,b)=>a.m.y-b.m.y); right.sort((a,b)=>a.m.y-b.m.y);
     const pos = {};
     const gapL = Math.max(56, (h*0.92)/Math.max(left.length,1));
@@ -383,7 +408,7 @@ function attachPhotoHandlers(g){
 
   function draw(){
     const w = stage.clientWidth, h = stage.clientHeight;
-    const boxPos = layoutBoxes();
+    const autoPos = layoutAutoBoxes();
     markerLayer.innerHTML=''; boxLayer.innerHTML=''; lineLayer.innerHTML='';
     let legendHtml = '';
 
@@ -399,11 +424,25 @@ function attachPhotoHandlers(g){
       if (editable) el.addEventListener('pointerdown', e=>{ draggingMarker = idx; e.stopPropagation(); });
       markerLayer.appendChild(el);
 
-      const pos = boxPos[idx] || {side:'left', top:24};
+      // 박스 위치: 수동으로 옮긴 적 있으면 그 좌표, 없으면 자동 좌/우 정렬
+      let boxLeftPx, boxTopPx, side = null;
+      if (m.box){
+        boxLeftPx = w * m.box.x/100;
+        boxTopPx = h * m.box.y/100;
+      } else {
+        const p = autoPos[idx] || {side:'left', top:24};
+        side = p.side;
+        boxTopPx = p.top;
+      }
+
       const box = document.createElement('div');
-      box.className = 'anno-box case-'+c.caseType + (editable ? '' : ' readonly');
-      box.style.top = pos.top+'px';
-      box.style[pos.side] = '10px';
+      box.className = 'anno-box case-'+c.caseType + (editable ? ' draggable' : ' readonly');
+      box.style.top = boxTopPx+'px';
+      if (m.box){
+        box.style.left = boxLeftPx+'px';
+      } else {
+        box.style[side] = '10px';
+      }
 
       if (editable){
         box.innerHTML = `
@@ -412,7 +451,8 @@ function attachPhotoHandlers(g){
               ${CASE_TYPES.map(t=>`<option value="${t}" ${t===c.caseType?'selected':''}>${t}</option>`).join('')}
             </select>
             <span style="font-size:10px; color:var(--ink-soft);">${CASE_SIZES[c.caseType]}mm</span>
-            <button class="anno-remove" onclick="removeMarkerCase(${idx})">✕</button>
+            ${m.box ? `<button class="anno-remove" onclick="resetBoxPosition(${idx})" title="자동 위치로 되돌리기">↺</button>` : ''}
+            <button class="anno-remove" onclick="removeMarkerCase(${idx})" title="마커 삭제">✕</button>
           </div>
           ${c.items.map((item,ii)=>`
             <div class="anno-item">
@@ -422,13 +462,18 @@ function attachPhotoHandlers(g){
             </div>`).join('')}
           <button class="anno-additem" onclick="addItemRedraw(${m.caseIdx})">+ 항목 추가</button>
         `;
+        box.addEventListener('pointerdown', e=>{
+          if (['INPUT','SELECT','BUTTON','OPTION'].includes(e.target.tagName)) return;
+          draggingBox = idx;
+          e.stopPropagation();
+        });
       } else {
         box.innerHTML = `<b style="font-family:var(--mono);">${c.caseType}</b> · ${c.items.map(i=>i.name+' x'+i.qty).join(', ')}`;
       }
       boxLayer.appendChild(box);
 
-      const bx = pos.side==='left' ? 10 : w-10;
-      const by = pos.top;
+      const bx = m.box ? boxLeftPx : (side==='left' ? 10 : w-10);
+      const by = boxTopPx;
       const ln = document.createElementNS('http://www.w3.org/2000/svg','line');
       ln.setAttribute('x1',mx); ln.setAttribute('y1',my);
       ln.setAttribute('x2',bx); ln.setAttribute('y2',by);
@@ -447,14 +492,22 @@ function attachPhotoHandlers(g){
 
   if (editable){
     stage.onpointermove = e=>{
-      if (draggingMarker===null) return;
+      if (draggingMarker===null && draggingBox===null) return;
       const rect = stage.getBoundingClientRect();
       let x=(e.clientX-rect.left)/rect.width*100, y=(e.clientY-rect.top)/rect.height*100;
       x=Math.max(3,Math.min(97,x)); y=Math.max(3,Math.min(97,y));
-      photo.markers[draggingMarker].x=x; photo.markers[draggingMarker].y=y;
+      if (draggingMarker!==null){
+        photo.markers[draggingMarker].x=x; photo.markers[draggingMarker].y=y;
+      } else if (draggingBox!==null){
+        photo.markers[draggingBox].box = {x, y};
+      }
       draw();
     };
-    window.onpointerup = ()=>{ if (draggingMarker!==null){ draggingMarker=null; saveGames(); } };
+    window.onpointerup = ()=>{
+      if (draggingMarker!==null || draggingBox!==null){
+        draggingMarker=null; draggingBox=null; saveGames();
+      }
+    };
     stage.onclick = e=>{
       if (e.target !== stage && e.target.id!=='markerLayer' && e.target.id!=='boxLayer') return;
       const rect = stage.getBoundingClientRect();
@@ -471,7 +524,7 @@ function attachPhotoHandlers(g){
       stage.classList.remove('dragover');
       const file = e.dataTransfer.files && e.dataTransfer.files[0];
       if (file && file.type.startsWith('image/')) uploadPhotoFile(file);
-      else alert('이미지 파일만 업로드할 수 있습니다.');
+      else showToast('이미지 파일만 업로드할 수 있습니다.', 'error');
     });
   }
 }
@@ -484,11 +537,11 @@ function handleFileSelect(e){
 
 async function uploadPhotoFile(file){
   if (WEB_APP_URL === 'YOUR_WEB_APP_URL'){
-    alert('WEB_APP_URL이 아직 설정되지 않아 업로드할 수 없습니다.');
+    showToast('WEB_APP_URL이 아직 설정되지 않아 업로드할 수 없습니다.', 'error');
     return;
   }
   if (!editorCode){
-    alert('편집자 코드가 확인되지 않았습니다. 편집자 모드로 다시 전환해주세요.');
+    showToast('편집자 코드가 확인되지 않았습니다. 편집자 모드로 다시 전환해주세요.', 'error');
     return;
   }
 
@@ -517,12 +570,13 @@ async function uploadPhotoFile(file){
         photo.imageUrl = result.url;
         await saveGames();
         render();
+        showToast('사진이 업로드되었습니다.');
       } else {
-        alert('업로드 실패: ' + (result.error || '알 수 없는 오류'));
+        showToast('업로드 실패: ' + (result.error || '알 수 없는 오류'), 'error');
       }
     }catch(err){
       console.error(err);
-      alert('업로드 중 오류가 발생했습니다. 네트워크 상태를 확인해주세요.');
+      showToast('업로드 중 오류가 발생했습니다. 네트워크 상태를 확인해주세요.', 'error');
     }finally{
       if (overlay) overlay.style.display = 'none';
     }
@@ -584,6 +638,13 @@ function addCase(){
   g.cases.push({caseType:'A', items:[{name:'', qty:1}]});
   saveGames(); render();
 }
+function resetBoxPosition(markerIdxInCurrentPhoto){
+  const g = games.find(x=>x.id===currentGameId);
+  const photo = g.photos[currentPhotoIdx];
+  delete photo.markers[markerIdxInCurrentPhoto].box;
+  saveGames(); render();
+}
+
 function removeMarkerCase(markerIdxInCurrentPhoto){
   const g = games.find(x=>x.id===currentGameId);
   const photo = g.photos[currentPhotoIdx];
@@ -629,7 +690,7 @@ document.getElementById('newGameBtn').addEventListener('click', ()=>{
   document.getElementById('createConfirm').addEventListener('click', ()=>{
     const id = document.getElementById('newId').value.trim();
     const name = document.getElementById('newName').value.trim();
-    if (!id || !name){ alert('게임 ID와 게임명을 입력해주세요.'); return; }
+    if (!id || !name){ showToast('게임 ID와 게임명을 입력해주세요.', 'error'); return; }
     games.push({id, name, cases:[], photos:[{markers:[]}]});
     saveGames(); backdrop.remove(); openGame(id);
   });
