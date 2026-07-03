@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>오거나이징 가이드</title>
 <style>
   :root{
@@ -153,7 +153,7 @@
   .label-toolbar button{border:none; background:none; color:var(--ink); font-size:11px; padding:2px 6px; cursor:pointer; border-radius:4px; font-family:var(--sans);}
   .label-toolbar button:hover{background:var(--bg);}
   .label-toolbar .label-del:hover{color:var(--danger);}
-  .photo-label{background:#000; color:#fff; font-family:var(--sans); font-weight:600; white-space:pre-wrap; padding:calc(7px * var(--ui-scale,1)) calc(10px * var(--ui-scale,1)); border-radius:3px; line-height:1.35; box-shadow:0 2px 8px rgba(0,0,0,.35); outline:none; max-width:calc(300px * var(--ui-scale,1)); min-width:30px; min-height:1em; text-align:center;}
+  .photo-label{background:#000; color:#fff; font-family:var(--sans); font-weight:600; white-space:pre-wrap; padding:calc(7px * var(--label-scale,1)) calc(10px * var(--label-scale,1)); border-radius:3px; line-height:1.35; box-shadow:0 2px 8px rgba(0,0,0,.35); outline:none; max-width:calc(300px * var(--label-scale,1)); min-width:20px; min-height:1em; text-align:center;}
   .photo-label:focus{box-shadow:0 0 0 2px var(--accent);}
   .label-resize{position:absolute; right:-5px; bottom:-5px; width:13px; height:13px; background:#fff; border:2px solid #000; border-radius:2px; cursor:nwse-resize; z-index:2;}
   .hint{font-size:12px; color:var(--ink-soft); margin-top:10px;}
@@ -654,12 +654,17 @@ function attachPhotoHandlers(g){
   }
 
   let currentUiScale = 1;
+  let currentLabelScale = 1;
 
   function draw(){
     const w = stage.clientWidth, h = stage.clientHeight;
-    const uiScale = Math.max(0.5, Math.min(1, w / 650)); // 사진이 작아지면 UI 요소도 비례해서 축소
+    // 텍스트박스/마커: 너무 작아져서 편집이 불편해지지 않도록 최소 50%는 유지
+    const uiScale = Math.max(0.5, Math.min(1, w / 650));
     currentUiScale = uiScale;
+    // 라벨(실제 라벨 인쇄 미리보기): 최소치 없이 사진과 완전히 같은 비율로 축소
+    currentLabelScale = Math.max(0.12, Math.min(1, w / 650));
     stage.style.setProperty('--ui-scale', uiScale);
+    stage.style.setProperty('--label-scale', currentLabelScale);
     stage.style.setProperty('--marker-size', Math.round((g.markerSize||24) * uiScale) + 'px');
     const autoPos = layoutAutoBoxes();
     markerLayer.innerHTML=''; boxLayer.innerHTML=''; lineLayer.innerHTML='';
@@ -765,10 +770,10 @@ function attachPhotoHandlers(g){
 
       const labelEl = document.createElement('div');
       labelEl.className = 'photo-label';
-      labelEl.style.fontSize = ((lbl.fontSize||14) * currentUiScale) + 'px';
+      labelEl.style.fontSize = ((lbl.fontSize||14) * currentLabelScale) + 'px';
       if (lbl.sized){
-        labelEl.style.width = (lbl.width * currentUiScale) + 'px';
-        labelEl.style.height = (lbl.height * currentUiScale) + 'px';
+        labelEl.style.width = (lbl.width * currentLabelScale) + 'px';
+        labelEl.style.height = (lbl.height * currentLabelScale) + 'px';
         labelEl.style.overflow = 'hidden';
       }
       labelEl.textContent = lbl.text;
@@ -855,8 +860,8 @@ function attachPhotoHandlers(g){
         const newH = Math.max(18, resizeLabelStart.startH + dy);
         const scale = Math.max(newW/resizeLabelStart.startW, newH/resizeLabelStart.startH);
         // 화면에 실제 보이는 크기(newW/newH)를 기준 배율(1배) 기준 값으로 환산해서 저장
-        // → 나중에 화면 크기가 달라져도(모바일 등) currentUiScale과 곱해 항상 비율에 맞게 표시됨
-        lbl.width = newW / currentUiScale; lbl.height = newH / currentUiScale; lbl.sized = true;
+        // → 나중에 화면 크기가 달라져도(모바일 등) currentLabelScale과 곱해 항상 비율에 맞게 표시됨
+        lbl.width = newW / currentLabelScale; lbl.height = newH / currentLabelScale; lbl.sized = true;
         lbl.fontSize = Math.max(8, Math.min(72, Math.round(resizeLabelStart.startFontSize * scale)));
         drawLabels();
       }
