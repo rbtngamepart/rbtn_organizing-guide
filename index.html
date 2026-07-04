@@ -65,6 +65,10 @@
   .dash-yes{color:#1f7a5c; font-weight:600;}
   .dash-no{color:var(--ink-soft);}
   .dash-count{font-family:var(--mono); font-size:12px; font-weight:700; color:var(--accent);}
+  .dash-progress-card{background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:18px 20px; margin-bottom:16px;}
+  .dash-progress-bar-track{position:relative; width:100%; height:28px; background:var(--bg); border-radius:999px; overflow:hidden; border:1px solid var(--line);}
+  .dash-progress-bar-fill{position:absolute; top:0; left:0; bottom:0; background:var(--accent); border-radius:999px; transition:width .3s;}
+  .dash-progress-bar-label{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:800; color:var(--ink); font-family:var(--mono); text-shadow:0 0 4px #fff, 0 0 8px #fff, 0 0 2px #fff;}
 
   .grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(230px,1fr)); gap:14px;}
   .card{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:16px; cursor:pointer; transition:border-color .15s, transform .15s;}
@@ -98,6 +102,8 @@
   .back:hover{color:var(--ink);}
   .detail-title{font-size:24px; font-weight:800; letter-spacing:-0.02em;}
   .detail-id{font-family:var(--mono); font-size:12px; color:var(--ink-soft); margin-top:2px;}
+  .guide-done-toggle{display:flex; align-items:center; gap:6px; margin-top:8px; font-size:12.5px; color:var(--ink-soft); cursor:pointer;}
+  .guide-done-toggle input{cursor:pointer;}
   .game-note-area{flex:1; display:flex; justify-content:flex-end; max-width:380px;}
   .game-note-add{font-size:12px; color:var(--ink-soft); background:none; border:1px dashed var(--line); border-radius:7px; padding:7px 12px; cursor:pointer; font-family:var(--sans); align-self:flex-start;}
   .game-note-add:hover{color:var(--accent); border-color:var(--accent);}
@@ -511,17 +517,30 @@ function render(){
 function openDashboard(){ showDashboard=true; currentGameId=null; render(); }
 function closeDashboard(){ showDashboard=false; render(); }
 
+let dashboardFilter = 'all';
+function setDashboardFilter(v){ dashboardFilter = v; render(); }
+
 function renderDashboard(app){
-  const sorted = games.slice().sort((a,b)=> String(a.name).localeCompare(String(b.name), 'ko'));
-  const rows = sorted.map(g=>{
+  const all = games.slice().sort((a,b)=> String(a.name).localeCompare(String(b.name), 'ko'));
+  const doneCount = all.filter(g=>g.guideDone).length;
+  const total = all.length;
+  const pct = total>0 ? Math.round(doneCount/total*100) : 0;
+
+  const filtered = all.filter(g=>{
+    if (dashboardFilter==='incomplete') return !g.guideDone;
+    if (dashboardFilter==='complete') return !!g.guideDone;
+    return true;
+  });
+
+  const rows = filtered.map(g=>{
     const hasPhoto = (g.photos||[]).some(p=>p.imageUrl);
-    const doneCount = (g.completedBy||[]).length;
+    const storeCount = (g.completedBy||[]).length;
     return `<tr>
       <td class="dash-id">${g.id}</td>
       <td>${g.name}</td>
       <td>${hasPhoto ? '<span class="dash-yes">✅ 있음</span>' : '<span class="dash-no">❌ 없음</span>'}</td>
       <td><input type="checkbox" ${g.guideDone?'checked':''} onchange="toggleGuideDone('${g.id}', this.checked)"></td>
-      <td>${doneCount>0 ? `<span class="dash-count">${doneCount}개 매장 완료</span>` : '<span style="color:var(--ink-soft);">0</span>'}</td>
+      <td>${storeCount>0 ? `<span class="dash-count">${storeCount}개 매장 완료</span>` : '<span style="color:var(--ink-soft);">0</span>'}</td>
       <td><button class="btn btn-ghost" style="padding:4px 10px; font-size:12px;" onclick="openGame('${g.id}')">열기</button></td>
     </tr>`;
   }).join('');
@@ -529,11 +548,25 @@ function renderDashboard(app){
   app.innerHTML = `
     <button class="back" onclick="closeDashboard()">← 목록으로</button>
     <div class="detail-title" style="margin-bottom:16px;">작업 진행 현황</div>
+    <div class="dash-progress-card">
+      <div class="dash-progress-bar-track">
+        <div class="dash-progress-bar-fill" style="width:${pct}%;"></div>
+        <div class="dash-progress-bar-label">${pct}% · ${doneCount}/${total}</div>
+      </div>
+    </div>
     <div class="panel">
+      <div class="panel-label">
+        <span>게임별 현황</span>
+        <select onchange="setDashboardFilter(this.value)" style="border:1px solid var(--line); border-radius:6px; padding:5px 8px; font-size:12.5px;">
+          <option value="all" ${dashboardFilter==='all'?'selected':''}>전체</option>
+          <option value="incomplete" ${dashboardFilter==='incomplete'?'selected':''}>가이드 미완료만</option>
+          <option value="complete" ${dashboardFilter==='complete'?'selected':''}>가이드 완료만</option>
+        </select>
+      </div>
       <div class="table-scroll">
         <table>
           <thead><tr><th>ID</th><th>게임명</th><th>사진</th><th>가이드 완료</th><th>매장 완료</th><th></th></tr></thead>
-          <tbody>${rows || '<tr><td colspan="6" style="color:var(--ink-soft);">게임이 없습니다.</td></tr>'}</tbody>
+          <tbody>${rows || '<tr><td colspan="6" style="color:var(--ink-soft);">해당하는 게임이 없습니다.</td></tr>'}</tbody>
         </table>
       </div>
     </div>
@@ -545,6 +578,7 @@ async function toggleGuideDone(gameId, checked){
   if (!g) return;
   g.guideDone = checked;
   await saveGames(gameId);
+  if (showDashboard) render();
 }
 
 let selectedGameIds = new Set();
@@ -569,8 +603,8 @@ function renderListControls_(){
       <select onchange="setFilterOption(this.value)">
         <option value="all" ${filterOption==='all'?'selected':''}>전체</option>
         <option value="noPhoto" ${filterOption==='noPhoto'?'selected':''}>사진 없음</option>
-        <option value="myDone" ${filterOption==='myDone'?'selected':''}>내가 완료함</option>
-        <option value="myNotDone" ${filterOption==='myNotDone'?'selected':''}>내가 완료 안 함</option>
+        <option value="myDone" ${filterOption==='myDone'?'selected':''}>완료</option>
+        <option value="myNotDone" ${filterOption==='myNotDone'?'selected':''}>미완료</option>
       </select>
     </div>
   </div>`;
@@ -631,6 +665,24 @@ function renderList(app){
 }
 
 async function toggleWorkComplete(gameId){
+  const g = games.find(x=>x.id===gameId);
+  if (!g) return;
+  if (!g.completedBy) g.completedBy = [];
+  const idx = g.completedBy.indexOf(authEmail);
+  const wasCompleted = idx !== -1;
+
+  // 낙관적 업데이트: 서버 응답을 기다리지 않고 화면에 즉시 반영 (깜빡임 방지)
+  if (wasCompleted) g.completedBy.splice(idx, 1);
+  else g.completedBy.push(authEmail);
+  render();
+
+  function revert(){
+    const i = g.completedBy.indexOf(authEmail);
+    if (wasCompleted && i===-1) g.completedBy.push(authEmail);
+    if (!wasCompleted && i!==-1) g.completedBy.splice(i,1);
+    render();
+  }
+
   try{
     const res = await fetch(WEB_APP_URL, {
       method:'POST',
@@ -638,20 +690,13 @@ async function toggleWorkComplete(gameId){
       body: JSON.stringify({ action:'toggleWorkComplete', idToken:authToken, gameId })
     });
     const result = await res.json();
-    if (result.success){
-      const g = games.find(x=>x.id===gameId);
-      if (g){
-        if (!g.completedBy) g.completedBy = [];
-        const idx = g.completedBy.indexOf(authEmail);
-        if (result.completed && idx===-1) g.completedBy.push(authEmail);
-        if (!result.completed && idx!==-1) g.completedBy.splice(idx,1);
-      }
-      render();
-    } else {
+    if (!result.success){
+      revert();
       showToast('처리 실패: ' + (result.error||''), 'error');
     }
   }catch(e){
     console.error(e);
+    revert();
     showToast('서버 오류가 발생했습니다.', 'error');
   }
 }
@@ -710,6 +755,11 @@ function renderDetail(app){
       <div>
         <div class="detail-title">${g.name}</div>
         <div class="detail-id">ID ${g.id}</div>
+        ${role==='editor' ? `
+          <label class="guide-done-toggle">
+            <input type="checkbox" ${g.guideDone?'checked':''} onchange="toggleGuideDone('${g.id}', this.checked)">
+            <span>가이드 제작 완료</span>
+          </label>` : ''}
       </div>
       <div class="game-note-area">${renderGameNote_(g)}</div>
     </div>
@@ -1478,7 +1528,7 @@ function helpEditorContent_(){
       <li><b>게임 전체 메모</b> — 이건 특정 구성품이 아니라 게임 전체에 대한 메모입니다. 게임 제목 옆의 "+ 게임 메모"로 추가하며, 사진 탭·표 탭 어디서 보든 동일하게 상단에 나타납니다.</li>
       <li><b>게임 삭제</b> — 목록 화면 카드의 ✕ 버튼으로 삭제할 수 있습니다 (되돌릴 수 없으니 주의).</li>
       <li><b>사진 순서 변경</b> — 사진이 여러 장이면 "◀ 순서 / 순서 ▶" 버튼으로 순서를 바꿀 수 있습니다. 그 사진에 찍어둔 마커·라벨도 함께 이동합니다.</li>
-      <li><b>작업 진행 현황</b> — 상단 "📊 진행현황" 버튼으로 전체 게임의 사진 등록 여부, 가이드 제작 완료 여부(직접 체크), 매장 작업 완료 수를 한눈에 볼 수 있습니다.</li>
+      <li><b>작업 진행 현황</b> — 상단 "📊 진행현황" 버튼으로 전체 게임의 완료율(%)과 진행 개수를 한눈에 보고, 게임별 사진 등록 여부·가이드 완료 여부(직접 체크)·매장 작업 완료 수를 확인할 수 있습니다. "가이드 미완료만" 필터로 남은 작업을 바로 골라볼 수 있습니다. 가이드 완료 체크는 대시보드뿐 아니라 게임 상세 화면 제목 아래에서도 바로 할 수 있습니다.</li>
       <li><b>동시 편집</b> — 여러 명이 각자 다른 게임을 동시에 편집해도 서로의 작업을 덮어쓰지 않습니다. 다른 편집자가 추가한 게임을 보려면 상단 "↻ 새로고침"을 눌러주세요.</li>
     </ul>
     <p class="help-note">사진 탭과 표 탭 어디서 수정하든 동일한 데이터가 저장되어, 뷰어에게 바로 반영됩니다.</p>
@@ -1529,7 +1579,7 @@ function changeLabelFontSize(li, delta){
 
 let gameNoteExpanded = false;
 
-function openGame(id){ currentGameId=id; currentMode='1'; currentPhotoIdx=0; gameNoteExpanded=false; render(); }
+function openGame(id){ currentGameId=id; currentMode='1'; currentPhotoIdx=0; gameNoteExpanded=false; showDashboard=false; render(); }
 function closeGame(){ currentGameId=null; showDashboard=false; render(); }
 
 function renderGameNote_(g){
