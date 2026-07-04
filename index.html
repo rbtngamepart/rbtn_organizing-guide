@@ -799,7 +799,7 @@ function attachPhotoHandlers(g){
           <button class="anno-additem" onclick="addItemRedraw(${m.caseIdx})">+ 항목 추가</button>
           ${(c.note && c.note.length>0) || expandedCaseNotes.has(m.caseIdx) ? `
             <div class="anno-note-row">
-              <textarea class="anno-note" placeholder="비고 (예: 카드 프로텍터 기준 / 코인 캡슐 사용)" onchange="updateCaseNote(${m.caseIdx}, this.value)">${c.note||''}</textarea>
+              <textarea class="anno-note" placeholder="비고 (예: 카드 프로텍터or코팅 기준 / 코팅 간격mm /코인 캡슐 사용 가능 여부 등)" onchange="updateCaseNote(${m.caseIdx}, this.value)">${c.note||''}</textarea>
             </div>
           ` : `<button class="anno-note-add" onclick="expandCaseNote(${m.caseIdx})">+ 비고</button>`}
         `;
