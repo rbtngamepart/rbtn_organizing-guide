@@ -677,6 +677,7 @@ async function toggleWorkComplete(gameId){
   if (!g.completedBy) g.completedBy = [];
   const idx = g.completedBy.indexOf(authEmail);
   const wasCompleted = idx !== -1;
+  const desiredState = !wasCompleted; // 이번 클릭 이후 사용자가 "원하는" 최종 상태
 
   // 낙관적 업데이트: 서버 응답을 기다리지 않고 화면에 즉시 반영 (깜빡임 방지)
   if (wasCompleted) g.completedBy.splice(idx, 1);
@@ -694,7 +695,7 @@ async function toggleWorkComplete(gameId){
     const res = await fetch(WEB_APP_URL, {
       method:'POST',
       headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body: JSON.stringify({ action:'toggleWorkComplete', idToken:authToken, gameId })
+      body: JSON.stringify({ action:'toggleWorkComplete', idToken:authToken, gameId, desiredState })
     });
     const result = await res.json();
     if (!result.success){
