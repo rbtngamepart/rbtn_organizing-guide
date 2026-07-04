@@ -90,7 +90,7 @@
 
   table{width:100%; border-collapse:collapse; font-size:13.5px;}
   .table-scroll{overflow-x:auto; -webkit-overflow-scrolling:touch;}
-  .table-scroll table{min-width:480px;}
+  .table-scroll table{min-width:620px;}
   th{text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); padding:8px 10px; border-bottom:2px solid var(--ink);}
   td{padding:10px; border-bottom:1px solid var(--line); vertical-align:middle;}
   tr:last-child td{border-bottom:none;}
@@ -100,6 +100,9 @@
   td input:focus, td select:focus{border-color:var(--accent); background:var(--bg); outline:none;}
   .qty-col{width:70px;}
   .type-col{width:140px;}
+  .note-col{min-width:150px;}
+  .note-col input{width:100%; border:1px solid transparent; background:transparent; padding:5px 6px; border-radius:5px; font-size:12.5px; font-family:var(--sans); color:var(--ink);}
+  .note-col input:focus{border-color:var(--accent); background:var(--bg); outline:none;}
   .row-del{background:none; border:none; color:var(--ink-soft); cursor:pointer; font-size:15px; padding:2px 6px;}
   .row-del:hover{color:var(--danger);}
   .add-row{font-size:13px; color:var(--accent); background:none; border:none; font-weight:700; cursor:pointer; padding:4px 0; font-family:var(--sans);}
@@ -143,6 +146,11 @@
   .anno-item input[type=number]{flex:0 0 auto; width:42px; border:1px solid var(--line); border-radius:4px; padding:3px 4px; font-size:calc(11.5px * var(--ui-scale,1)); font-family:var(--sans);}
   .anno-item button{border:none; background:none; color:var(--ink-soft); cursor:pointer; font-size:12px;}
   .anno-additem{font-size:11px; color:var(--accent); background:none; border:none; font-weight:700; cursor:pointer; padding:2px 0; font-family:var(--sans);}
+  .anno-note-row{margin-top:6px;}
+  .anno-note{width:100%; min-height:38px; border:1px solid var(--line); border-radius:4px; padding:5px 6px; font-size:11px; font-family:var(--sans); resize:vertical; box-sizing:border-box;}
+  .anno-note-add{font-size:11px; color:var(--ink-soft); background:none; border:none; font-weight:700; cursor:pointer; padding:2px 0; font-family:var(--sans); margin-top:4px; display:block;}
+  .anno-note-add:hover{color:var(--accent);}
+  .anno-note-view{margin-top:6px; padding-top:5px; border-top:1px dashed var(--line); color:var(--ink-soft); font-style:italic; line-height:1.4;}
   .anno-label-btn{background:#000; color:#fff; border:none; border-radius:4px; font-size:10px; padding:3px 8px; cursor:pointer; font-weight:700; margin-left:auto;}
   .anno-label-btn:hover{background:#2a2a2a;}
 
@@ -261,6 +269,7 @@ let currentPhotoIdx = 0;
 let searchQuery = '';
 let games = [];
 let draggingMarker = null;
+let expandedCaseNotes = new Set();
 let draggingBox = null;
 let dragMarkerOffset = null;
 let dragBoxOffset = null;
@@ -546,16 +555,21 @@ function renderTablePanel(g){
         : (Number(item.qty)===0 ? '<span style="color:var(--ink-soft); font-size:12px;">수량 체크 X</span>' : item.qty);
       rows += `
         <td>${editable ? `<input value="${item.name}" onchange="updateItem(${ci},${ii},'name',this.value)">` : item.name}</td>
-        <td class="qty-col">${qtyDisplay}</td>
-        ${editable ? `<td style="width:32px;"><button class="row-del" onclick="deleteItem(${ci},${ii})">✕</button></td>` : ''}
+        <td class="qty-col">${qtyDisplay}</td>`;
+      if (ii===0){
+        rows += `<td rowspan="${c.items.length}" class="note-col">
+          ${editable ? `<input value="${c.note||''}" placeholder="비고 (선택)" onchange="updateCaseNote(${ci}, this.value)">` : (c.note ? `<span style="color:var(--ink-soft); font-size:12.5px;">${c.note}</span>` : '')}
+        </td>`;
+      }
+      rows += `${editable ? `<td style="width:32px;"><button class="row-del" onclick="deleteItem(${ci},${ii})">✕</button></td>` : ''}
       </tr>`;
     });
   });
   return `<div class="panel">
     <div class="panel-label"><span>구성표</span>${editable?`<button class="add-row" onclick="addCase()">+ 케이스 추가</button>`:''}</div>
     <div class="table-scroll">
-      <table><thead><tr><th>제품종류</th><th>구성품</th><th>수량</th>${editable?'<th></th>':''}</tr></thead>
-      <tbody>${rows || '<tr><td colspan="4" style="color:var(--ink-soft);">등록된 구성품이 없습니다.</td></tr>'}</tbody></table>
+      <table><thead><tr><th>제품종류</th><th>구성품</th><th>수량</th><th>비고</th>${editable?'<th></th>':''}</tr></thead>
+      <tbody>${rows || '<tr><td colspan="5" style="color:var(--ink-soft);">등록된 구성품이 없습니다.</td></tr>'}</tbody></table>
     </div>
   </div>`;
 }
@@ -721,6 +735,11 @@ function attachPhotoHandlers(g){
               <button onclick="deleteItemRedraw(${m.caseIdx},${ii})">✕</button>
             </div>`).join('')}
           <button class="anno-additem" onclick="addItemRedraw(${m.caseIdx})">+ 항목 추가</button>
+          ${(c.note && c.note.length>0) || expandedCaseNotes.has(m.caseIdx) ? `
+            <div class="anno-note-row">
+              <textarea class="anno-note" placeholder="비고 (예: 카드 프로텍터 기준 / 코인 캡슐 사용)" onchange="updateCaseNote(${m.caseIdx}, this.value)">${c.note||''}</textarea>
+            </div>
+          ` : `<button class="anno-note-add" onclick="expandCaseNote(${m.caseIdx})">+ 비고</button>`}
         `;
         box.querySelectorAll('.anno-item input[type=text]').forEach(inp=>{
           autoSizeTextInput(inp);
@@ -734,7 +753,7 @@ function attachPhotoHandlers(g){
           e.stopPropagation();
         });
       } else {
-        box.innerHTML = `<span class="case-badge case-${c.caseType}"><span class="dot"></span>${c.caseType}<span class="size-label">${CASE_SIZES[c.caseType]}mm</span></span><div style="margin-top:${(7*uiScale).toFixed(1)}px; font-size:${(12.5*uiScale).toFixed(1)}px; line-height:1.6;">${c.items.map(i=> Number(i.qty)===0 ? i.name : `${i.name} ${i.qty}개`).join('<br>')}</div>`;
+        box.innerHTML = `<span class="case-badge case-${c.caseType}"><span class="dot"></span>${c.caseType}<span class="size-label">${CASE_SIZES[c.caseType]}mm</span></span><div style="margin-top:${(7*uiScale).toFixed(1)}px; font-size:${(12.5*uiScale).toFixed(1)}px; line-height:1.6;">${c.items.map(i=> Number(i.qty)===0 ? i.name : `${i.name} ${i.qty}개`).join('<br>')}</div>${c.note ? `<div class="anno-note-view" style="font-size:${(11*uiScale).toFixed(1)}px;">📝 ${c.note}</div>` : ''}`;
       }
       boxLayer.appendChild(box);
 
@@ -1242,7 +1261,8 @@ function helpEditorContent_(){
       <li><b>마커(케이스 위치) 추가·편집</b> — 사진의 빈 곳을 클릭하면 새 마커와 텍스트박스가 생깁니다. 마커와 텍스트박스는 각각 드래그로 위치를 옮길 수 있고, 텍스트박스 안에서 케이스종류·구성품명·수량을 바로 수정할 수 있습니다.</li>
       <li><b>표 기준 마커 자동 생성</b> — 표에는 등록돼있지만 아직 사진에 마커가 없는 케이스들을, "📍 표 기준 마커 자동 생성" 버튼으로 한 번에 격자 배치할 수 있습니다. 이후 실제 배치에 맞게 위치만 드래그로 옮겨주면 됩니다. (일괄로 데이터만 먼저 등록한 게임에 유용합니다)</li>
       <li><b>라벨 미리보기</b> — 텍스트박스 상단의 검정 "라벨" 버튼을 누르면, 실제 라벨기로 인쇄해 붙였을 때의 모습(검정 바탕 흰 글씨)을 미리 볼 수 있는 박스가 따로 생깁니다. 내용 수정, 줄바꿈, 글자 크기 조절(A-/A+), 모서리 드래그로 크기 조절(글자도 같이 커짐/작아짐)이 모두 가능합니다.</li>
-      <li><b>표에서 직접 수정</b> — 표 탭에서도 케이스종류·구성품·수량을 셀에서 바로 편집하거나, 케이스/항목을 추가·삭제할 수 있습니다. 사진과 표는 같은 데이터를 공유합니다.</li>
+      <li><b>표에서 직접 수정</b> — 표 탭에서도 케이스종류·구성품·수량·비고를 셀에서 바로 편집하거나, 케이스/항목을 추가·삭제할 수 있습니다. 사진과 표는 같은 데이터를 공유합니다.</li>
+      <li><b>비고(메모)</b> — 텍스트박스 하단의 "+ 비고" 버튼을 누르면 메모칸이 나타납니다. 카드가 프로텍터 기준인지 코팅 기준인지, 토큰에 코인 캡슐을 쓰는지 등을 적어두면 표 탭의 "비고" 열에도 똑같이 반영됩니다. 선택 사항이라 안 적으면 표시되지 않습니다.</li>
       <li><b>게임 삭제</b> — 목록 화면 카드의 ✕ 버튼으로 삭제할 수 있습니다 (되돌릴 수 없으니 주의).</li>
       <li><b>동시 편집</b> — 여러 명이 각자 다른 게임을 동시에 편집해도 서로의 작업을 덮어쓰지 않습니다. 다른 편집자가 추가한 게임을 보려면 상단 "↻ 새로고침"을 눌러주세요.</li>
     </ul>
@@ -1376,6 +1396,15 @@ function updateCaseType(ci, value){
   const g = games.find(x=>x.id===currentGameId);
   g.cases[ci].caseType = value;
   saveGames(); render();
+}
+function updateCaseNote(ci, value){
+  const g = games.find(x=>x.id===currentGameId);
+  g.cases[ci].note = value;
+  saveGames();
+}
+function expandCaseNote(ci){
+  expandedCaseNotes.add(ci);
+  render();
 }
 function deleteItem(ci, ii){
   const g = games.find(x=>x.id===currentGameId);
