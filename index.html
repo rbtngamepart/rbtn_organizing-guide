@@ -204,6 +204,7 @@
   .field{margin-bottom:12px;}
   .field label{display:block; font-size:12px; font-weight:700; color:var(--ink-soft); margin-bottom:5px;}
   .field input{width:100%; padding:9px 10px; border:1px solid var(--line); border-radius:7px; font-size:14px; font-family:var(--sans); background:var(--bg); color:var(--ink);}
+  .field select{width:100%; padding:9px 10px; border:1px solid var(--line); border-radius:7px; font-size:14px; font-family:var(--sans); background:var(--bg); color:var(--ink);}
   .modal-backdrop{position:fixed; inset:0; background:rgba(20,20,18,.4); display:flex; align-items:center; justify-content:center; z-index:50; padding:20px;}
   .modal{background:var(--surface); border-radius:14px; padding:22px; width:100%; max-width:380px;}
   .modal h3{margin:0 0 16px; font-size:16px;}
@@ -216,13 +217,21 @@
   .help-list code{background:var(--bg); padding:1px 5px; border-radius:4px; font-family:var(--mono); font-size:12px;}
   .help-note{font-size:12px; color:var(--ink-soft); margin-top:14px; padding-top:12px; border-top:1px solid var(--line);}
 
-  .access-modal{max-width:480px; max-height:82vh; overflow-y:auto;}
+  .access-modal{max-width:600px; max-height:82vh; overflow-y:auto;}
   .access-section{margin-bottom:18px; padding-bottom:16px; border-bottom:1px solid var(--line);}
   .access-section:last-of-type{border-bottom:none; margin-bottom:8px;}
   .access-section-title{font-size:12px; font-weight:700; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.04em; margin-bottom:10px;}
-  .access-row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 0; font-size:13px;}
+  .access-row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 0; font-size:13px; flex-wrap:wrap;}
+  .access-row-pending{flex-direction:column; align-items:stretch; padding:10px 0; border-bottom:1px dashed var(--line);}
+  .access-row-pending:last-child{border-bottom:none;}
   .access-row span{font-family:var(--mono); font-size:12.5px; word-break:break-all;}
-  .access-actions{display:flex; gap:6px; flex-shrink:0;}
+  .access-email-only{font-family:var(--mono); font-size:12.5px; word-break:break-all; color:var(--ink-soft);}
+  .access-email-sub{font-family:var(--mono); font-size:11px; color:var(--ink-soft); margin-top:1px;}
+  .access-actions{display:flex; gap:6px; flex-shrink:0; flex-wrap:wrap; align-items:center; margin-top:6px;}
+  .access-store-select{border:1px solid var(--line); border-radius:6px; padding:6px 7px; font-size:12px; font-family:var(--sans); background:var(--bg); color:var(--ink);}
+  .access-person{display:flex; align-items:center; gap:6px; flex:1; min-width:0;}
+  .access-edit-name{border:none; background:none; cursor:pointer; font-size:12px; opacity:.55; padding:2px 4px; flex-shrink:0;}
+  .access-edit-name:hover{opacity:1;}
   .access-empty{font-size:12.5px; color:var(--ink-soft); padding:6px 0;}
   .modal-actions{display:flex; gap:8px; justify-content:flex-end; margin-top:16px;}
   .footer-note{font-size:11.5px; color:var(--ink-soft); margin-top:26px; border-top:1px solid var(--line); padding-top:14px;}
@@ -1493,7 +1502,7 @@ function setHelpTab(tab){
 function helpViewerContent_(){
   return `
     <ul class="help-list">
-      <li><b>로그인</b> — 사이트 접속 시 구글 계정 로그인이 먼저 필요합니다 (레드버튼 내부 자료 보호를 위함). <b>사전에 승인된 계정만</b> 조회 가능하며, 승인 안 된 계정은 요청이 접수되어 승인을 기다리게 됩니다.</li>
+      <li><b>로그인</b> — 사이트 접속 시 구글 계정 로그인이 먼저 필요합니다 (레드버튼 내부 자료 보호를 위함). 처음 로그인하면 매장·이름·직급을 입력하는 신청서를 작성하게 되고, 승인 후 조회 가능합니다.</li>
       <li><b>게임 찾기</b> — 상단 검색창에 게임 이름을 입력하세요. 초성만 입력해도 검색됩니다 (예: <code>ㅋㅅㅋㄷㅇ</code> → 캐스캐디아).</li>
       <li><b>가이드 보기</b> — 게임을 클릭하면 <b>사진</b> 탭과 <b>표</b> 탭으로 볼 수 있습니다.
         <ul>
@@ -1515,7 +1524,7 @@ function helpEditorContent_(){
   return `
     <ul class="help-list">
       <li><b>편집자 전환</b> — 이미 로그인된 상태이므로, 상단 "편집자" 버튼을 누르면 별도 팝업 없이 바로 승인 여부를 확인합니다. 승인된 계정이면 즉시 편집 가능하고, 아닌 경우 승인 요청이 자동 접수됩니다.</li>
-      <li><b>권한 관리</b> — 편집자 모드에서 "🔑 권한 관리" 버튼으로 승인 대기 중인 요청을 <b>편집자 또는 뷰어로 승인</b>하거나 거절할 수 있습니다. 이메일을 직접 입력해서 요청 없이도 먼저 권한(편집자/뷰어 선택)을 부여할 수 있고, 등록된 계정은 언제든 삭제(권한 회수)할 수 있습니다.</li>
+      <li><b>권한 관리</b> — "🔑 권한 관리" 화면에서 대기 중인 요청을 이름·매장·직급과 함께 확인하고 <b>편집자 또는 뷰어로 승인</b>하거나 거절할 수 있습니다. 승인 시 매장을 다시 지정/수정할 수도 있습니다. 이름 옆 ✏️ 버튼으로 언제든 이름을 수정할 수 있습니다. 이메일을 직접 입력해 요청 없이도 먼저 권한을 부여할 수 있고, 등록된 계정은 언제든 삭제할 수 있습니다. "매장 추가"에서 매장 코드·매장명을 등록해두면 신청서 작성 시 선택 목록에 나타납니다.</li>
       <li><b>새 가이드 만들기</b> — 상단 "+ 새 가이드" 버튼으로 게임 ID·이름을 입력해 새로 생성합니다.</li>
       <li><b>사진 등록</b> — 사진 탭에서 "사진 업로드" 또는 사진 영역에 파일을 끌어다 놓으면, 자르기(크롭)·이동·확대·축소 편집창이 뜹니다. 필요한 부분만 선택해서 적용하세요. "+ 사진 페이지 추가"로 사진을 여러 장 등록하고 넘겨가며 관리할 수 있습니다.</li>
       <li><b>마커(케이스 위치) 추가·편집</b> — 사진의 빈 곳을 클릭하면 새 마커와 텍스트박스가 생깁니다. 마커와 텍스트박스는 각각 드래그로 위치를 옮길 수 있고, 텍스트박스 안에서 케이스종류·구성품명·수량을 바로 수정할 수 있습니다.</li>
@@ -1937,10 +1946,96 @@ async function handleGateCredential(response){
     await enterApp();
   } else if (result.status === 'pending'){
     renderGatePending_(!!result.newRequest);
+  } else if (result.status === 'needs_profile'){
+    await renderGateProfileForm_();
   } else {
     renderGateDefault_();
     document.getElementById('gateError').style.display = 'block';
     document.getElementById('gateError').textContent = '로그인에 실패했습니다. 다시 시도해주세요.';
+  }
+}
+
+const POSITIONS = ['점주','점장','매니저','트레이너','버트너','본사'];
+
+/**
+ * 처음 로그인한 사람에게 매장·이름·직급을 입력받는 신청서 화면입니다.
+ */
+async function renderGateProfileForm_(){
+  document.getElementById('gateContent').innerHTML = `
+    <div class="brand" style="justify-content:center; pointer-events:none;">RED BUTTON<span class="r-mark">®</span></div>
+    <p style="margin-top:10px; margin-bottom:14px;">처음 로그인하셨네요. 접근 요청을 위해<br>아래 정보를 입력해주세요.</p>
+    <div id="gateProfileFormBody" style="text-align:left;">
+      <div style="font-size:12px; color:var(--ink-soft); text-align:center;">불러오는 중...</div>
+    </div>
+  `;
+
+  let stores = [];
+  try{
+    const res = await fetch(WEB_APP_URL, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify({ action:'listStores', idToken:authToken })
+    });
+    const data = await res.json();
+    stores = (data && data.stores) || [];
+  }catch(e){ console.error(e); }
+
+  stores = stores.slice().sort((a,b)=> String(a.name).localeCompare(String(b.name), 'ko'));
+
+  document.getElementById('gateProfileFormBody').innerHTML = `
+    <div class="field">
+      <label>매장</label>
+      <select id="gateStoreSelect">
+        <option value="">매장을 선택하세요</option>
+        ${stores.map(s=>`<option value="${s.code}">${s.name}</option>`).join('')}
+      </select>
+    </div>
+    <div class="field">
+      <label>이름</label>
+      <input type="text" id="gateNameInput" placeholder="홍길동">
+    </div>
+    <div class="field">
+      <label>직급</label>
+      <select id="gatePositionSelect">
+        <option value="">직급을 선택하세요</option>
+        ${POSITIONS.map(p=>`<option value="${p}">${p}</option>`).join('')}
+      </select>
+    </div>
+    <div id="gateProfileError" style="display:none; color:var(--danger); font-size:12.5px; margin-bottom:8px;"></div>
+    <button class="btn btn-primary" style="width:100%;" onclick="submitGateProfile_()">제출</button>
+  `;
+}
+
+async function submitGateProfile_(){
+  const storeCode = document.getElementById('gateStoreSelect').value;
+  const name = document.getElementById('gateNameInput').value.trim();
+  const position = document.getElementById('gatePositionSelect').value;
+  const errorEl = document.getElementById('gateProfileError');
+
+  if (!storeCode || !name || !position){
+    errorEl.style.display = 'block';
+    errorEl.textContent = '매장·이름·직급을 모두 입력해주세요.';
+    return;
+  }
+  errorEl.style.display = 'none';
+
+  try{
+    const res = await fetch(WEB_APP_URL, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify({ action:'submitAccessRequest', idToken:authToken, name, position, storeCode })
+    });
+    const result = await res.json();
+    if (result.status === 'pending'){
+      renderGatePending_(!!result.newRequest);
+    } else {
+      errorEl.style.display = 'block';
+      errorEl.textContent = '제출 중 문제가 발생했습니다. 다시 시도해주세요.';
+    }
+  }catch(e){
+    console.error(e);
+    errorEl.style.display = 'block';
+    errorEl.textContent = '서버 오류가 발생했습니다.';
   }
 }
 
@@ -2008,7 +2103,7 @@ async function showAccessModal(){
     showToast('권한 목록을 불러오지 못했습니다. (' + (data && data.error || '') + ')', 'error');
     return;
   }
-  renderAccessModal(data.editors, data.viewers, data.pending);
+  renderAccessModal(data.editors, data.viewers, data.pending, data.profiles||{}, data.stores||[]);
 }
 
 async function fetchAccessList(){
@@ -2025,9 +2120,44 @@ async function fetchAccessList(){
   }
 }
 
-function renderAccessModal(editors, viewers, pending){
+function storeNameByCode_(stores, code){
+  const s = stores.find(x=>x.code===code);
+  return s ? s.name : null;
+}
+
+function personLabel_(email, profiles, stores){
+  const p = profiles[email] || {};
+  const storeName = p.storeCode ? storeNameByCode_(stores, p.storeCode) : null;
+  const parts = [p.name, storeName, p.position].filter(Boolean).join(' · ');
+  const safeCurrentName = (p.name||'').replace(/'/g,"\\'").replace(/"/g,'&quot;');
+  const nameHtml = parts
+    ? `<div><b>${parts}</b><div class="access-email-sub">${email}</div></div>`
+    : `<span class="access-email-only">${email}</span>`;
+  return `<div class="access-person">
+    ${nameHtml}
+    <button class="access-edit-name" onclick="editPersonName('${email}','${safeCurrentName}')" title="이름 수정">✏️</button>
+  </div>`;
+}
+
+async function editPersonName(email, currentName){
+  const newName = prompt('이름을 입력하세요.', currentName || '');
+  if (newName === null) return; // 취소
+  await postAccessAction('updateProfile', email, null, null, null, newName.trim());
+  showAccessModal();
+}
+
+function renderAccessModal(editors, viewers, pending, profiles, stores){
   const old = document.getElementById('accessBackdrop');
   if (old) old.remove();
+  const sortedStores = stores.slice().sort((a,b)=> String(a.name).localeCompare(String(b.name), 'ko'));
+
+  const storeSelectHtml = (email) => {
+    const currentCode = (profiles[email] && profiles[email].storeCode) || '';
+    return `<select id="storeSel-${email.replace(/[^a-zA-Z0-9]/g,'')}" class="access-store-select">
+      <option value="">매장 미지정</option>
+      ${sortedStores.map(s=>`<option value="${s.code}" ${s.code===currentCode?'selected':''}>${s.name}</option>`).join('')}
+    </select>`;
+  };
 
   const backdrop = document.createElement('div');
   backdrop.className = 'modal-backdrop';
@@ -2037,21 +2167,25 @@ function renderAccessModal(editors, viewers, pending){
       <h3>권한 관리</h3>
       <div class="access-section">
         <div class="access-section-title">승인 대기 중 (${pending.length})</div>
-        ${pending.length ? pending.map(email=>`
-          <div class="access-row">
-            <span>${email}</span>
+        ${pending.length ? pending.map(email=>{
+          const safeId = email.replace(/[^a-zA-Z0-9]/g,'');
+          return `
+          <div class="access-row access-row-pending">
+            ${personLabel_(email, profiles, stores)}
             <div class="access-actions">
-              <button class="btn btn-primary" style="padding:5px 10px; font-size:12px;" onclick="approveEmail('${email}','editor')">편집자로 승인</button>
-              <button class="btn btn-ghost" style="padding:5px 10px; font-size:12px;" onclick="approveEmail('${email}','viewer')">뷰어로 승인</button>
+              ${storeSelectHtml(email)}
+              <button class="btn btn-primary" style="padding:5px 10px; font-size:12px;" onclick="approveEmail('${email}','editor','${safeId}')">편집자로 승인</button>
+              <button class="btn btn-ghost" style="padding:5px 10px; font-size:12px;" onclick="approveEmail('${email}','viewer','${safeId}')">뷰어로 승인</button>
               <button class="btn btn-ghost" style="padding:5px 10px; font-size:12px;" onclick="rejectEmail('${email}')">거절</button>
             </div>
-          </div>`).join('') : '<div class="access-empty">대기 중인 요청이 없습니다.</div>'}
+          </div>`;
+        }).join('') : '<div class="access-empty">대기 중인 요청이 없습니다.</div>'}
       </div>
       <div class="access-section">
         <div class="access-section-title">승인된 편집자 (${editors.length})</div>
         ${editors.length ? editors.map(email=>`
           <div class="access-row">
-            <span>${email}</span>
+            ${personLabel_(email, profiles, stores)}
             <button class="btn btn-ghost" style="padding:5px 10px; font-size:12px;" onclick="removeApprovedEmail('${email}')">삭제</button>
           </div>`).join('') : '<div class="access-empty">등록된 편집자가 없습니다.</div>'}
       </div>
@@ -2059,7 +2193,7 @@ function renderAccessModal(editors, viewers, pending){
         <div class="access-section-title">승인된 뷰어 (${viewers.length})</div>
         ${viewers.length ? viewers.map(email=>`
           <div class="access-row">
-            <span>${email}</span>
+            ${personLabel_(email, profiles, stores)}
             <button class="btn btn-ghost" style="padding:5px 10px; font-size:12px;" onclick="removeApprovedEmail('${email}')">삭제</button>
           </div>`).join('') : '<div class="access-empty">등록된 뷰어가 없습니다.</div>'}
       </div>
@@ -2067,11 +2201,23 @@ function renderAccessModal(editors, viewers, pending){
         <div class="access-section-title">이메일로 직접 등록 (요청 없이 먼저 권한 부여)</div>
         <div class="access-row">
           <input type="email" id="newApprovedEmail" placeholder="example@gmail.com" style="flex:1; border:1px solid var(--line); border-radius:6px; padding:7px 9px; font-size:13px;">
+          <select id="newApprovedStore" class="access-store-select">
+            <option value="">매장 미지정</option>
+            ${sortedStores.map(s=>`<option value="${s.code}">${s.name}</option>`).join('')}
+          </select>
           <select id="newApprovedRole" style="border:1px solid var(--line); border-radius:6px; padding:7px 6px; font-size:12.5px;">
             <option value="viewer" selected>뷰어</option>
             <option value="editor">편집자</option>
           </select>
           <button class="btn btn-primary" style="padding:7px 12px; font-size:12px;" onclick="addApprovedEmailFromInput()">등록</button>
+        </div>
+      </div>
+      <div class="access-section">
+        <div class="access-section-title">매장 추가 (등록된 매장 ${stores.length}개)</div>
+        <div class="access-row">
+          <input type="text" id="newStoreCode" placeholder="매장 코드 (예: RB260701_01)" style="flex:1; border:1px solid var(--line); border-radius:6px; padding:7px 9px; font-size:13px;">
+          <input type="text" id="newStoreName" placeholder="매장명 (예: 강남점)" style="flex:1; border:1px solid var(--line); border-radius:6px; padding:7px 9px; font-size:13px;">
+          <button class="btn btn-primary" style="padding:7px 12px; font-size:12px;" onclick="addStoreFromInput()">추가</button>
         </div>
       </div>
       <div class="modal-actions">
@@ -2081,8 +2227,10 @@ function renderAccessModal(editors, viewers, pending){
   document.body.appendChild(backdrop);
 }
 
-async function approveEmail(email, roleType){
-  await postAccessAction('approveRequest', email, roleType);
+async function approveEmail(email, roleType, safeId){
+  const sel = document.getElementById('storeSel-' + safeId);
+  const storeCode = sel ? sel.value : '';
+  await postAccessAction('approveRequest', email, roleType, storeCode);
   showAccessModal();
 }
 async function rejectEmail(email){
@@ -2098,16 +2246,38 @@ async function removeApprovedEmail(email){
 function addApprovedEmailFromInput(){
   const input = document.getElementById('newApprovedEmail');
   const roleSelect = document.getElementById('newApprovedRole');
+  const storeSelect = document.getElementById('newApprovedStore');
   const email = input.value.trim();
   if (!email || email.indexOf('@')===-1){ showToast('올바른 이메일을 입력해주세요.', 'error'); return; }
-  postAccessAction('addApprovedEmail', email, roleSelect.value).then(()=> showAccessModal());
+  postAccessAction('addApprovedEmail', email, roleSelect.value, storeSelect.value).then(()=> showAccessModal());
 }
-async function postAccessAction(action, targetEmail, roleType){
+function addStoreFromInput(){
+  const code = document.getElementById('newStoreCode').value.trim();
+  const name = document.getElementById('newStoreName').value.trim();
+  if (!code || !name){ showToast('매장 코드와 매장명을 모두 입력해주세요.', 'error'); return; }
+  postStoreAction('addStore', code, name).then(()=> showAccessModal());
+}
+async function postStoreAction(action, code, name){
   try{
     const res = await fetch(WEB_APP_URL, {
       method:'POST',
       headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body: JSON.stringify({ action, idToken:authToken, targetEmail, roleType })
+      body: JSON.stringify({ action, idToken:authToken, code, name })
+    });
+    const result = await res.json();
+    if (!result.success) showToast('처리 실패: ' + (result.error||''), 'error');
+    else showToast('처리되었습니다.');
+  }catch(e){
+    console.error(e);
+    showToast('서버 오류가 발생했습니다.', 'error');
+  }
+}
+async function postAccessAction(action, targetEmail, roleType, storeCode, position, name){
+  try{
+    const res = await fetch(WEB_APP_URL, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify({ action, idToken:authToken, targetEmail, roleType, storeCode, position, name })
     });
     const result = await res.json();
     if (!result.success) showToast('처리 실패: ' + (result.error||''), 'error');
