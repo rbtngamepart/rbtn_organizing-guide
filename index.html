@@ -439,10 +439,11 @@ async function saveGames(gameId){
     });
     const result = await res.json();
     if (result.success){
-      cacheAuthToken(authToken, authEmail); // 저장이 잘 되면 세션 갱신
+      cacheAuthToken(authToken, authEmail); // 저장이 잘 되면 로그인 세션 갱신
+      cacheEditorApproval();                // 편집자 승인 캐시도 10분 연장
     } else {
       showToast('저장 실패: 로그인 상태를 확인해주세요. (' + (result.error||'') + ')', 'error');
-      if (result.error === 'NOT_APPROVED') clearCachedAuthToken();
+      if (result.error === 'NOT_APPROVED'){ clearCachedAuthToken(); clearCachedEditorApproval(); }
     }
   }catch(e){
     console.error('저장 실패', e);
@@ -1554,18 +1555,49 @@ function clearCachedAuthToken(){
   authToken = null; authEmail = null;
 }
 
+const EDITOR_APPROVAL_TTL_MS = 10 * 60 * 1000; // 10분
+
+function getCachedEditorApproval(){
+  try{
+    const ts = Number(localStorage.getItem('editorApprovedAt') || 0);
+    const savedEmail = localStorage.getItem('editorApprovedEmail');
+    if (ts && savedEmail && savedEmail === authEmail && (Date.now()-ts) < EDITOR_APPROVAL_TTL_MS) return true;
+  }catch(e){}
+  return false;
+}
+function cacheEditorApproval(){
+  try{
+    localStorage.setItem('editorApprovedAt', String(Date.now()));
+    localStorage.setItem('editorApprovedEmail', authEmail || '');
+  }catch(e){}
+}
+function clearCachedEditorApproval(){
+  try{
+    localStorage.removeItem('editorApprovedAt');
+    localStorage.removeItem('editorApprovedEmail');
+  }catch(e){}
+}
+
 /**
  * "편집자" 버튼 클릭 시 호출됩니다.
  * 이미 로그인 게이트를 통과한 상태이므로, 새 팝업 없이 그 토큰으로 승인 여부만 확인합니다.
+ * 10분 안에 이미 승인 확인이 됐다면 서버에 다시 묻지 않고 바로 전환합니다.
  */
 async function enterEditorMode(){
   if (!authToken){ showGate(); return; }
+
+  if (getCachedEditorApproval()){
+    setRole('editor');
+    return;
+  }
+
   showToast('권한 확인 중...');
   const result = await checkAccessOnServer(authToken);
 
   if (result.status === 'approved'){
     authEmail = result.email;
     cacheAuthToken(authToken, authEmail);
+    cacheEditorApproval(); // 10분 창 시작(연장)
     setRole('editor');
     showToast('편집자로 전환되었습니다 (' + authEmail + ')');
   } else if (result.status === 'pending'){
@@ -1573,6 +1605,7 @@ async function enterEditorMode(){
   } else {
     showToast('권한 확인에 실패했습니다. 다시 로그인해주세요.', 'error');
     clearCachedAuthToken();
+    clearCachedEditorApproval();
     showGate();
   }
 }
@@ -1586,6 +1619,7 @@ function setRole(r){
 
 function logout(){
   clearCachedAuthToken();
+  clearCachedEditorApproval();
   role = 'viewer';
   currentGameId = null;
   document.getElementById('appRoot').style.display = 'none';
@@ -1607,18 +1641,36 @@ function renderGateButton(){
   const container = document.getElementById('gateGsiButton');
   const errorEl = document.getElementById('gateError');
   errorEl.style.display = 'none';
-  container.innerHTML = '';
+  container.innerHTML = '<div style="font-size:12px; color:var(--ink-soft);">로그인 준비 중...</div>';
 
-  if (typeof google === 'undefined' || !google.accounts || !google.accounts.id){
-    errorEl.style.display = 'block';
-    errorEl.textContent = '구글 로그인 라이브러리를 불러오지 못했습니다. 인터넷 연결을 확인 후 새로고침 해주세요.';
+  waitForGoogleSDK_(()=>{
+    container.innerHTML = '';
+    google.accounts.id.initialize({
+      client_id: GOOGLE_CLIENT_ID,
+      callback: handleGateCredential
+    });
+    google.accounts.id.renderButton(container, { theme:'outline', size:'large', width:280 });
+  }, container, errorEl);
+}
+
+/**
+ * 구글 로그인 스크립트(gsi/client)는 async로 로딩되기 때문에, 시크릿 창처럼
+ * 캐시가 없어 느린 환경에서는 페이지가 그려질 때 아직 준비 안 됐을 수 있습니다.
+ * 즉시 실패 처리하지 않고, 최대 5초간 200ms 간격으로 재확인합니다.
+ */
+function waitForGoogleSDK_(callback, container, errorEl, attemptsLeft){
+  if (attemptsLeft === undefined) attemptsLeft = 25; // 25 * 200ms = 5초
+  if (window.google && google.accounts && google.accounts.id){
+    callback();
     return;
   }
-  google.accounts.id.initialize({
-    client_id: GOOGLE_CLIENT_ID,
-    callback: handleGateCredential
-  });
-  google.accounts.id.renderButton(container, { theme:'outline', size:'large', width:280 });
+  if (attemptsLeft <= 0){
+    container.innerHTML = '';
+    errorEl.style.display = 'block';
+    errorEl.textContent = '구글 로그인 라이브러리를 불러오지 못했습니다. 새로고침 해주세요.';
+    return;
+  }
+  setTimeout(()=> waitForGoogleSDK_(callback, container, errorEl, attemptsLeft-1), 200);
 }
 
 /**
