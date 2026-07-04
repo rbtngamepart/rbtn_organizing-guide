@@ -80,6 +80,12 @@
   .back:hover{color:var(--ink);}
   .detail-title{font-size:24px; font-weight:800; letter-spacing:-0.02em;}
   .detail-id{font-family:var(--mono); font-size:12px; color:var(--ink-soft); margin-top:2px;}
+  .game-note-area{flex:1; display:flex; justify-content:flex-end; max-width:380px;}
+  .game-note-add{font-size:12px; color:var(--ink-soft); background:none; border:1px dashed var(--line); border-radius:7px; padding:7px 12px; cursor:pointer; font-family:var(--sans); align-self:flex-start;}
+  .game-note-add:hover{color:var(--accent); border-color:var(--accent);}
+  .game-note-input{width:100%; min-height:46px; border:1px solid var(--line); border-radius:8px; padding:8px 10px; font-size:13px; font-family:var(--sans); resize:vertical; box-sizing:border-box;}
+  .game-note-input:focus{border-color:var(--accent); outline:none;}
+  .game-note-view{font-size:13px; color:#7a5b12; font-style:italic; background:#FFF6DE; border:1px solid #F0DFA8; border-radius:8px; padding:8px 12px; width:100%; text-align:left; line-height:1.5;}
 
   .tabs{display:flex; gap:4px; background:var(--bg); border:1px solid var(--line); border-radius:9px; padding:3px; margin-bottom:20px; width:fit-content;}
   .tabs button{border:none; background:transparent; padding:8px 16px; border-radius:7px; font-size:13px; font-weight:700; cursor:pointer; color:var(--ink-soft); font-family:var(--sans);}
@@ -222,6 +228,8 @@
     .search{order:4; max-width:none; flex-basis:100%;}
     main{padding:16px 14px 60px;}
     .detail-title{font-size:20px;}
+    .detail-head{flex-direction:column;}
+    .game-note-area{max-width:none; justify-content:flex-start;}
     .grid{grid-template-columns:repeat(auto-fill, minmax(150px,1fr)); gap:10px;}
     .card{padding:12px;}
     .card-name{font-size:14px;}
@@ -526,6 +534,7 @@ function renderDetail(app){
         <div class="detail-title">${g.name}</div>
         <div class="detail-id">ID ${g.id}</div>
       </div>
+      <div class="game-note-area">${renderGameNote_(g)}</div>
     </div>
     <div class="tabs">
       <button class="${currentMode==='1'?'active':''}" onclick="setMode('1')">사진</button>
@@ -1246,6 +1255,7 @@ function helpViewerContent_(){
         </ul>
       </li>
       <li><b>케이스종류</b> — A~L 배지로 표시되며, 각 배지에는 실제 제품 사이즈(mm)도 함께 나옵니다.</li>
+      <li><b>게임 메모</b> — 게임 제목 옆에 메모가 있으면 노란 박스로 표시됩니다. 사진/표 탭과 무관하게 게임 전체에 대한 안내입니다.</li>
       <li><b>여러 게임 준비물 한번에 확인</b> — 목록 화면에서 작업할 게임들을 체크박스로 여러 개 선택하면, 상단에 <b>필요한 케이스종류별 총 개수</b>가 자동으로 계산되어 나옵니다. 작업 전에 필요한 케이스를 미리 챙길 때 유용합니다.</li>
     </ul>
     <p class="help-note">뷰어 모드에서는 내용을 보기만 할 수 있고 수정은 되지 않습니다.</p>
@@ -1263,6 +1273,7 @@ function helpEditorContent_(){
       <li><b>라벨 미리보기</b> — 텍스트박스 상단의 검정 "라벨" 버튼을 누르면, 실제 라벨기로 인쇄해 붙였을 때의 모습(검정 바탕 흰 글씨)을 미리 볼 수 있는 박스가 따로 생깁니다. 내용 수정, 줄바꿈, 글자 크기 조절(A-/A+), 모서리 드래그로 크기 조절(글자도 같이 커짐/작아짐)이 모두 가능합니다.</li>
       <li><b>표에서 직접 수정</b> — 표 탭에서도 케이스종류·구성품·수량·비고를 셀에서 바로 편집하거나, 케이스/항목을 추가·삭제할 수 있습니다. 사진과 표는 같은 데이터를 공유합니다.</li>
       <li><b>비고(메모)</b> — 텍스트박스 하단의 "+ 비고" 버튼을 누르면 메모칸이 나타납니다. 카드가 프로텍터 기준인지 코팅 기준인지, 토큰에 코인 캡슐을 쓰는지 등을 적어두면 표 탭의 "비고" 열에도 똑같이 반영됩니다. 선택 사항이라 안 적으면 표시되지 않습니다.</li>
+      <li><b>게임 전체 메모</b> — 이건 특정 구성품이 아니라 게임 전체에 대한 메모입니다. 게임 제목 옆의 "+ 게임 메모"로 추가하며, 사진 탭·표 탭 어디서 보든 동일하게 상단에 나타납니다.</li>
       <li><b>게임 삭제</b> — 목록 화면 카드의 ✕ 버튼으로 삭제할 수 있습니다 (되돌릴 수 없으니 주의).</li>
       <li><b>동시 편집</b> — 여러 명이 각자 다른 게임을 동시에 편집해도 서로의 작업을 덮어쓰지 않습니다. 다른 편집자가 추가한 게임을 보려면 상단 "↻ 새로고침"을 눌러주세요.</li>
     </ul>
@@ -1312,8 +1323,33 @@ function changeLabelFontSize(li, delta){
   render();
 }
 
-function openGame(id){ currentGameId=id; currentMode='1'; currentPhotoIdx=0; render(); }
+let gameNoteExpanded = false;
+
+function openGame(id){ currentGameId=id; currentMode='1'; currentPhotoIdx=0; gameNoteExpanded=false; render(); }
 function closeGame(){ currentGameId=null; render(); }
+
+function renderGameNote_(g){
+  const editable = role==='editor';
+  const hasNote = g.note && g.note.length>0;
+  if (editable){
+    if (hasNote || gameNoteExpanded){
+      return `<textarea class="game-note-input" placeholder="게임 전체에 대한 메모 (선택, 사진/표 어디에도 종속되지 않음)" onchange="updateGameNote(this.value)">${g.note||''}</textarea>`;
+    }
+    return `<button class="game-note-add" onclick="expandGameNote()">+ 게임 메모</button>`;
+  }
+  return hasNote ? `<div class="game-note-view">📝 ${g.note}</div>` : '';
+}
+
+function expandGameNote(){
+  gameNoteExpanded = true;
+  render();
+}
+
+function updateGameNote(value){
+  const g = games.find(x=>x.id===currentGameId);
+  g.note = value;
+  saveGames();
+}
 function setMode(m){ currentMode=m; currentPhotoIdx=0; render(); }
 function prevPhoto(){ if (currentPhotoIdx>0){ currentPhotoIdx--; render(); } }
 function nextPhoto(){ const g=games.find(x=>x.id===currentGameId); if (currentPhotoIdx<g.photos.length-1){ currentPhotoIdx++; render(); } }
