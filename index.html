@@ -455,7 +455,7 @@ async function loadGames(){
  * 게임 하나만 서버에 저장합니다. (전체 목록을 통째로 덮어쓰지 않음)
  * 여러 편집자가 서로 다른 게임을 동시에 작업해도 서로의 저장을 덮어쓰지 않도록 하기 위함입니다.
  */
-async function saveGames(gameId){
+async function saveGames(gameId, _isRetry){
   gameId = gameId || currentGameId;
   if (!gameId){ console.warn('저장할 게임을 특정할 수 없습니다.'); return; }
   if (WEB_APP_URL === 'YOUR_WEB_APP_URL') return; // 데모 모드에서는 저장 생략
@@ -473,13 +473,23 @@ async function saveGames(gameId){
     if (result.success){
       cacheAuthToken(authToken, authEmail); // 저장이 잘 되면 로그인 세션 갱신
       cacheEditorApproval();                // 편집자 승인 캐시도 10분 연장
+    } else if (result.error === 'NOT_APPROVED' || result.error === 'NOT_AUTHENTICATED'){
+      showToast('로그인 상태를 확인해주세요. (' + (result.error||'') + ')', 'error');
+      clearCachedAuthToken(); clearCachedEditorApproval();
+    } else if (!_isRetry){
+      // 드라이브 쪽 일시적인 오류일 수 있으므로, 잠깐 기다렸다가 한 번 더 시도
+      await new Promise(r=>setTimeout(r, 700));
+      return saveGames(gameId, true);
     } else {
-      showToast('저장 실패: 로그인 상태를 확인해주세요. (' + (result.error||'') + ')', 'error');
-      if (result.error === 'NOT_APPROVED'){ clearCachedAuthToken(); clearCachedEditorApproval(); }
+      showToast('저장 실패: ' + (result.error||'') + ' (잠시 후 다시 시도해주세요)', 'error');
     }
   }catch(e){
     console.error('저장 실패', e);
-    showToast('서버에 연결하지 못했습니다. 네트워크 상태 또는 설정을 확인해주세요.', 'error');
+    if (!_isRetry){
+      await new Promise(r=>setTimeout(r, 700));
+      return saveGames(gameId, true);
+    }
+    showToast('서버에 연결하지 못했습니다. 네트워크 상태를 확인해주세요.', 'error');
   }
 }
 
