@@ -251,13 +251,15 @@
   .edge-w{left:-4px; top:50%; width:8px; height:36px; transform:translateY(-50%); cursor:ew-resize;}
   .edge-e{right:-4px; top:50%; width:8px; height:36px; transform:translateY(-50%); cursor:ew-resize;}
   .crop-dim-label{position:absolute; left:50%; bottom:8px; transform:translateX(-50%); background:rgba(0,0,0,.7); color:#fff; font-size:11px; font-family:var(--mono); padding:3px 9px; border-radius:5px; white-space:nowrap; pointer-events:none;}
-  .shrink-preview{position:absolute; border:1.5px dashed rgba(255,255,255,.9); box-sizing:border-box; pointer-events:none; display:none;}
-  .shrink-preview::after{content:''; position:absolute; inset:0; background:rgba(255,255,255,.08);}
+  .crop-toolbar{display:flex; gap:8px; margin-bottom:10px;}
   .crop-hint{font-size:11.5px; color:var(--ink-soft); margin-top:10px;}
   .crop-shrink-row{display:flex; align-items:center; gap:10px; margin-top:12px; padding-top:12px; border-top:1px solid var(--line);}
   .crop-shrink-row label{font-size:12px; color:var(--ink-soft); white-space:nowrap;}
   .crop-shrink-row input[type=range]{flex:1;}
   .crop-shrink-row span{font-size:11.5px; font-family:var(--mono); color:var(--ink-soft); width:40px; text-align:right;}
+  .crop-result-row{margin-top:14px; padding-top:14px; border-top:1px solid var(--line); text-align:center;}
+  .crop-result-label{font-size:12px; color:var(--ink-soft); margin-bottom:8px;}
+  #cropResultPreview{border:1px solid var(--line); border-radius:8px; background:#F6F6F3; max-width:100%;}
 
   #toast{position:fixed; bottom:20px; right:20px; z-index:100; display:flex; flex-direction:column; gap:8px; max-width:320px;}
   .toast-msg{background:var(--ink); color:#fff; padding:10px 14px; border-radius:8px; font-size:13px; box-shadow:0 4px 14px rgba(0,0,0,.2); opacity:0; transform:translateY(8px); transition:opacity .2s, transform .2s;}
@@ -1222,11 +1224,68 @@ function openCropModal(file){
   const url = URL.createObjectURL(file);
   const img = new Image();
   img.onload = () => {
-    cropState = { img, url };
+    cropState = { originalImg: img, img: img, url, rotation: 0 };
     renderCropModal();
   };
   img.onerror = () => showToast('이미지를 불러오지 못했습니다.', 'error');
   img.src = url;
+}
+
+/**
+ * 원본 이미지를 90도 단위로 회전시킨 새 캔버스를 만듭니다.
+ * 이후 크롭/미리보기 코드는 이 캔버스를 그냥 "이미지"처럼 취급합니다.
+ */
+function makeRotatedCanvas_(img, rotationDeg){
+  const rad = rotationDeg * Math.PI / 180;
+  const swapped = (rotationDeg === 90 || rotationDeg === 270);
+  const w = img.width, h = img.height;
+  const canvas = document.createElement('canvas');
+  canvas.width = swapped ? h : w;
+  canvas.height = swapped ? w : h;
+  const ctx = canvas.getContext('2d');
+  ctx.save();
+  ctx.translate(canvas.width/2, canvas.height/2);
+  ctx.rotate(rad);
+  ctx.drawImage(img, -w/2, -h/2);
+  ctx.restore();
+  return canvas;
+}
+
+function rotateCropImage(deltaDeg){
+  cropState.rotation = ((cropState.rotation||0) + deltaDeg + 360) % 360;
+  cropState.img = cropState.rotation === 0
+    ? cropState.originalImg
+    : makeRotatedCanvas_(cropState.originalImg, cropState.rotation);
+  recomputeCropLayout_(); // 회전하면 가로/세로 비율이 바뀌므로 선택 영역을 전체로 리셋
+  drawCropImage();
+  updateCropBoxUI();
+}
+
+/**
+ * 화면에 렌더링된 크기를 측정해서, 그 좌표계로 모든 계산을 통일합니다.
+ * (CSS로 축소/확대되는 캔버스와 좌표 기준이 어긋나는 것을 방지)
+ * 회전 직후 또는 최초 진입 시 호출되며, 선택 영역을 전체 이미지로 리셋합니다.
+ */
+function recomputeCropLayout_(){
+  const wrap = document.getElementById('cropWrap');
+  const canvas = document.getElementById('cropCanvas');
+  const rect = wrap.getBoundingClientRect();
+  const W = Math.max(100, Math.round(rect.width));
+  const H = Math.max(100, Math.round(rect.height));
+  canvas.width = W;
+  canvas.height = H;
+
+  const img = cropState.img;
+  const containScale = Math.min(W/img.width, H/img.height);
+  const dispW = img.width * containScale, dispH = img.height * containScale;
+  const dispX = (W - dispW) / 2, dispY = (H - dispH) / 2;
+
+  cropState.stageW = W;
+  cropState.stageH = H;
+  cropState.containScale = containScale;
+  cropState.imgBounds = { x: dispX, y: dispY, w: dispW, h: dispH };
+  cropState.box = { left: dispX, top: dispY, width: dispW, height: dispH }; // 전체 선택으로 초기화
+  cropState.shrinkPct = cropState.shrinkPct != null ? cropState.shrinkPct : 100;
 }
 
 function renderCropModal(){
@@ -1236,10 +1295,13 @@ function renderCropModal(){
   backdrop.innerHTML = `
     <div class="modal crop-modal">
       <h3>사진 자르기</h3>
+      <div class="crop-toolbar">
+        <button class="btn btn-ghost" onclick="rotateCropImage(-90)" title="왼쪽으로 90도 회전">↺ 회전</button>
+        <button class="btn btn-ghost" onclick="rotateCropImage(90)" title="오른쪽으로 90도 회전">회전 ↻</button>
+      </div>
       <div class="crop-canvas-wrap" id="cropWrap">
         <canvas id="cropCanvas"></canvas>
         <div class="crop-box" id="cropBox">
-          <div class="shrink-preview" id="shrinkPreview"></div>
           <div class="crop-dim-label" id="cropDimLabel"></div>
           <div class="crop-handle handle-nw" data-h="nw"></div>
           <div class="crop-handle handle-ne" data-h="ne"></div>
@@ -1257,7 +1319,10 @@ function renderCropModal(){
         <input type="range" id="cropShrinkRange" min="40" max="100" value="100">
         <span id="cropShrinkVal">100%</span>
       </div>
-      <div class="crop-hint">축소하면 선택한 영역이 그대로 작아지고, 남는 자리는 여백으로 채워집니다.</div>
+      <div class="crop-result-row">
+        <div class="crop-result-label">실제 저장될 모습 미리보기</div>
+        <canvas id="cropResultPreview" width="220" height="160"></canvas>
+      </div>
       <div class="modal-actions">
         <button class="btn btn-ghost" onclick="resetCropBox()">전체 선택으로 초기화</button>
         <button class="btn btn-ghost" onclick="cancelCropModal()">취소</button>
@@ -1266,31 +1331,11 @@ function renderCropModal(){
     </div>`;
   document.body.appendChild(backdrop);
 
-  // 실제 화면에 렌더링된 크기를 측정해서, 그 좌표계로 모든 계산을 통일합니다.
-  // (CSS로 축소/확대되는 캔버스와 좌표 기준이 어긋나는 것을 방지)
-  const wrap = document.getElementById('cropWrap');
-  const canvas = document.getElementById('cropCanvas');
-  const rect = wrap.getBoundingClientRect();
-  const W = Math.max(100, Math.round(rect.width));
-  const H = Math.max(100, Math.round(rect.height));
-  canvas.width = W;
-  canvas.height = H;
-
-  const { img } = cropState;
-  const containScale = Math.min(W/img.width, H/img.height);
-  const dispW = img.width * containScale, dispH = img.height * containScale;
-  const dispX = (W - dispW) / 2, dispY = (H - dispH) / 2;
-
-  cropState.stageW = W;
-  cropState.stageH = H;
-  cropState.containScale = containScale;
-  cropState.imgBounds = { x: dispX, y: dispY, w: dispW, h: dispH };
-  cropState.box = { left: dispX, top: dispY, width: dispW, height: dispH }; // 처음엔 전체 선택
-  cropState.shrinkPct = 100;
-
+  recomputeCropLayout_();
   drawCropImage();
   updateCropBoxUI();
 
+  const wrap = document.getElementById('cropWrap');
   const cropBox = document.getElementById('cropBox');
 
   cropBox.addEventListener('pointerdown', e=>{
@@ -1320,7 +1365,7 @@ function renderCropModal(){
   document.getElementById('cropShrinkRange').addEventListener('input', e=>{
     cropState.shrinkPct = Number(e.target.value);
     document.getElementById('cropShrinkVal').textContent = cropState.shrinkPct + '%';
-    updateShrinkPreview();
+    updateResultPreview();
   });
 }
 
@@ -1358,27 +1403,38 @@ function updateCropBoxUI(){
   const realH = Math.round(height / cropState.containScale);
   document.getElementById('cropDimLabel').textContent = `${realW} x ${realH}`;
 
-  updateShrinkPreview();
+  updateResultPreview();
 }
 
 /**
- * "전체 축소" 슬라이더 값을 크롭 박스 안에 점선 사각형으로 실시간 미리보기합니다.
+ * 점선 표시 대신, 실제로 저장될 때의 모습(선택 영역 + 축소 비율 반영)을
+ * 별도 캔버스에 그대로 그려서 보여줍니다. applyCrop()과 동일한 계산식을 씁니다.
  */
-function updateShrinkPreview(){
-  const el = document.getElementById('shrinkPreview');
-  if (!el || !cropState) return;
-  const pct = (cropState.shrinkPct || 100) / 100;
+function updateResultPreview(){
+  const canvas = document.getElementById('cropResultPreview');
+  if (!canvas || !cropState || !cropState.box) return;
+  const ctx = canvas.getContext('2d');
+  const outW = canvas.width, outH = canvas.height;
+  ctx.clearRect(0,0,outW,outH);
+  ctx.fillStyle = '#F6F6F3';
+  ctx.fillRect(0,0,outW,outH);
 
-  if (pct >= 1){
-    el.style.display = 'none';
-    return;
-  }
-  el.style.display = 'block';
-  const insetPct = (1 - pct) / 2 * 100;
-  el.style.left = insetPct + '%';
-  el.style.top = insetPct + '%';
-  el.style.width = (pct * 100) + '%';
-  el.style.height = (pct * 100) + '%';
+  const { img, imgBounds, containScale, box } = cropState;
+  const sx = (box.left - imgBounds.x) / containScale;
+  const sy = (box.top - imgBounds.y) / containScale;
+  const sW = box.width / containScale;
+  const sH = box.height / containScale;
+  if (sW <= 0 || sH <= 0) return;
+
+  // 선택 영역을 미리보기 캔버스 안에 '포함(contain)' 되도록 기본 배치
+  const fitScale = Math.min(outW/sW, outH/sH);
+  const baseW = sW * fitScale, baseH = sH * fitScale;
+
+  const shrink = (cropState.shrinkPct || 100) / 100;
+  const drawW = baseW * shrink, drawH = baseH * shrink;
+  const drawX = (outW - drawW) / 2, drawY = (outH - drawH) / 2;
+
+  ctx.drawImage(img, sx, sy, sW, sH, drawX, drawY, drawW, drawH);
 }
 
 function resetCropBox(){
@@ -1537,7 +1593,7 @@ function helpEditorContent_(){
       <li><b>편집자 전환</b> — 이미 로그인된 상태이므로, 상단 "편집자" 버튼을 누르면 별도 팝업 없이 바로 승인 여부를 확인합니다. 승인된 계정이면 즉시 편집 가능하고, 아닌 경우 승인 요청이 자동 접수됩니다.</li>
       <li><b>권한 관리</b> — "🔑 권한 관리" 화면에서 대기 중인 요청을 이름·매장·직급과 함께 확인하고 <b>편집자 또는 뷰어로 승인</b>하거나 거절할 수 있습니다. 승인 시 매장을 다시 지정/수정할 수도 있습니다. 이름 옆 ✏️ 버튼으로 언제든 이름을 수정할 수 있습니다. 이메일을 직접 입력해 요청 없이도 먼저 권한을 부여할 수 있고, 등록된 계정은 언제든 삭제할 수 있습니다. "매장 추가"에서 매장 코드·매장명을 등록해두면 신청서 작성 시 선택 목록에 나타납니다.</li>
       <li><b>새 가이드 만들기</b> — 상단 "+ 새 가이드" 버튼으로 게임 ID·이름을 입력해 새로 생성합니다.</li>
-      <li><b>사진 등록</b> — 사진 탭에서 "사진 업로드" 또는 사진 영역에 파일을 끌어다 놓으면, 자르기(크롭)·이동·확대·축소 편집창이 뜹니다. 필요한 부분만 선택해서 적용하세요. "+ 사진 페이지 추가"로 사진을 여러 장 등록하고 넘겨가며 관리할 수 있습니다.</li>
+      <li><b>사진 등록</b> — 사진 탭에서 "사진 업로드" 또는 사진 영역에 파일을 끌어다 놓으면, 회전·자르기(크롭)·이동·확대·축소 편집창이 뜹니다. 회전 버튼으로 사진 방향을 바로잡고, 축소 슬라이더 아래 미리보기에서 실제 저장될 모습을 그대로 확인할 수 있습니다. "+ 사진 페이지 추가"로 사진을 여러 장 등록하고 넘겨가며 관리할 수 있습니다.</li>
       <li><b>마커(케이스 위치) 추가·편집</b> — 사진의 빈 곳을 클릭하면 새 마커와 텍스트박스가 생깁니다. 마커와 텍스트박스는 각각 드래그로 위치를 옮길 수 있고, 텍스트박스 안에서 케이스종류·구성품명·수량을 바로 수정할 수 있습니다.</li>
       <li><b>표 기준 마커 자동 생성</b> — 표에는 등록돼있지만 아직 사진에 마커가 없는 케이스들을, "📍 표 기준 마커 자동 생성" 버튼으로 한 번에 격자 배치할 수 있습니다. 이후 실제 배치에 맞게 위치만 드래그로 옮겨주면 됩니다. (일괄로 데이터만 먼저 등록한 게임에 유용합니다)</li>
       <li><b>라벨 미리보기</b> — 텍스트박스 상단의 검정 "라벨" 버튼을 누르면, 실제 라벨기로 인쇄해 붙였을 때의 모습(검정 바탕 흰 글씨)을 미리 볼 수 있는 박스가 따로 생깁니다. 내용 수정, 줄바꿈, 글자 크기 조절(A-/A+), 모서리 드래그로 크기 조절(글자도 같이 커짐/작아짐)이 모두 가능합니다.</li>
