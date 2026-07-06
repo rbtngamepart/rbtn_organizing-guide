@@ -1930,7 +1930,7 @@ function renderGateDefault_(){
 function renderGatePending_(isNew){
   document.getElementById('gateContent').innerHTML = `
     <div class="brand" style="justify-content:center; pointer-events:none;">RED BUTTON<span class="r-mark">®</span></div>
-    <p style="margin-top:10px;">${isNew ? '접근 권한 요청이 접수되었습니다.' : '아직 승인 대기 중입니다.'}<br>담당 편집자의 승인 후 이용하실 수 있습니다.</p>
+    <p style="margin-top:10px;">${isNew ? '접근 권한 요청이 접수되었습니다.' : '아직 승인 대기 중입니다.'}<br>담당자의 승인 후 이용하실 수 있습니다.</p>
     <p style="margin-top:14px; font-size:12px; color:var(--ink-soft);">로그인 계정: ${authEmail || ''}</p>
     <button class="btn btn-ghost" style="margin-top:16px;" onclick="logout()">다른 계정으로 로그인</button>
   `;
