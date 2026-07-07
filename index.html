@@ -476,8 +476,10 @@ async function saveGames(gameId, _isRetry){
       cacheAuthToken(authToken, authEmail); // 저장이 잘 되면 로그인 세션 갱신
       cacheEditorApproval();                // 편집자 승인 캐시도 10분 연장
     } else if (result.error === 'NOT_APPROVED' || result.error === 'NOT_AUTHENTICATED'){
-      showToast('로그인 상태를 확인해주세요. (' + (result.error||'') + ')', 'error');
-      clearCachedAuthToken(); clearCachedEditorApproval();
+      clearCachedAuthToken();
+      clearCachedEditorApproval();
+      showGate();
+      showToast('로그인이 만료되었습니다. 다시 로그인해주세요.', 'error');
     } else if (!_isRetry){
       // 드라이브 쪽 일시적인 오류일 수 있으므로, 잠깐 기다렸다가 한 번 더 시도
       await new Promise(r=>setTimeout(r, 700));
@@ -1690,6 +1692,12 @@ async function fetchFullGame_(id){
       const idx = games.findIndex(g=>g.id===id);
       if (idx !== -1) games[idx] = result.game;
       else games.push(result.game);
+    } else if (result.error === 'NOT_AUTHENTICATED' || result.error === 'NOT_APPROVED'){
+      // 로그인(구글 토큰)이 시간 지나 만료된 경우 - 다시 로그인하도록 안내
+      clearCachedAuthToken();
+      clearCachedEditorApproval();
+      showGate();
+      showToast('로그인이 만료되었습니다. 다시 로그인해주세요.', 'error');
     } else {
       showToast('게임 데이터를 불러오지 못했습니다. (' + (result.error||'') + ')', 'error');
     }
