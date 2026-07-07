@@ -458,6 +458,54 @@ async function loadGames(){
  * 게임 하나만 서버에 저장합니다. (전체 목록을 통째로 덮어쓰지 않음)
  * 여러 편집자가 서로 다른 게임을 동시에 작업해도 서로의 저장을 덮어쓰지 않도록 하기 위함입니다.
  */
+/**
+ * 편집 중 저장을 매번 즉시 보내지 않고, 마지막 편집 후 잠깐(1.2초) 기다렸다가
+ * 한 번만 보냅니다. 같은 게임을 여러 번 연달아 편집(마커 여러 개 옮기기, 글자
+ * 여러 번 고치기 등)해도 서버로는 요청이 한 번만 나가서 트래픽이 줄어듭니다.
+ * (사진이 있는 게임은 사소한 글자 수정에도 사진 데이터까지 매번 통째로
+ *  다시 전송되던 문제가 있어서, 이 부분에서 특히 효과가 큽니다)
+ */
+const SAVE_DEBOUNCE_MS = 1200;
+let pendingSaveTimers_ = {}; // gameId -> timer id
+
+function debouncedSaveGames(gameId){
+  gameId = gameId || currentGameId;
+  if (!gameId) return;
+  if (pendingSaveTimers_[gameId]) clearTimeout(pendingSaveTimers_[gameId]);
+  pendingSaveTimers_[gameId] = setTimeout(()=>{
+    delete pendingSaveTimers_[gameId];
+    saveGames(gameId);
+  }, SAVE_DEBOUNCE_MS);
+}
+
+/**
+ * 대기 중인 저장이 있으면 기다리지 않고 바로 실행합니다.
+ * 다른 게임으로 이동하거나, 탭을 벗어나거나, 페이지를 닫기 직전 등
+ * "여기서는 확실히 저장해두는 게 안전한" 시점에 호출합니다.
+ */
+function flushPendingSave_(gameId){
+  gameId = gameId || currentGameId;
+  if (!gameId) return;
+  if (pendingSaveTimers_[gameId]){
+    clearTimeout(pendingSaveTimers_[gameId]);
+    delete pendingSaveTimers_[gameId];
+    saveGames(gameId);
+  }
+}
+
+// 탭을 닫거나 새로고침하기 직전에도 대기 중인 저장을 시도합니다.
+window.addEventListener('beforeunload', ()=>{
+  Object.keys(pendingSaveTimers_).forEach(gameId=>{
+    clearTimeout(pendingSaveTimers_[gameId]);
+    const game = games.find(g=>g.id===gameId);
+    if (game && authToken){
+      // beforeunload 안에서는 일반 fetch가 끝까지 실행 안 될 수 있어 sendBeacon 사용
+      const blob = new Blob([JSON.stringify({ action:'saveGame', idToken:authToken, game })], { type:'text/plain;charset=utf-8' });
+      navigator.sendBeacon(WEB_APP_URL, blob);
+    }
+  });
+});
+
 async function saveGames(gameId, _isRetry){
   gameId = gameId || currentGameId;
   if (!gameId){ console.warn('저장할 게임을 특정할 수 없습니다.'); return; }
@@ -1173,7 +1221,7 @@ function attachPhotoHandlers(g){
         labelEl.contentEditable = 'true';
         labelEl.addEventListener('blur', ()=>{
           lbl.text = labelEl.innerText;
-          saveGames();
+          debouncedSaveGames();
         });
 
         const toolbar = document.createElement('div');
@@ -1262,10 +1310,10 @@ function attachPhotoHandlers(g){
     };
     window.onpointerup = ()=>{
       if (draggingMarker!==null || draggingBox!==null){
-        draggingMarker=null; draggingBox=null; dragMarkerOffset=null; dragBoxOffset=null; saveGames();
+        draggingMarker=null; draggingBox=null; dragMarkerOffset=null; dragBoxOffset=null; debouncedSaveGames();
       }
       if (draggingLabel!==null || resizingLabel!==null){
-        draggingLabel=null; resizingLabel=null; dragLabelOffset=null; resizeLabelStart=null; saveGames();
+        draggingLabel=null; resizingLabel=null; dragLabelOffset=null; resizeLabelStart=null; debouncedSaveGames();
       }
     };
     stage.onclick = e=>{
@@ -1277,7 +1325,7 @@ function attachPhotoHandlers(g){
       const boxY = Math.max(5, Math.min(95, y-6));
       g.cases.push({caseType:'A', items:[{name:'새 구성품', qty:1}]});
       photo.markers.push({x, y, caseIdx:g.cases.length-1, box:{x:boxX, y:boxY}});
-      saveGames();
+      debouncedSaveGames();
       draw();
     };
     stage.addEventListener('dragover', e=>{ e.preventDefault(); stage.classList.add('dragover'); });
@@ -1634,7 +1682,7 @@ function previewMarkerSize(v){
 function updateMarkerSize(v){
   const g = games.find(x=>x.id===currentGameId);
   g.markerSize = Number(v);
-  saveGames();
+  debouncedSaveGames();
 }
 
 /* ============================================================
@@ -1737,7 +1785,7 @@ function createLabelFromCase(markerIdxInCurrentPhoto){
     fontSizePct: 2.15, // 화면 폭의 2.15% (기존 "650px 기준 14px" 디자인과 동일한 비율)
     sized: false
   });
-  saveGames();
+  debouncedSaveGames();
   render();
 }
 
@@ -1745,7 +1793,7 @@ function deleteLabel(li){
   const g = games.find(x=>x.id===currentGameId);
   const photo = g.photos[currentPhotoIdx];
   photo.labels.splice(li, 1);
-  saveGames();
+  debouncedSaveGames();
   render();
 }
 
@@ -1756,7 +1804,7 @@ function changeLabelFontSize(li, delta){
   const current = lbl.fontSizePct != null ? lbl.fontSizePct : ((lbl.fontSize||14)/650*100);
   lbl.fontSizePct = Math.max(0.4, Math.min(20, current + delta*0.3));
   delete lbl.fontSize;
-  saveGames();
+  debouncedSaveGames();
   render();
 }
 
@@ -1768,13 +1816,14 @@ function rotateLabel(li){
   const photo = g.photos[currentPhotoIdx];
   const lbl = photo.labels[li];
   lbl.rotation = ((lbl.rotation || 0) + 90) % 360;
-  saveGames();
+  debouncedSaveGames();
   render();
 }
 
 let gameNoteExpanded = false;
 
 async function openGame(id){
+  flushPendingSave_(currentGameId); // 다른 게임으로 넘어가기 전, 대기 중이던 저장을 먼저 확정
   currentGameId=id; currentMode='1'; currentPhotoIdx=0; gameNoteExpanded=false; showDashboard=false;
   document.getElementById('app').innerHTML = `<div class="empty">불러오는 중...</div>`;
   await fetchFullGame_(id);
@@ -1811,7 +1860,7 @@ async function fetchFullGame_(id){
     showToast('서버 오류가 발생했습니다.', 'error');
   }
 }
-function closeGame(){ currentGameId=null; showDashboard=false; render(); }
+function closeGame(){ flushPendingSave_(currentGameId); currentGameId=null; showDashboard=false; render(); }
 
 function renderGameNote_(g){
   const editable = role==='editor';
@@ -1833,7 +1882,7 @@ function expandGameNote(){
 function updateGameNote(value){
   const g = games.find(x=>x.id===currentGameId);
   g.note = value;
-  saveGames();
+  debouncedSaveGames();
 }
 function setMode(m){ currentMode=m; currentPhotoIdx=0; render(); }
 function prevPhoto(){ if (currentPhotoIdx>0){ currentPhotoIdx--; render(); } }
@@ -1863,7 +1912,7 @@ function autoGenerateMarkers(){
     photo.markers.push({ x: positions[i].x, y: positions[i].y, caseIdx: ci });
   });
 
-  saveGames();
+  debouncedSaveGames();
   render();
   showToast(missing.length + '개 마커를 자동 생성했습니다. 위치를 드래그해서 실제 배치에 맞게 옮겨주세요.');
 }
@@ -1892,7 +1941,7 @@ function movePhoto(direction){
   g.photos[currentPhotoIdx] = g.photos[newIdx];
   g.photos[newIdx] = tmp;
   currentPhotoIdx = newIdx;
-  saveGames();
+  debouncedSaveGames();
   render();
 }
 
@@ -1900,7 +1949,7 @@ function addPhoto(){
   const g = games.find(x=>x.id===currentGameId);
   g.photos.push({markers:[]});
   currentPhotoIdx = g.photos.length-1;
-  saveGames(); render();
+  debouncedSaveGames(); render();
 }
 function deletePhoto(idx){
   const g = games.find(x=>x.id===currentGameId);
@@ -1908,35 +1957,35 @@ function deletePhoto(idx){
   if (!confirm('이 사진의 마커 정보도 함께 삭제됩니다. 계속할까요?')) return;
   g.photos.splice(idx,1);
   currentPhotoIdx = Math.max(0, idx-1);
-  saveGames(); render();
+  debouncedSaveGames(); render();
 }
 
 function updateItem(ci, ii, field, value){
   const g = games.find(x=>x.id===currentGameId);
   g.cases[ci].items[ii][field] = field==='qty' ? Number(value) : value;
-  saveGames();
+  debouncedSaveGames();
   if (currentMode==='2') render();
 }
 function deleteItemRedraw(ci, ii){
   const g = games.find(x=>x.id===currentGameId);
   g.cases[ci].items.splice(ii,1);
   if (g.cases[ci].items.length===0) removeCaseEverywhere(g, ci);
-  saveGames(); render();
+  debouncedSaveGames(); render();
 }
 function addItemRedraw(ci){
   const g = games.find(x=>x.id===currentGameId);
   g.cases[ci].items.push({name:'새 구성품', qty:1});
-  saveGames(); render();
+  debouncedSaveGames(); render();
 }
 function updateCaseType(ci, value){
   const g = games.find(x=>x.id===currentGameId);
   g.cases[ci].caseType = value;
-  saveGames(); render();
+  debouncedSaveGames(); render();
 }
 function updateCaseNote(ci, value){
   const g = games.find(x=>x.id===currentGameId);
   g.cases[ci].note = value;
-  saveGames();
+  debouncedSaveGames();
 }
 function expandCaseNote(ci){
   expandedCaseNotes.add(ci);
@@ -1946,18 +1995,18 @@ function deleteItem(ci, ii){
   const g = games.find(x=>x.id===currentGameId);
   g.cases[ci].items.splice(ii,1);
   if (g.cases[ci].items.length===0) removeCaseEverywhere(g, ci);
-  saveGames(); render();
+  debouncedSaveGames(); render();
 }
 function addCase(){
   const g = games.find(x=>x.id===currentGameId);
   g.cases.push({caseType:'A', items:[{name:'', qty:1}]});
-  saveGames(); render();
+  debouncedSaveGames(); render();
 }
 function resetBoxPosition(markerIdxInCurrentPhoto){
   const g = games.find(x=>x.id===currentGameId);
   const photo = g.photos[currentPhotoIdx];
   delete photo.markers[markerIdxInCurrentPhoto].box;
-  saveGames(); render();
+  debouncedSaveGames(); render();
 }
 
 function removeMarkerCase(markerIdxInCurrentPhoto){
@@ -1966,7 +2015,7 @@ function removeMarkerCase(markerIdxInCurrentPhoto){
   const caseIdx = photo.markers[markerIdxInCurrentPhoto].caseIdx;
   photo.markers.splice(markerIdxInCurrentPhoto,1);
   removeCaseEverywhere(g, caseIdx);
-  saveGames(); render();
+  debouncedSaveGames(); render();
 }
 // 케이스를 전역 목록에서 제거하고, 모든 사진의 마커 캐이스 참조 인덱스를 보정합니다.
 function removeCaseEverywhere(g, caseIdx){
