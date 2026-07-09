@@ -2154,6 +2154,7 @@ function setRole(r){
 }
 
 function logout(){
+  if (tokenRefreshTimer_) clearTimeout(tokenRefreshTimer_);
   clearCachedAuthToken();
   clearCachedEditorApproval();
   role = 'viewer';
@@ -2361,8 +2362,41 @@ async function enterApp(){
   document.getElementById('loginGate').style.display = 'none';
   document.getElementById('appRoot').style.display = 'block';
   document.getElementById('app').innerHTML = `<div class="empty">게임 목록을 불러오는 중입니다...</div>`;
+  scheduleTokenRefresh_(); // 만료 전에 조용히 새 토큰을 미리 받아오도록 예약
   await loadGames();
   render();
+}
+
+let tokenRefreshTimer_ = null;
+
+/**
+ * 구글 로그인 토큰은 보통 1시간 정도 유효합니다. 만료되어 작업 중간에
+ * 로그인 화면으로 튕기는 걸 막기 위해, 50분마다 조용히 새 토큰을 미리
+ * 받아옵니다. (사용자가 이미 구글에 로그인되어 있으면 화면 깜빡임 없이
+ * 백그라운드에서 자동으로 처리됩니다)
+ */
+function scheduleTokenRefresh_(){
+  if (tokenRefreshTimer_) clearTimeout(tokenRefreshTimer_);
+  tokenRefreshTimer_ = setTimeout(silentRefreshToken_, 50 * 60 * 1000);
+}
+
+function silentRefreshToken_(){
+  if (typeof google === 'undefined' || !google.accounts || !google.accounts.id){
+    scheduleTokenRefresh_(); // 라이브러리가 잠깐 안 떠있으면 다음 주기에 다시 시도
+    return;
+  }
+  google.accounts.id.initialize({
+    client_id: GOOGLE_CLIENT_ID,
+    auto_select: true,
+    callback: (response)=>{
+      authToken = response.credential;
+      cacheAuthToken(authToken, authEmail);
+      scheduleTokenRefresh_(); // 다음 갱신도 이어서 예약
+    }
+  });
+  // auto_select가 되어있고 구글 로그인 세션이 살아있으면, 화면에 아무 것도
+  // 안 보이고 조용히 콜백만 실행되는 경우가 많습니다.
+  google.accounts.id.prompt();
 }
 
 async function checkAccessOnServer(idToken){
