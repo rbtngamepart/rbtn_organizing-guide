@@ -189,6 +189,7 @@
   .anno-label-btn:hover{background:#2a2a2a;}
 
   .photo-label-wrap{position:absolute; z-index:6;}
+  .photo-label-rotate-group{position:relative; display:inline-block; transform-origin:center center;}
   .label-toolbar{position:absolute; top:-24px; left:0; display:flex; align-items:center; gap:2px; background:var(--surface); border:1px solid var(--line); border-radius:6px; padding:2px; box-shadow:0 2px 6px rgba(0,0,0,.15); white-space:nowrap; z-index:10;}
   .label-drag{cursor:grab; padding:2px 5px; color:var(--ink-soft); font-size:12px; user-select:none;}
   .label-drag:active{cursor:grabbing;}
@@ -1418,6 +1419,12 @@ function attachPhotoHandlers(g){
       wrap.style.left = (w*lbl.x/100)+'px';
       wrap.style.top = (h*lbl.y/100)+'px';
 
+      // 회전 그룹: 라벨과 크기조절 손잡이를 함께 묶어서 같이 회전시킵니다.
+      // (손잡이를 라벨 밖에 따로 두면, 회전했을 때 손잡이가 실제 모서리와 어긋납니다)
+      const rotateGroup = document.createElement('div');
+      rotateGroup.className = 'photo-label-rotate-group';
+      rotateGroup.style.transform = `rotate(${lbl.rotation||0}deg)`;
+
       const labelEl = document.createElement('div');
       labelEl.className = 'photo-label';
       // 화면 폭(w)의 %로 직접 계산 → 데스크톱/모바일 어디서든 사진 대비 정확히 같은 비율
@@ -1427,7 +1434,6 @@ function attachPhotoHandlers(g){
         labelEl.style.height = (h * hPct / 100) + 'px';
         labelEl.style.overflow = 'hidden';
       }
-      labelEl.style.transform = `rotate(${lbl.rotation||0}deg)`;
       labelEl.textContent = lbl.text;
 
       if (editable){
@@ -1452,7 +1458,7 @@ function attachPhotoHandlers(g){
           dragLabelOffset = { dx: e.clientX - wrapRect.left, dy: e.clientY - wrapRect.top };
           e.stopPropagation();
         });
-        wrap.appendChild(toolbar);
+        wrap.appendChild(toolbar); // 툴바는 회전 그룹 밖에 둬서 항상 제자리에 고정
 
         const resizeHandle = document.createElement('div');
         resizeHandle.className = 'label-resize';
@@ -1467,10 +1473,12 @@ function attachPhotoHandlers(g){
           e.stopPropagation();
           e.preventDefault();
         });
-        wrap.appendChild(labelEl);
-        wrap.appendChild(resizeHandle);
+        rotateGroup.appendChild(labelEl);
+        rotateGroup.appendChild(resizeHandle); // 라벨과 같은 그룹에 넣어 함께 회전
+        wrap.appendChild(rotateGroup);
       } else {
-        wrap.appendChild(labelEl);
+        rotateGroup.appendChild(labelEl);
+        wrap.appendChild(rotateGroup);
       }
 
       labelLayer.appendChild(wrap);
