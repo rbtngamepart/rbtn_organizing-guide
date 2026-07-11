@@ -394,39 +394,6 @@ const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbz7Bwa0gOb5R2W_TBqU
 // 구글 클라우드 콘솔에서 발급받은 OAuth 클라이언트 ID
 const GOOGLE_CLIENT_ID = '674971767762-cimv1024n7u11stknpnbbq81lf2djaor.apps.googleusercontent.com';
 
-const SEED = [
-  { id:'487', name:'캐스캐디아',
-    cases:[
-      {caseType:'D', items:[{name:'지형 타일', qty:2}]},
-      {caseType:'B', items:[{name:'시작타일 5개, 지형타일', qty:1}]},
-      {caseType:'A', items:[{name:'솔방울토큰', qty:1}]},
-      {caseType:'G', items:[{name:'주머니', qty:1},{name:'원형 토큰', qty:1}]},
-      {caseType:'I', items:[{name:'점수 기록지', qty:1},{name:'볼펜', qty:1}]}
-    ],
-    photos:[
-      { markers:[{x:22,y:28,caseIdx:0},{x:58,y:22,caseIdx:1},{x:30,y:62,caseIdx:2}] },
-      { markers:[{x:72,y:55,caseIdx:3},{x:50,y:80,caseIdx:4}] }
-    ]
-  },
-  { id:'112', name:'윙스팬',
-    cases:[
-      {caseType:'F', items:[{name:'새 카드', qty:170}]},
-      {caseType:'C', items:[{name:'먹이 토큰', qty:60}]},
-      {caseType:'B', items:[{name:'알 토큰', qty:75}]}
-    ],
-    photos:[
-      { markers:[{x:35,y:35,caseIdx:0},{x:65,y:40,caseIdx:1},{x:50,y:70,caseIdx:2}] }
-    ]
-  },
-  { id:'203', name:'스플렌더',
-    cases:[
-      {caseType:'A', items:[{name:'보석 토큰', qty:40}]},
-      {caseType:'C', items:[{name:'발전 카드', qty:90}]}
-    ],
-    photos:[ { markers:[{x:40,y:40,caseIdx:0},{x:60,y:60,caseIdx:1}] } ]
-  }
-];
-
 const CHO = ['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
 function getChosung(str){
   let out='';
@@ -437,10 +404,13 @@ function getChosung(str){
   return out;
 }
 
+let loadFailed = false;
+
 async function loadGames(){
   if (WEB_APP_URL === 'YOUR_WEB_APP_URL'){
-    console.warn('WEB_APP_URL이 설정되지 않아 데모 데이터로 동작합니다.');
-    games = SEED;
+    console.warn('WEB_APP_URL이 설정되지 않았습니다.');
+    games = [];
+    loadFailed = true;
     return;
   }
   try{
@@ -457,10 +427,12 @@ async function loadGames(){
       showToast('로그인이 만료되었습니다. 다시 로그인해주세요.', 'error');
       return;
     }
-    games = (data.games && data.games.length) ? data.games : SEED;
+    games = data.games || [];
+    loadFailed = false;
   }catch(e){
-    console.error('불러오기 실패, 데모 데이터로 대체합니다.', e);
-    games = SEED;
+    console.error('불러오기 실패', e);
+    games = [];
+    loadFailed = true;
   }
 }
 
@@ -990,6 +962,16 @@ function renderListControls_(){
 }
 
 function renderList(app){
+  if (loadFailed){
+    app.innerHTML = `
+      <div class="empty">
+        게임 목록을 불러오지 못했습니다.<br>
+        <span style="font-size:12.5px; color:var(--ink-soft);">네트워크 상태를 확인한 뒤 다시 시도해주세요.</span><br><br>
+        <button class="btn btn-primary" onclick="refreshGames()">↻ 다시 불러오기</button>
+      </div>`;
+    return;
+  }
+
   let filtered = games.filter(g=>{
     if(!searchQuery) return true;
     const q = searchQuery.toLowerCase();
