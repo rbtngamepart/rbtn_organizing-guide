@@ -697,12 +697,23 @@ async function saveGames(gameId, _isRetry){
     if (result.success){
       cacheAuthToken(authToken, authEmail); // 저장이 잘 되면 로그인 세션 갱신
       cacheEditorApproval();                // 편집자 승인 캐시도 10분 연장
+      if (result.updatedAt) game.updatedAt = result.updatedAt; // 다음 저장 때 충돌 오판 방지
       return true;
     } else if (result.error === 'NOT_APPROVED' || result.error === 'NOT_AUTHENTICATED'){
       clearCachedAuthToken();
       clearCachedEditorApproval();
       showGate();
       showToast('로그인이 만료되었습니다. 다시 로그인해주세요.', 'error');
+      return false;
+    } else if (result.error === 'CONFLICT'){
+      // 다른 편집자가 그 사이 먼저 저장했다는 뜻 - 오래된 내용으로 덮어쓰지 않고,
+      // 최신 내용을 화면에 반영해서 알려줍니다. (재시도해도 소용없으므로 재시도 안 함)
+      if (result.serverGame){
+        const idx = games.findIndex(g=>g.id===gameId);
+        if (idx !== -1) games[idx] = result.serverGame; else games.push(result.serverGame);
+      }
+      if (currentGameId === gameId) render();
+      showToast('⚠ 다른 편집자가 방금 이 게임을 수정해서, 최신 내용을 다시 불러왔습니다. 방금 편집하신 내용은 다시 적용해주세요.', 'error');
       return false;
     } else if (!_isRetry){
       // 드라이브 쪽 일시적인 오류일 수 있으므로, 잠깐 기다렸다가 한 번 더 시도
