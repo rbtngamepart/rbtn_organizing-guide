@@ -1,2987 +1,1565 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>오거나이징 가이드</title>
-<script src="https://accounts.google.com/gsi/client" async defer></script>
-<style>
-  :root{
-    --bg: #F6F6F3;
-    --surface: #FFFFFF;
-    --ink: #1B1C1A;
-    --ink-soft: #63645F;
-    --line: #E3E3DE;
-    --accent: #E4141B;
-    --accent-soft: #FCE9E8;
-    --danger: #B3492B;
-    --mono: 'SFMono-Regular', Menlo, Consolas, 'Courier New', monospace;
-    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Pretendard', 'Malgun Gothic', sans-serif;
-  }
-  *{box-sizing:border-box;}
-  body{margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans); line-height:1.5;}
+/**
+ * ============================================================
+ * 오거나이징 가이드 사이트 - 웹앱 백엔드 (v5)
+ * ============================================================
+ *
+ * v5 변경사항 (구글 계정 로그인 + 권한 관리)
+ *  - 예전의 "공유 편집자 코드" 방식을 없애고, 구글 계정 로그인으로 바꿨습니다.
+ *  - 승인된 구글 계정만 편집 가능하며, 승인/거절/직접 등록/삭제는
+ *    사이트의 "권한 관리" 화면에서 승인된 편집자가 처리합니다.
+ *  - 승인 안 된 계정이 로그인하면 자동으로 "대기 목록"에 올라갑니다.
+ *
+ * [배포 방법]
+ * 1. CONFIG.DATA_FOLDER_ID를 채웁니다 (게임별 데이터 파일이 저장될 드라이브 폴더 ID)
+ * 2. 구글 클라우드 콘솔에서 OAuth 클라이언트 ID를 발급받아
+ *    CONFIG.GOOGLE_CLIENT_ID에 채웁니다
+ *    (콘솔 → API 및 서비스 → 사용자 인증 정보 → OAuth 클라이언트 ID 만들기 →
+ *     웹 애플리케이션 → 승인된 자바스크립트 원본에 사이트 도메인 추가)
+ * 3. addFirstApprovedEditor 함수 안의 이메일을 실제 첫 편집자 계정으로 바꾼 뒤 직접 실행
+ *    (최초 1회만 필요 - 이후로는 사이트에서 서로 승인 가능)
+ * 4. 기존에 games-data.json(통합 파일) 방식으로 쓰던 데이터가 있다면,
+ *    migrateLegacyData 함수를 한 번 실행해서 게임별 파일로 나눠주세요.
+ * 5. 배포 → 배포 관리 → 새 버전으로 재배포
+ *    (URL은 그대로 유지되므로 사이트 쪽 WEB_APP_URL은 안 바꿔도 됩니다)
+ * ============================================================
+ */
 
-  .case-A{--c:#C1440E;} .case-B{--c:#B08900;} .case-C{--c:#4C7A1F;} .case-D{--c:#1F7A5C;}
-  .case-E{--c:#1F7A8C;} .case-F{--c:#2A5CA6;} .case-G{--c:#5B3FA6;} .case-H{--c:#9C2E8C;}
-  .case-I{--c:#B32E5C;} .case-J{--c:#8C3A2E;} .case-K{--c:#5C5C1F;} .case-L{--c:#3A5C3A;}
-
-  .login-gate{position:fixed; inset:0; background:var(--bg); display:flex; align-items:center; justify-content:center; z-index:200; padding:20px;}
-  .login-gate-box{background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:36px 32px; max-width:360px; width:100%; text-align:center; box-shadow:0 8px 30px rgba(0,0,0,.08);}
-  .login-gate-box .brand{font-size:22px; margin-bottom:16px;}
-  .login-gate-box p{font-size:13px; color:var(--ink-soft); line-height:1.6; margin:0;}
-
-  .topbar{position:sticky; top:0; z-index:20; background:var(--surface); border-bottom:1px solid var(--line);
-    padding:14px 24px; display:flex; align-items:center; gap:16px;}
-  .brand{font-weight:900; font-size:19px; letter-spacing:-0.03em; white-space:nowrap; text-transform:uppercase; color:var(--accent); background:none; border:none; cursor:pointer; padding:0; font-family:var(--sans); display:flex; align-items:baseline; gap:1px;}
-  .brand:hover{opacity:.85;}
-  .brand .r-mark{font-size:10px; vertical-align:super; margin-left:1px;}
-  .brand .sub{font-size:10px; font-weight:600; letter-spacing:0; text-transform:none; color:var(--ink-soft); margin-left:8px; white-space:nowrap;}
-  .brand span{color:var(--accent);}
-  .search{flex:1; max-width:420px; position:relative;}
-  .search input{width:100%; padding:9px 12px 9px 34px; border:1px solid var(--line); border-radius:8px;
-    font-size:14px; background:var(--bg); color:var(--ink); font-family:var(--sans);}
-  .search input:focus{outline:2px solid var(--accent); outline-offset:1px; background:var(--surface);}
-  .search::before{content:"⌕"; position:absolute; left:11px; top:50%; transform:translateY(-50%); color:var(--ink-soft); font-size:16px;}
-  .role-toggle{display:flex; align-items:center; gap:6px; background:var(--bg); border:1px solid var(--line); border-radius:999px; padding:3px;}
-  .role-toggle button{border:none; background:transparent; padding:6px 12px; border-radius:999px; font-size:13px; font-weight:600; cursor:pointer; color:var(--ink-soft); font-family:var(--sans);}
-  .role-toggle button.active{background:var(--ink); color:#fff;}
-  .btn{border:none; border-radius:8px; padding:9px 14px; font-size:13px; font-weight:700; cursor:pointer; font-family:var(--sans); white-space:nowrap;}
-  .btn-primary{background:var(--accent); color:#fff;}
-  .btn-primary:hover{background:#B80F15;}
-  .btn-ghost{background:transparent; color:var(--ink-soft); border:1px solid var(--line);}
-  .btn-ghost:hover{color:var(--ink); border-color:var(--ink-soft);}
-
-  main{max-width:1080px; margin:0 auto; padding:28px 24px 80px;}
-  .view-note{font-size:12px; color:var(--ink-soft); background:var(--accent-soft); border:1px solid #cfe3dc; padding:8px 12px; border-radius:8px; margin-bottom:20px;}
-
-  .list-controls{display:flex; gap:16px; margin-bottom:16px; flex-wrap:wrap;}
-  .list-control-group{display:flex; align-items:center; gap:6px;}
-  .list-control-group label{font-size:12px; color:var(--ink-soft); font-weight:600;}
-  .list-control-group select{border:1px solid var(--line); border-radius:6px; padding:6px 8px; font-size:12.5px; font-family:var(--sans); background:var(--surface); color:var(--ink);}
-  .card.card-done{border-color:#bcd9c8; background:#F3FAF6;}
-  .card-done-toggle{display:flex; align-items:center; gap:6px; margin-top:10px; padding-top:10px; border-top:1px solid var(--line); font-size:12px; color:var(--ink-soft); cursor:pointer;}
-  .card-done-toggle input{cursor:pointer;}
-  .dash-id{font-family:var(--mono); font-size:12px; color:var(--ink-soft);}
-  .dash-yes{color:#1f7a5c; font-weight:600;}
-  .dash-no{color:var(--ink-soft);}
-  .dash-count{font-family:var(--mono); font-size:12px; font-weight:700; color:var(--accent);}
-  .dash-progress-card{background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:18px 20px; margin-bottom:16px;}
-  .dash-progress-bar-track{position:relative; width:100%; height:28px; background:var(--bg); border-radius:999px; overflow:hidden; border:1px solid var(--line);}
-  .dash-progress-bar-fill{position:absolute; top:0; left:0; bottom:0; background:var(--accent); border-radius:999px; transition:width .3s;}
-  .dash-progress-bar-label{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:800; color:var(--ink); font-family:var(--mono); text-shadow:0 0 4px #fff, 0 0 8px #fff, 0 0 2px #fff;}
-
-  .grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(230px,1fr)); gap:14px;}
-  .card{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:16px; cursor:pointer; transition:border-color .15s, transform .15s;}
-  .card:hover{border-color:var(--accent); transform:translateY(-2px);}
-  .card-top{display:flex; align-items:center; gap:7px; margin-bottom:2px;}
-  .card-select{width:15px; height:15px; accent-color:var(--accent); cursor:pointer; flex-shrink:0;}
-  .card-id{font-family:var(--mono); font-size:11px; color:var(--ink-soft); flex:1;}
-  .card-delete{width:20px; height:20px; border-radius:50%; border:1px solid var(--line); background:var(--surface); color:var(--ink-soft); font-size:11px; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0;}
-  .card-delete:hover{background:var(--danger); border-color:var(--danger); color:#fff;}
-  .card-name{font-size:16px; font-weight:800; margin:4px 0 10px; letter-spacing:-0.01em;}
-  .card-badges{display:flex; flex-wrap:wrap; gap:5px;}
-  .empty{text-align:center; padding:60px 20px; color:var(--ink-soft); border:1px dashed var(--line); border-radius:12px; font-size:14px;}
-
-  .selection-panel{background:var(--surface); border:1px solid var(--accent); border-radius:12px; padding:14px 16px; margin-bottom:16px;}
-  .selection-head{display:flex; align-items:center; justify-content:space-between; font-size:13px; font-weight:700; margin-bottom:10px;}
-  .selection-games{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px;}
-  .sel-chip{display:inline-flex; align-items:center; gap:5px; font-size:12px; padding:4px 6px 4px 9px; border-radius:999px; background:var(--bg); border:1px solid var(--line); color:var(--ink-soft);}
-  .sel-chip button{border:none; background:none; color:var(--ink-soft); cursor:pointer; font-size:11px; padding:0;}
-  .sel-chip button:hover{color:var(--danger);}
-  .selection-totals{display:flex; flex-wrap:wrap; gap:8px; padding-top:12px; border-top:1px solid var(--line);}
-
-  .chip{display:inline-flex; align-items:center; gap:5px; font-family:var(--mono); font-weight:700; font-size:11px; padding:3px 7px 3px 5px; border-radius:4px; border:1.4px solid var(--c); color:var(--c); background:color-mix(in srgb, var(--c) 8%, white);}
-  .chip .dot{width:7px; height:7px; border-radius:50%; background:var(--c);}
-
-  .case-badge{display:inline-flex; align-items:center; gap:calc(7px * var(--ui-scale,1)); font-family:var(--mono); font-weight:800; font-size:calc(17px * var(--ui-scale,1)); padding:calc(6px * var(--ui-scale,1)) calc(12px * var(--ui-scale,1)) calc(6px * var(--ui-scale,1)) calc(9px * var(--ui-scale,1)); border-radius:7px; border:calc(2.2px * var(--ui-scale,1)) solid var(--c); color:var(--c); background:color-mix(in srgb, var(--c) 10%, white); line-height:1;}
-  .case-badge .dot{width:calc(11px * var(--ui-scale,1)); height:calc(11px * var(--ui-scale,1)); border-radius:50%; background:var(--c); flex-shrink:0;}
-  .case-badge .size-label{font-size:calc(10.5px * var(--ui-scale,1)); font-weight:600; color:var(--ink-soft); font-family:var(--sans); white-space:nowrap;}
-
-  .detail-head{display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:18px;}
-  .back{background:none; border:none; color:var(--ink-soft); font-size:13px; cursor:pointer; padding:0; margin-bottom:10px; font-family:var(--sans);}
-  .back:hover{color:var(--ink);}
-  .detail-title{font-size:24px; font-weight:800; letter-spacing:-0.02em;}
-  .detail-id{font-family:var(--mono); font-size:12px; color:var(--ink-soft); margin-top:2px;}
-  .guide-done-toggle{display:flex; align-items:center; gap:6px; margin-top:8px; font-size:12.5px; color:var(--ink-soft); cursor:pointer;}
-  .guide-done-toggle input{cursor:pointer;}
-  .game-note-area{flex:1; display:flex; justify-content:flex-end; max-width:380px;}
-  .game-note-add{font-size:12px; color:var(--ink-soft); background:none; border:1px dashed var(--line); border-radius:7px; padding:7px 12px; cursor:pointer; font-family:var(--sans); align-self:flex-start;}
-  .game-note-add:hover{color:var(--accent); border-color:var(--accent);}
-  .game-note-input{width:100%; min-height:46px; border:1px solid var(--line); border-radius:8px; padding:8px 10px; font-size:13px; font-family:var(--sans); resize:vertical; box-sizing:border-box;}
-  .game-note-input:focus{border-color:var(--accent); outline:none;}
-  .game-note-view{font-size:13px; color:#7a5b12; font-style:italic; background:#FFF6DE; border:1px solid #F0DFA8; border-radius:8px; padding:8px 12px; width:100%; text-align:left; line-height:1.5;}
-
-  .tabs{display:flex; gap:4px; background:var(--bg); border:1px solid var(--line); border-radius:9px; padding:3px; margin-bottom:20px; width:fit-content;}
-  .tabs button{border:none; background:transparent; padding:8px 16px; border-radius:7px; font-size:13px; font-weight:700; cursor:pointer; color:var(--ink-soft); font-family:var(--sans);}
-  .tabs button.active{background:var(--surface); color:var(--ink); box-shadow:0 1px 3px rgba(0,0,0,.08);}
-
-  .panel{background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:22px;}
-  .panel-label{font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-soft); margin-bottom:14px; display:flex; justify-content:space-between; align-items:center;}
-
-  table{width:100%; border-collapse:collapse; font-size:13.5px;}
-  .table-scroll{overflow-x:auto; -webkit-overflow-scrolling:touch;}
-  .table-scroll table{min-width:620px;}
-  th{text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); padding:8px 10px; border-bottom:2px solid var(--ink);}
-  td{padding:10px; border-bottom:1px solid var(--line); vertical-align:middle;}
-  tr:last-child td{border-bottom:none;}
-  tr.case-end td{border-bottom:2px solid var(--ink);}
-  tr.case-end:last-child td{border-bottom:none;}
-  td input, td select{width:100%; border:1px solid transparent; background:transparent; padding:5px 6px; border-radius:5px; font-size:13.5px; font-family:var(--sans); color:var(--ink);}
-  td input:focus, td select:focus{border-color:var(--accent); background:var(--bg); outline:none;}
-  .qty-col{width:70px;}
-  .type-col{width:140px; border-bottom:2px solid var(--ink);}
-  .note-col{min-width:150px; border-bottom:2px solid var(--ink);}
-  .note-col input{width:100%; border:1px solid transparent; background:transparent; padding:5px 6px; border-radius:5px; font-size:12.5px; font-family:var(--sans); color:var(--ink);}
-  .note-col input:focus{border-color:var(--accent); background:var(--bg); outline:none;}
-  .row-del{background:none; border:none; color:var(--ink-soft); cursor:pointer; font-size:15px; padding:2px 6px;}
-  .row-del:hover{color:var(--danger);}
-  .add-row{font-size:13px; color:var(--accent); background:none; border:none; font-weight:700; cursor:pointer; padding:4px 0; font-family:var(--sans);}
-
-  /* photo stage */
-  .photo-pager{display:flex; align-items:center; gap:10px; margin-bottom:12px;}
-  .pager-btn{width:30px; height:30px; border-radius:50%; border:1px solid var(--line); background:var(--surface); cursor:pointer; font-size:14px; color:var(--ink);}
-  .pager-btn:hover{border-color:var(--accent); color:var(--accent);}
-  .pager-btn:disabled{opacity:.35; cursor:default;}
-  .pager-dots{display:flex; gap:6px;}
-  .pager-dots button{width:8px; height:8px; border-radius:50%; border:none; background:var(--line); cursor:pointer; padding:0;}
-  .pager-dots button.active{background:var(--accent); width:18px; border-radius:4px;}
-  .photo-count{font-size:12px; color:var(--ink-soft); font-family:var(--mono);}
-
-  .photo-stage{position:relative; width:100%; aspect-ratio:4/3; border-radius:10px; overflow:hidden;
-    background-color:#EDEDE8; background-size:cover; background-position:center;
-    border:1px solid var(--line); user-select:none; transition:outline .1s;}
-  .photo-stage.no-image{background-image:repeating-linear-gradient(45deg, #EDEDE8 0 12px, #F2F2ED 12px 24px);}
-  .stage-img{position:absolute; inset:0; width:100%; height:100%; object-fit:contain; z-index:0;}
-  .photo-stage.dragover{outline:3px dashed var(--accent); outline-offset:-3px;}
-  .photo-actions{display:flex; gap:8px; margin-bottom:10px;}
-  .upload-overlay{position:absolute; inset:0; background:rgba(255,255,255,.7); display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; color:var(--accent); z-index:5;}
-  .nav-zone{position:absolute; top:0; bottom:0; width:40%; z-index:2; cursor:pointer; display:flex; align-items:center; font-size:30px; font-weight:700; color:#fff; text-shadow:0 1px 5px rgba(0,0,0,.6); opacity:0; transition:opacity .15s, background .15s;}
-  .nav-zone:hover{opacity:1;}
-  .nav-zone-left{left:0; justify-content:flex-start; padding-left:12px; background:linear-gradient(to right, rgba(0,0,0,.16), transparent);}
-  .nav-zone-right{right:0; justify-content:flex-end; padding-right:12px; background:linear-gradient(to left, rgba(0,0,0,.16), transparent);}
-  .photo-stage .ph-label{position:absolute; top:10px; left:12px; font-size:11px; color:var(--ink-soft); background:var(--surface); padding:3px 8px; border-radius:5px; border:1px solid var(--line);}
-  .marker{position:absolute; width:var(--marker-size, 24px); height:var(--marker-size, 24px); border-radius:50%; border:2.5px solid #fff; background:var(--c); color:#fff; font-family:var(--mono); font-weight:700; font-size:calc(var(--marker-size, 24px) * 0.46);
-    display:flex; align-items:center; justify-content:center; transform:translate(-50%,-50%); box-shadow:0 1px 4px rgba(0,0,0,.35); cursor:default; z-index:2;}
-  .marker.editable{cursor:grab;}
-  .marker.editable:active{cursor:grabbing;}
-  .marker-size-control{display:flex; align-items:center; gap:8px; font-size:12px; color:var(--ink-soft);}
-  .marker-size-control input[type=range]{width:110px;}
-  .annot-line{stroke-width:3.2; fill:none; opacity:.85;}
-  .anno-box{position:absolute; min-width:calc(120px * var(--ui-scale,1)); max-width:calc(280px * var(--ui-scale,1)); background:var(--surface); border:1px solid var(--line); border-left:4px solid var(--c); border-radius:6px; padding:calc(8px * var(--ui-scale,1)) calc(10px * var(--ui-scale,1)); font-size:calc(12px * var(--ui-scale,1)); box-shadow:0 2px 6px rgba(0,0,0,.08); transform:translateY(-50%); z-index:3;}
-  .anno-box.draggable{cursor:grab;}
-  .anno-box.draggable:active{cursor:grabbing;}
-  .anno-box.readonly{width:auto; max-width:calc(260px * var(--ui-scale,1)); word-break:break-word;}
-  .anno-head{display:flex; align-items:center; gap:calc(6px * var(--ui-scale,1)); margin-bottom:calc(6px * var(--ui-scale,1)); flex-wrap:wrap;}
-  .anno-head select{font-family:var(--mono); font-weight:700; font-size:calc(11px * var(--ui-scale,1)); border:1px solid var(--line); border-radius:4px; padding:2px 4px; background:var(--bg);}
-  .anno-remove{margin-left:auto; border:none; background:none; color:var(--ink-soft); cursor:pointer; font-size:calc(13px * var(--ui-scale,1)); line-height:1;}
-  .anno-remove:hover{color:var(--danger);}
-  .anno-item{display:flex; gap:5px; margin-bottom:4px; align-items:center;}
-  .anno-item input[type=text]{flex:0 1 auto; min-width:50px; max-width:220px; border:1px solid var(--line); border-radius:4px; padding:3px 5px; font-size:calc(11.5px * var(--ui-scale,1)); font-family:var(--sans);}
-  .anno-item input[type=number]{flex:0 0 auto; width:42px; border:1px solid var(--line); border-radius:4px; padding:3px 4px; font-size:calc(11.5px * var(--ui-scale,1)); font-family:var(--sans);}
-  .anno-item button{border:none; background:none; color:var(--ink-soft); cursor:pointer; font-size:12px;}
-  .anno-additem{font-size:11px; color:var(--accent); background:none; border:none; font-weight:700; cursor:pointer; padding:2px 0; font-family:var(--sans);}
-  .anno-note-row{margin-top:6px;}
-  .anno-note{width:100%; min-height:38px; border:1px solid var(--line); border-radius:4px; padding:5px 6px; font-size:11px; font-family:var(--sans); resize:vertical; box-sizing:border-box;}
-  .anno-note-add{font-size:11px; color:var(--ink-soft); background:none; border:none; font-weight:700; cursor:pointer; padding:2px 0; font-family:var(--sans); margin-top:4px; display:block;}
-  .anno-note-add:hover{color:var(--accent);}
-  .anno-note-view{margin-top:6px; padding-top:5px; border-top:1px dashed var(--line); color:var(--ink-soft); font-style:italic; line-height:1.4;}
-  .anno-label-btn{background:#000; color:#fff; border:none; border-radius:4px; font-size:10px; padding:3px 8px; cursor:pointer; font-weight:700; margin-left:auto;}
-  .anno-label-btn:hover{background:#2a2a2a;}
-
-  .photo-label-wrap{position:absolute; z-index:6;}
-  .photo-label-rotate-group{position:relative; display:inline-block; transform-origin:center center;}
-  .label-toolbar{position:absolute; display:flex; align-items:center; gap:2px; background:var(--surface); border:1px solid var(--line); border-radius:6px; padding:2px; box-shadow:0 2px 6px rgba(0,0,0,.15); white-space:nowrap; z-index:10;}
-  .label-drag{cursor:grab; padding:2px 5px; color:var(--ink-soft); font-size:12px; user-select:none;}
-  .label-drag:active{cursor:grabbing;}
-  .label-toolbar button{border:none; background:none; color:var(--ink); font-size:11px; padding:2px 6px; cursor:pointer; border-radius:4px; font-family:var(--sans);}
-  .label-toolbar button:hover{background:var(--bg);}
-  .label-toolbar .label-del:hover{color:var(--danger);}
-  .photo-label{background:#000; color:#fff; font-family:var(--sans); font-weight:600; white-space:pre-wrap; padding:0.5em 0.7em; border-radius:0.25em; line-height:1.35; box-shadow:0 2px 8px rgba(0,0,0,.35); outline:none; max-width:20em; min-width:1.4em; min-height:1em; text-align:center; transform-origin:center center; display:flex; align-items:center; justify-content:center; box-sizing:border-box; position:relative; z-index:1;}
-  .photo-label:focus{box-shadow:0 0 0 2px var(--accent);}
-  .label-resize{position:absolute; width:13px; height:13px; background:#fff; border:2px solid #000; border-radius:2px; cursor:nwse-resize; z-index:10;}
-  .hint{font-size:12px; color:var(--ink-soft); margin-top:10px;}
-  .legend{display:flex; flex-wrap:wrap; gap:6px; margin-top:14px;}
-
-  .field{margin-bottom:12px;}
-  .field label{display:block; font-size:12px; font-weight:700; color:var(--ink-soft); margin-bottom:5px;}
-  .field input{width:100%; padding:9px 10px; border:1px solid var(--line); border-radius:7px; font-size:14px; font-family:var(--sans); background:var(--bg); color:var(--ink);}
-  .field select{width:100%; padding:9px 10px; border:1px solid var(--line); border-radius:7px; font-size:14px; font-family:var(--sans); background:var(--bg); color:var(--ink);}
-  .modal-backdrop{position:fixed; inset:0; background:rgba(20,20,18,.4); display:flex; align-items:center; justify-content:center; z-index:50; padding:20px;}
-  .modal{background:var(--surface); border-radius:14px; padding:22px; width:100%; max-width:380px;}
-  .modal h3{margin:0 0 16px; font-size:16px;}
-  .help-modal{max-width:520px; max-height:82vh; overflow-y:auto;}
-  .help-intro{font-size:13px; color:var(--ink-soft); line-height:1.6; margin:-4px 0 16px; padding-bottom:14px; border-bottom:1px solid var(--line);}
-  .help-list{margin:0; padding-left:18px; font-size:13.5px; line-height:1.6;}
-  .help-list li{margin-bottom:10px;}
-  .help-list ul{margin-top:6px; padding-left:16px;}
-  .help-list ul li{margin-bottom:6px; font-size:13px; color:var(--ink-soft);}
-  .help-list code{background:var(--bg); padding:1px 5px; border-radius:4px; font-family:var(--mono); font-size:12px;}
-  .help-note{font-size:12px; color:var(--ink-soft); margin-top:14px; padding-top:12px; border-top:1px solid var(--line);}
-
-  .access-modal{max-width:600px; max-height:82vh; overflow-y:auto;}
-  .access-section{margin-bottom:18px; padding-bottom:16px; border-bottom:1px solid var(--line);}
-  .access-section:last-of-type{border-bottom:none; margin-bottom:8px;}
-  .access-section-title{font-size:12px; font-weight:700; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.04em; margin-bottom:10px;}
-  .access-row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 0; font-size:13px; flex-wrap:wrap;}
-  .access-row-pending{flex-direction:column; align-items:stretch; padding:10px 0; border-bottom:1px dashed var(--line);}
-  .access-row-pending:last-child{border-bottom:none;}
-  .access-row span{font-family:var(--mono); font-size:12.5px; word-break:break-all;}
-  .access-email-only{font-family:var(--mono); font-size:12.5px; word-break:break-all; color:var(--ink-soft);}
-  .access-email-sub{font-family:var(--mono); font-size:11px; color:var(--ink-soft); margin-top:1px;}
-  .access-actions{display:flex; gap:6px; flex-shrink:0; flex-wrap:wrap; align-items:center; margin-top:6px;}
-  .access-store-select{border:1px solid var(--line); border-radius:6px; padding:6px 7px; font-size:12px; font-family:var(--sans); background:var(--bg); color:var(--ink);}
-  .access-person{display:flex; align-items:center; gap:6px; flex:1; min-width:0;}
-  .access-edit-name{border:none; background:none; cursor:pointer; font-size:12px; opacity:.55; padding:2px 4px; flex-shrink:0;}
-  .access-edit-name:hover{opacity:1;}
-  .access-empty{font-size:12.5px; color:var(--ink-soft); padding:6px 0;}
-  .history-list{max-height:340px; overflow-y:auto; margin-top:6px;}
-  .history-row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 0; border-bottom:1px solid var(--line); flex-wrap:wrap;}
-  .history-row:last-child{border-bottom:none;}
-  .history-time{font-family:var(--mono); font-size:12.5px; font-weight:700;}
-  .history-meta{font-size:12px; color:var(--ink-soft); margin-top:2px;}
-  .history-actions{display:flex; gap:6px; flex-shrink:0;}
-  .history-preview-cases{display:flex; flex-direction:column; gap:8px; margin-top:4px;}
-  .history-preview-case{display:flex; align-items:center; gap:8px; font-size:12.5px; padding:6px 0; border-bottom:1px dashed var(--line);}
-  .history-preview-case:last-child{border-bottom:none;}
-  .modal-actions{display:flex; gap:8px; justify-content:flex-end; margin-top:16px;}
-  .footer-note{font-size:11.5px; color:var(--ink-soft); margin-top:26px; border-top:1px solid var(--line); padding-top:14px;}
-
-  .crop-modal{max-width:560px;}
-  .crop-canvas-wrap{position:relative; width:100%; aspect-ratio:4/3; border-radius:10px; overflow:hidden; background:#111; border:1px solid var(--line); touch-action:none; user-select:none;}
-  .crop-canvas-wrap canvas{display:block; width:100%; height:100%; pointer-events:none;}
-  .crop-box{position:absolute; border:2px solid #fff; box-shadow:0 0 0 2000px rgba(0,0,0,.55); cursor:move;}
-  .crop-handle{position:absolute; width:18px; height:18px; border:3px solid #fff; background:transparent;}
-  .handle-nw{top:-3px; left:-3px; border-right:none; border-bottom:none; cursor:nwse-resize;}
-  .handle-ne{top:-3px; right:-3px; border-left:none; border-bottom:none; cursor:nesw-resize;}
-  .handle-sw{bottom:-3px; left:-3px; border-right:none; border-top:none; cursor:nesw-resize;}
-  .handle-se{bottom:-3px; right:-3px; border-left:none; border-top:none; cursor:nwse-resize;}
-  .crop-edge-handle{position:absolute; background:rgba(255,255,255,.9); border:1px solid rgba(0,0,0,.3); border-radius:3px;}
-  .edge-n{top:-4px; left:50%; width:36px; height:8px; transform:translateX(-50%); cursor:ns-resize;}
-  .edge-s{bottom:-4px; left:50%; width:36px; height:8px; transform:translateX(-50%); cursor:ns-resize;}
-  .edge-w{left:-4px; top:50%; width:8px; height:36px; transform:translateY(-50%); cursor:ew-resize;}
-  .edge-e{right:-4px; top:50%; width:8px; height:36px; transform:translateY(-50%); cursor:ew-resize;}
-  .crop-dim-label{position:absolute; left:50%; bottom:8px; transform:translateX(-50%); background:rgba(0,0,0,.7); color:#fff; font-size:11px; font-family:var(--mono); padding:3px 9px; border-radius:5px; white-space:nowrap; pointer-events:none;}
-  .crop-toolbar{display:flex; gap:8px; margin-bottom:10px;}
-  .crop-hint{font-size:11.5px; color:var(--ink-soft); margin-top:10px;}
-  .crop-shrink-row{display:flex; align-items:center; gap:10px; margin-top:12px; padding-top:12px; border-top:1px solid var(--line);}
-  .crop-shrink-row label{font-size:12px; color:var(--ink-soft); white-space:nowrap;}
-  .crop-shrink-row input[type=range]{flex:1;}
-  .crop-shrink-row span{font-size:11.5px; font-family:var(--mono); color:var(--ink-soft); width:40px; text-align:right;}
-  .crop-result-row{margin-top:14px; padding-top:14px; border-top:1px solid var(--line); text-align:center;}
-  .crop-result-label{font-size:12px; color:var(--ink-soft); margin-bottom:8px;}
-  #cropResultPreview{border:2px solid var(--ink); border-radius:8px; background:#F6F6F3; max-width:100%; box-shadow:0 2px 10px rgba(0,0,0,.18);}
-
-  #toast{position:fixed; bottom:20px; right:20px; z-index:100; display:flex; flex-direction:column; gap:8px; max-width:320px;}
-  .toast-msg{background:var(--ink); color:#fff; padding:10px 14px; border-radius:8px; font-size:13px; box-shadow:0 4px 14px rgba(0,0,0,.2); opacity:0; transform:translateY(8px); transition:opacity .2s, transform .2s;}
-  .toast-msg.show{opacity:1; transform:translateY(0);}
-  .toast-msg.error{background:var(--danger);}
-
-  /* ---------- 모바일 반응형 ---------- */
-  @media (max-width: 640px){
-    .topbar{flex-wrap:wrap; padding:10px 14px; gap:10px;}
-    .brand{font-size:15px; order:1;}
-    .brand .sub{display:none;}
-    .role-toggle{order:2; margin-left:auto;}
-    #newGameBtn{order:3;}
-    .search{order:4; max-width:none; flex-basis:100%;}
-    main{padding:16px 14px 60px;}
-    .detail-title{font-size:20px;}
-    .detail-head{flex-direction:column;}
-    .game-note-area{max-width:none; justify-content:flex-start;}
-    .grid{grid-template-columns:repeat(auto-fill, minmax(150px,1fr)); gap:10px;}
-    .card{padding:12px;}
-    .card-name{font-size:14px;}
-    .panel{padding:14px;}
-    .tabs{width:100%;}
-    .tabs button{flex:1; padding:8px 10px; font-size:12.5px;}
-    .photo-actions{flex-wrap:wrap;}
-    .marker-size-control{margin-left:0 !important; width:100%;}
-    .marker-size-control input[type=range]{flex:1;}
-    .photo-pager{flex-wrap:wrap;}
-    .anno-box{max-width:200px;}
-    .anno-item input[type=text]{max-width:130px;}
-    .modal{max-width:none; width:100%;}
-    .crop-modal{max-width:none;}
-    #toast{left:14px; right:14px; bottom:14px; max-width:none;}
-  }
-</style>
-</head>
-<body>
-
-<div id="loginGate" class="login-gate">
-  <div class="login-gate-box" id="gateContent">
-    <div class="brand" style="justify-content:center; pointer-events:none;">RED BUTTON<span class="r-mark">®</span></div>
-    <p>레드버튼 오거나이징 가이드는 사내 전용 자료입니다.<br>구글 계정으로 로그인해주세요.</p>
-    <div id="gateGsiButton" style="display:flex; justify-content:center; margin-top:16px;"></div>
-    <div id="gateError" style="display:none; color:var(--danger); font-size:12.5px; margin-top:10px; text-align:center;"></div>
-  </div>
-</div>
-
-<div id="appRoot" style="display:none;">
-  <div class="topbar">
-    <button class="brand" onclick="closeGame()" aria-label="게임 목록으로 이동">RED BUTTON<span class="r-mark">®</span><span class="sub">오거나이징 가이드</span></button>
-    <div class="search"><input id="searchInput" placeholder="게임 이름 검색 (초성 가능, 예: ㅋㅅㅋㄷㅇ)"></div>
-    <div class="role-toggle">
-      <button id="roleViewerBtn" class="active">뷰어</button>
-      <button id="roleEditorBtn">편집자</button>
-    </div>
-    <button class="btn btn-ghost" onclick="refreshGames()" title="다른 편집자의 변경사항 불러오기">↻ 새로고침</button>
-    <button class="btn btn-ghost" onclick="showHelpModal()">이용 방법</button>
-    <button class="btn btn-ghost" id="accessBtn" style="display:none;" onclick="showAccessModal()">🔑 권한 관리</button>
-    <button class="btn btn-ghost" id="dashboardBtn" style="display:none;" onclick="openDashboard()">📊 진행현황</button>
-    <button class="btn btn-ghost" id="rebuildBtn" style="display:none;" onclick="triggerRebuildIndex()" title="목록이 이상하게 보일 때 사용하세요">🔧 목록 복구</button>
-    <button class="btn btn-ghost" id="logoutBtn" onclick="logout()">로그아웃</button>
-    <button class="btn btn-primary" id="newGameBtn" style="display:none;">+ 새 가이드</button>
-  </div>
-
-  <main id="app"></main>
-  <div id="toast"></div>
-</div>
-
-<script>
-const CASE_TYPES = ['A','B','C','D','E','F','G','H','I','J','K','L'];
-const CASE_SIZES = {A:'65x45x20',B:'82x62x47',C:'85x55x25',D:'88x88x23',E:'95x67x26',F:'105x75x25',
-  G:'105x75x50',H:'105x105x35',I:'115x85x28',J:'145x85x35',K:'210x70x25',L:'325x240x40'};
-
-let role = 'viewer';
-let currentGameId = null;
-let currentMode = '1';
-let currentPhotoIdx = 0;
-let searchQuery = '';
-let games = [];
-let draggingMarker = null;
-let expandedCaseNotes = new Set();
-let draggingBox = null;
-let dragMarkerOffset = null;
-let dragBoxOffset = null;
-let draggingLabel = null;
-let dragLabelOffset = null;
-let resizingLabel = null;
-let resizeLabelStart = null;
-let authToken = null;   // 구글 ID 토큰 (로그인 시 발급됨)
-let authEmail = null;   // 로그인된 사용자 이메일
-const _measureCanvas = document.createElement('canvas');
+const CONFIG = {
+  DATA_FOLDER_ID: '1y8hXFnUsYe5t_PN19BzwuxNb_9W7Z1bN',
+  LEGACY_FILE_NAME: 'games-data.json', // 예전 통합 저장 방식 파일명 (마이그레이션용)
+  FILE_PREFIX: 'game_',
+  INDEX_FILE_NAME: 'games-index.json', // 조회 속도를 위한 통합 인덱스 (개별 파일이 원본, 이건 캐시)
+  ACCESS_FILE_NAME: 'access-control.json', // 승인된/대기중인 구글 계정 이메일 목록
+  GOOGLE_CLIENT_ID: '674971767762-cimv1024n7u11stknpnbbq81lf2djaor.apps.googleusercontent.com' // 구글 클라우드 콘솔에서 발급받은 OAuth 클라이언트 ID
+};
 
 /**
- * 입력창의 실제 글자 폭을 측정해서 그만큼 너비를 넓혀줍니다.
- * (CSS만으로는 브라우저마다 자동 크기 조절이 불안정해서, 직접 측정하는 방식을 씁니다)
+ * 예전 방식(로그인 없는 GET 조회)은 더 이상 지원하지 않습니다.
+ * 이제 조회도 반드시 doPost의 'listGames' 액션(구글 로그인 필요)으로만 가능합니다.
+ * (사이트를 레드버튼 내부 자산으로 보호하기 위해 - GET 요청만으로 데이터를 통째로
+ *  가져갈 수 없도록 막습니다)
  */
-function autoSizeTextInput(inp){
-  const style = getComputedStyle(inp);
-  const font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
-  const ctx = _measureCanvas.getContext('2d');
-  ctx.font = font;
-  const textWidth = ctx.measureText(inp.value || '').width;
-  const min = 50, max = 220;
-  inp.style.width = Math.min(max, Math.max(min, textWidth + 22)) + 'px';
+function doGet(e) {
+  return jsonOutput_({ success: false, error: 'USE_POST_WITH_LOGIN' });
 }
 
-function showToast(message, type='info'){
-  const container = document.getElementById('toast');
-  const el = document.createElement('div');
-  el.className = 'toast-msg' + (type==='error' ? ' error' : '');
-  el.textContent = message;
-  container.appendChild(el);
-  requestAnimationFrame(()=> el.classList.add('show'));
-  setTimeout(()=>{
-    el.classList.remove('show');
-    setTimeout(()=> el.remove(), 250);
-  }, 4000);
-}
+/**
+ * 저장/삭제/권한관리/조회 (조회는 승인된 편집자·뷰어만, 저장·삭제·권한관리는 승인된 편집자만)
+ */
+function doPost(e) {
+  try {
+    const body = JSON.parse(e.postData.contents);
 
-// 배포된 Apps Script 웹앱 URL
-const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbz7Bwa0gOb5R2W_TBqUlHNjfTKAcu5CjbfAjR_0XVKvYr376gNLbq240FfopNuw6W8/exec';
-// 구글 클라우드 콘솔에서 발급받은 OAuth 클라이언트 ID
-const GOOGLE_CLIENT_ID = '674971767762-cimv1024n7u11stknpnbbq81lf2djaor.apps.googleusercontent.com';
-
-const SEED = [
-  { id:'487', name:'캐스캐디아',
-    cases:[
-      {caseType:'D', items:[{name:'지형 타일', qty:2}]},
-      {caseType:'B', items:[{name:'시작타일 5개, 지형타일', qty:1}]},
-      {caseType:'A', items:[{name:'솔방울토큰', qty:1}]},
-      {caseType:'G', items:[{name:'주머니', qty:1},{name:'원형 토큰', qty:1}]},
-      {caseType:'I', items:[{name:'점수 기록지', qty:1},{name:'볼펜', qty:1}]}
-    ],
-    photos:[
-      { markers:[{x:22,y:28,caseIdx:0},{x:58,y:22,caseIdx:1},{x:30,y:62,caseIdx:2}] },
-      { markers:[{x:72,y:55,caseIdx:3},{x:50,y:80,caseIdx:4}] }
-    ]
-  },
-  { id:'112', name:'윙스팬',
-    cases:[
-      {caseType:'F', items:[{name:'새 카드', qty:170}]},
-      {caseType:'C', items:[{name:'먹이 토큰', qty:60}]},
-      {caseType:'B', items:[{name:'알 토큰', qty:75}]}
-    ],
-    photos:[
-      { markers:[{x:35,y:35,caseIdx:0},{x:65,y:40,caseIdx:1},{x:50,y:70,caseIdx:2}] }
-    ]
-  },
-  { id:'203', name:'스플렌더',
-    cases:[
-      {caseType:'A', items:[{name:'보석 토큰', qty:40}]},
-      {caseType:'C', items:[{name:'발전 카드', qty:90}]}
-    ],
-    photos:[ { markers:[{x:40,y:40,caseIdx:0},{x:60,y:60,caseIdx:1}] } ]
-  }
-];
-
-const CHO = ['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
-function getChosung(str){
-  let out='';
-  for (const ch of str){
-    const code = ch.charCodeAt(0) - 0xAC00;
-    out += (code>=0 && code<=11171) ? CHO[Math.floor(code/588)] : ch;
-  }
-  return out;
-}
-
-async function loadGames(){
-  if (WEB_APP_URL === 'YOUR_WEB_APP_URL'){
-    console.warn('WEB_APP_URL이 설정되지 않아 데모 데이터로 동작합니다.');
-    games = SEED;
-    return;
-  }
-  try{
-    const res = await fetch(WEB_APP_URL, {
-      method:'POST',
-      headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body: JSON.stringify({ action:'listGames', idToken: authToken })
-    });
-    const data = await res.json();
-    if (data.success === false){
-      // 로그인이 만료됐거나 유효하지 않음 → 다시 로그인 화면으로
-      clearCachedAuthToken();
-      showGate();
-      showToast('로그인이 만료되었습니다. 다시 로그인해주세요.', 'error');
-      return;
+    // ---- 조회: 승인된 편집자 또는 뷰어만 가능 (아무 구글 계정이나 되는 게 아님) ----
+    if (body.action === 'listGames') {
+      const email = verifyAnyToken_(body.idToken);
+      if (!email) return jsonOutput_({ success: false, error: 'NOT_AUTHENTICATED' });
+      const access = readAccess_();
+      const allowed = access.editors.indexOf(email) !== -1 || access.viewers.indexOf(email) !== -1;
+      if (!allowed) return jsonOutput_({ success: false, error: 'NOT_APPROVED' });
+      return jsonOutput_({ success: true, games: readIndex_() });
     }
-    games = (data.games && data.games.length) ? data.games : SEED;
-  }catch(e){
-    console.error('불러오기 실패, 데모 데이터로 대체합니다.', e);
-    games = SEED;
+
+    // ---- 게임 하나의 전체 데이터(사진 포함) 조회 - 게임을 열 때 호출 ----
+    if (body.action === 'getGame') {
+      const email = verifyAnyToken_(body.idToken);
+      if (!email) return jsonOutput_({ success: false, error: 'NOT_AUTHENTICATED' });
+      const access = readAccess_();
+      const allowed = access.editors.indexOf(email) !== -1 || access.viewers.indexOf(email) !== -1;
+      if (!allowed) return jsonOutput_({ success: false, error: 'NOT_APPROVED' });
+      if (!body.gameId) return jsonOutput_({ success: false, error: 'GAME_ID_REQUIRED' });
+      const game = getOneGame_(body.gameId);
+      if (!game) return jsonOutput_({ success: false, error: 'GAME_NOT_FOUND' });
+      return jsonOutput_({ success: true, game: game });
+    }
+
+    // ---- 매장 작업 완료 체크 (편집자·뷰어 누구나, 본인 계정 기준으로만 토글) ----
+    if (body.action === 'toggleWorkComplete') {
+      return handleToggleWorkComplete_(body.idToken, body.gameId, body.desiredState);
+    }
+
+    // ---- 권한 관련 액션 (로그인 자체와 권한 관리) ----
+    if (body.action === 'checkAccess') return handleCheckAccess_(body.idToken);
+    if (body.action === 'listStores') return handleListStores_(body.idToken);
+    if (body.action === 'submitAccessRequest') return handleSubmitAccessRequest_(body.idToken, body.name, body.position, body.storeCode);
+    if (body.action === 'requestEditorUpgrade') return handleRequestEditorUpgrade_(body.idToken);
+    if (body.action === 'listAccess') return handleListAccess_(body.idToken);
+    if (body.action === 'approveRequest') return handleApprove_(body.idToken, body.targetEmail, body.roleType, body.storeCode);
+    if (body.action === 'rejectRequest') return handleReject_(body.idToken, body.targetEmail);
+    if (body.action === 'addApprovedEmail') return handleAddApproved_(body.idToken, body.targetEmail, body.roleType, body.storeCode, body.name, body.position);
+    if (body.action === 'updateProfile') return handleUpdateProfile_(body.idToken, body.targetEmail, body.name, body.position, body.storeCode);
+    if (body.action === 'removeApprovedEmail') return handleRemoveApproved_(body.idToken, body.targetEmail);
+    if (body.action === 'addStore') return handleAddStore_(body.idToken, body.code, body.name);
+    if (body.action === 'removeStore') return handleRemoveStore_(body.idToken, body.code);
+    if (body.action === 'rebuildIndex') return handleRebuildIndexRemote_(body.idToken);
+    if (body.action === 'listGameHistory') return handleListGameHistory_(body.idToken, body.gameId);
+    if (body.action === 'getHistorySnapshot') return handleGetHistorySnapshot_(body.idToken, body.gameId, body.index);
+    if (body.action === 'restoreHistorySnapshot') return handleRestoreHistorySnapshot_(body.idToken, body.gameId, body.index);
+    if (body.action === 'listGameIdsForRebuild') return handleListGameIds_(body.idToken);
+    if (body.action === 'rebuildIndexBatch') return handleRebuildIndexBatch_(body.idToken, body.ids);
+    if (body.action === 'finishRebuildIndex') return handleFinishRebuildIndex_(body.idToken, body.games);
+
+    // ---- 이하 데이터 저장/삭제는 승인된 편집자만 가능 ----
+    const email = requireApprovedEditor_(body.idToken);
+    if (!email) {
+      return jsonOutput_({ success: false, error: 'NOT_APPROVED' });
+    }
+
+    if (body.action === 'saveGame') {
+      if (!body.game || !body.game.id) {
+        return jsonOutput_({ success: false, error: 'GAME_ID_REQUIRED' });
+      }
+      saveOneGame_(body.game);
+      return jsonOutput_({ success: true });
+    }
+
+    if (body.action === 'deleteGame') {
+      if (!body.gameId) {
+        return jsonOutput_({ success: false, error: 'GAME_ID_REQUIRED' });
+      }
+      deleteOneGame_(body.gameId);
+      return jsonOutput_({ success: true });
+    }
+
+    // 구버전 호환: 통째로 games 배열을 보내는 예전 방식도 각 파일로 나눠 저장
+    if (body.games && Array.isArray(body.games)) {
+      body.games.forEach(g => saveOneGame_(g));
+      return jsonOutput_({ success: true });
+    }
+
+    return jsonOutput_({ success: false, error: 'UNKNOWN_ACTION' });
+  } catch (err) {
+    return jsonOutput_({ success: false, error: String(err) });
   }
 }
 
-/**
- * 게임 하나만 서버에 저장합니다. (전체 목록을 통째로 덮어쓰지 않음)
- * 여러 편집자가 서로 다른 게임을 동시에 작업해도 서로의 저장을 덮어쓰지 않도록 하기 위함입니다.
- */
-/**
- * 편집 중 저장을 매번 즉시 보내지 않고, 마지막 편집 후 잠깐(1.2초) 기다렸다가
- * 한 번만 보냅니다. 같은 게임을 여러 번 연달아 편집(마커 여러 개 옮기기, 글자
- * 여러 번 고치기 등)해도 서버로는 요청이 한 번만 나가서 트래픽이 줄어듭니다.
- * (사진이 있는 게임은 사소한 글자 수정에도 사진 데이터까지 매번 통째로
- *  다시 전송되던 문제가 있어서, 이 부분에서 특히 효과가 큽니다)
- */
-const SAVE_DEBOUNCE_MS = 1200;
-let pendingSaveTimers_ = {}; // gameId -> timer id
-
-function debouncedSaveGames(gameId){
-  gameId = gameId || currentGameId;
-  if (!gameId) return;
-  if (pendingSaveTimers_[gameId]) clearTimeout(pendingSaveTimers_[gameId]);
-  pendingSaveTimers_[gameId] = setTimeout(()=>{
-    delete pendingSaveTimers_[gameId];
-    saveGames(gameId);
-  }, SAVE_DEBOUNCE_MS);
-}
-
-/**
- * 대기 중인 저장이 있으면 기다리지 않고 바로 실행합니다.
- * 다른 게임으로 이동하거나, 탭을 벗어나거나, 페이지를 닫기 직전 등
- * "여기서는 확실히 저장해두는 게 안전한" 시점에 호출합니다.
- */
-function flushPendingSave_(gameId){
-  gameId = gameId || currentGameId;
-  if (!gameId) return;
-  if (pendingSaveTimers_[gameId]){
-    clearTimeout(pendingSaveTimers_[gameId]);
-    delete pendingSaveTimers_[gameId];
-    saveGames(gameId);
-  }
-}
-
-/**
- * "💾 지금 저장" 버튼용. 대기 중인 자동저장이 있으면 취소하고,
- * 지금 이 순간의 최신 내용을 바로 저장합니다.
- */
-async function manualSaveGame(){
-  const gameId = currentGameId;
-  if (!gameId) return;
-  if (pendingSaveTimers_[gameId]){
-    clearTimeout(pendingSaveTimers_[gameId]);
-    delete pendingSaveTimers_[gameId];
-  }
-  const btn = document.getElementById('manualSaveBtn');
-  if (btn){ btn.disabled = true; btn.textContent = '저장 중...'; }
-  showSaveProgressBar_();
-  const ok = await saveGames(gameId);
-  hideSaveProgressBar_();
-  if (btn){ btn.disabled = false; btn.textContent = '💾 지금 저장'; }
-  if (ok) showToast('저장되었습니다.');
-}
-
-/**
- * 저장은 서버에 한 번 요청 보내고 응답 오는 구조라, 중간 진행률을 정확히 알
- * 방법은 없습니다. 대신 점점 채워지다가 완료 시 바로 100%로 마무리되는
- * 표시로 "진행되고 있다"는 걸 보여줍니다.
- */
-let saveProgressInterval_ = null;
-function showSaveProgressBar_(){
-  const wrap = document.getElementById('saveProgressWrap');
-  const fill = document.getElementById('saveProgressFill');
-  if (!wrap || !fill) return;
-  wrap.style.display = 'block';
-  fill.style.transition = 'width .25s linear';
-  fill.style.width = '0%';
-  let pct = 0;
-  clearInterval(saveProgressInterval_);
-  saveProgressInterval_ = setInterval(()=>{
-    pct += (90 - pct) * 0.12 + 0.5; // 처음엔 빠르게, 90%에 가까워질수록 천천히
-    if (pct > 90) pct = 90;
-    fill.style.width = pct + '%';
-  }, 200);
-}
-function hideSaveProgressBar_(){
-  clearInterval(saveProgressInterval_);
-  const wrap = document.getElementById('saveProgressWrap');
-  const fill = document.getElementById('saveProgressFill');
-  if (!fill){ return; }
-  fill.style.transition = 'width .2s ease-out';
-  fill.style.width = '100%';
-  setTimeout(()=>{ if (wrap) wrap.style.display = 'none'; }, 350);
+function jsonOutput_(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
 }
 
 /**
  * ============================================================
- * 이전 버전(수정 이력) 보기·미리보기·복원
+ * 구글 로그인 / 권한 관리
  * ============================================================
  */
-function formatHistoryDate_(ts){
-  const d = new Date(ts);
-  const pad = n => String(n).padStart(2,'0');
-  return `${d.getFullYear()}.${pad(d.getMonth()+1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-async function showHistoryModal(gameId){
-  showToast('이전 버전 불러오는 중...');
-  try{
-    const res = await fetch(WEB_APP_URL, {
-      method:'POST',
-      headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body: JSON.stringify({ action:'listGameHistory', idToken:authToken, gameId })
-    });
-    const result = await res.json();
-    if (!result.success){
-      showToast('이력을 불러오지 못했습니다. (' + (result.error||'') + ')', 'error');
-      return;
-    }
-    renderHistoryModal(gameId, result.history || []);
-  }catch(e){
-    console.error(e);
-    showToast('서버 오류가 발생했습니다.', 'error');
-  }
-}
-
-function renderHistoryModal(gameId, history){
-  const old = document.getElementById('historyBackdrop');
-  if (old) old.remove();
-
-  const backdrop = document.createElement('div');
-  backdrop.className = 'modal-backdrop';
-  backdrop.id = 'historyBackdrop';
-  backdrop.innerHTML = `
-    <div class="modal" style="max-width:420px;">
-      <h3>이전 버전</h3>
-      <p style="font-size:12px; color:var(--ink-soft); margin-top:-8px;">저장할 때마다 직전 내용이 최근 5개까지 자동으로 남습니다.</p>
-      ${history.length ? `
-        <div class="history-list">
-          ${history.map(h=>`
-            <div class="history-row">
-              <div>
-                <div class="history-time">${formatHistoryDate_(h.savedAt)}</div>
-                <div class="history-meta">${h.name} · 케이스 ${h.caseCount}개${h.hasPhoto?' · 사진 있음':''}</div>
-              </div>
-              <div class="history-actions">
-                <button class="btn btn-ghost" style="padding:5px 10px; font-size:12px;" onclick="previewHistorySnapshot('${gameId}', ${h.index})">미리보기</button>
-                <button class="btn btn-primary" style="padding:5px 10px; font-size:12px;" onclick="restoreHistorySnapshot('${gameId}', ${h.index})">복원</button>
-              </div>
-            </div>
-          `).join('')}
-        </div>
-      ` : `<div class="access-empty">아직 저장된 이전 버전이 없습니다.</div>`}
-      <div class="modal-actions">
-        <button class="btn btn-primary" onclick="document.getElementById('historyBackdrop').remove()">닫기</button>
-      </div>
-    </div>`;
-  document.body.appendChild(backdrop);
-}
-
-async function previewHistorySnapshot(gameId, index){
-  showToast('불러오는 중...');
-  try{
-    const res = await fetch(WEB_APP_URL, {
-      method:'POST',
-      headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body: JSON.stringify({ action:'getHistorySnapshot', idToken:authToken, gameId, index })
-    });
-    const result = await res.json();
-    if (!result.success){
-      showToast('불러오지 못했습니다. (' + (result.error||'') + ')', 'error');
-      return;
-    }
-    renderHistoryPreview(gameId, index, result.snapshot, result.savedAt);
-  }catch(e){
-    console.error(e);
-    showToast('서버 오류가 발생했습니다.', 'error');
-  }
-}
-
-function renderHistoryPreview(gameId, index, snapshot, savedAt){
-  const old = document.getElementById('historyPreviewBackdrop');
-  if (old) old.remove();
-
-  const photo = (snapshot.photos||[])[0];
-  const casesHtml = (snapshot.cases||[]).map(c=>`
-    <div class="history-preview-case">
-      <span class="case-badge case-${c.caseType}"><span class="dot"></span>${c.caseType}</span>
-      <span>${(c.items||[]).map(i=> Number(i.qty)===0 ? i.name : `${i.name} ${i.qty}개`).join(', ')}</span>
-    </div>
-  `).join('');
-
-  const backdrop = document.createElement('div');
-  backdrop.className = 'modal-backdrop';
-  backdrop.id = 'historyPreviewBackdrop';
-  backdrop.innerHTML = `
-    <div class="modal" style="max-width:480px; max-height:82vh; overflow-y:auto;">
-      <h3>미리보기 · ${formatHistoryDate_(savedAt)}</h3>
-      <div class="detail-title" style="font-size:16px; margin-bottom:10px;">${snapshot.name}</div>
-      ${photo && photo.imageUrl ? `<img src="${photo.imageUrl}" style="width:100%; border-radius:8px; border:1px solid var(--line); margin-bottom:12px;">` : ''}
-      <div class="history-preview-cases">${casesHtml || '<div class="access-empty">등록된 구성품이 없습니다.</div>'}</div>
-      <div class="modal-actions">
-        <button class="btn btn-ghost" onclick="document.getElementById('historyPreviewBackdrop').remove()">닫기</button>
-        <button class="btn btn-primary" onclick="document.getElementById('historyPreviewBackdrop').remove(); restoreHistorySnapshot('${gameId}', ${index})">이 버전으로 복원</button>
-      </div>
-    </div>`;
-  document.body.appendChild(backdrop);
-}
-
-async function restoreHistorySnapshot(gameId, index){
-  if (!confirm('이 버전으로 되돌릴까요? 현재 내용은 이력에 저장된 뒤 덮어써집니다.')) return;
-  showToast('복원하는 중...');
-  try{
-    const res = await fetch(WEB_APP_URL, {
-      method:'POST',
-      headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body: JSON.stringify({ action:'restoreHistorySnapshot', idToken:authToken, gameId, index })
-    });
-    const result = await res.json();
-    if (!result.success){
-      showToast('복원 실패: ' + (result.error||''), 'error');
-      return;
-    }
-    const idx = games.findIndex(g=>g.id===gameId);
-    if (idx !== -1) games[idx] = result.game; else games.push(result.game);
-    const b1 = document.getElementById('historyBackdrop'); if (b1) b1.remove();
-    const b2 = document.getElementById('historyPreviewBackdrop'); if (b2) b2.remove();
-    render();
-    showToast('복원되었습니다.');
-  }catch(e){
-    console.error(e);
-    showToast('서버 오류가 발생했습니다.', 'error');
-  }
-}
-
-// 탭을 닫거나 새로고침하기 직전에도 대기 중인 저장을 시도합니다.
-window.addEventListener('beforeunload', ()=>{
-  Object.keys(pendingSaveTimers_).forEach(gameId=>{
-    clearTimeout(pendingSaveTimers_[gameId]);
-    const game = games.find(g=>g.id===gameId);
-    if (game && authToken){
-      // beforeunload 안에서는 일반 fetch가 끝까지 실행 안 될 수 있어 sendBeacon 사용
-      const blob = new Blob([JSON.stringify({ action:'saveGame', idToken:authToken, game })], { type:'text/plain;charset=utf-8' });
-      navigator.sendBeacon(WEB_APP_URL, blob);
-    }
-  });
-});
-
-async function saveGames(gameId, _isRetry){
-  gameId = gameId || currentGameId;
-  if (!gameId){ console.warn('저장할 게임을 특정할 수 없습니다.'); return false; }
-  if (WEB_APP_URL === 'YOUR_WEB_APP_URL') return true; // 데모 모드에서는 저장 생략
-
-  const game = games.find(x=>x.id===gameId);
-  if (!game){ console.warn('저장할 게임을 찾지 못했습니다:', gameId); return false; }
-
-  try{
-    const res = await fetch(WEB_APP_URL, {
-      method:'POST',
-      headers:{'Content-Type':'text/plain;charset=utf-8'}, // CORS 프리플라이트 회피용
-      body: JSON.stringify({ action:'saveGame', idToken:authToken, game })
-    });
-    const result = await res.json();
-    if (result.success){
-      cacheAuthToken(authToken, authEmail); // 저장이 잘 되면 로그인 세션 갱신
-      cacheEditorApproval();                // 편집자 승인 캐시도 10분 연장
-      return true;
-    } else if (result.error === 'NOT_APPROVED' || result.error === 'NOT_AUTHENTICATED'){
-      clearCachedAuthToken();
-      clearCachedEditorApproval();
-      showGate();
-      showToast('로그인이 만료되었습니다. 다시 로그인해주세요.', 'error');
-      return false;
-    } else if (!_isRetry){
-      // 드라이브 쪽 일시적인 오류일 수 있으므로, 잠깐 기다렸다가 한 번 더 시도
-      await new Promise(r=>setTimeout(r, 700));
-      return saveGames(gameId, true);
-    } else {
-      showToast('저장 실패: ' + (result.error||'') + ' (잠시 후 다시 시도해주세요)', 'error');
-      return false;
-    }
-  }catch(e){
-    console.error('저장 실패', e);
-    if (!_isRetry){
-      await new Promise(r=>setTimeout(r, 700));
-      return saveGames(gameId, true);
-    }
-    showToast('서버에 연결하지 못했습니다. 네트워크 상태를 확인해주세요.', 'error');
-    return false;
-  }
-}
 
 /**
- * 게임을 서버에서 완전히 삭제합니다.
+ * 구글이 발급한 ID 토큰을 검증하고, 유효하면 이메일(소문자)을 반환합니다.
+ * - aud(발급 대상)가 우리 CLIENT_ID와 일치하는지
+ * - 만료되지 않았는지
+ * 를 구글의 tokeninfo 엔드포인트로 직접 확인합니다. (별도 서명 검증 라이브러리 불필요)
+ *
+ * 같은 토큰에 대해 매 요청마다 구글에 다시 확인하면, 짧은 시간에 요청이 몰릴 때
+ * 구글 tokeninfo 자체의 사용량 제한에 걸려 "정상 로그인인데도 실패"로 오인될 수
+ * 있습니다. 그래서 확인에 성공한 토큰은 5분간 결과를 기억해두고 재사용합니다.
+ * (실패한 경우는 캐시하지 않습니다 - 일시적 오류로 인한 거짓 잠김을 막기 위함)
  */
-async function deleteGameOnServer(gameId){
-  if (WEB_APP_URL === 'YOUR_WEB_APP_URL') return;
-  try{
-    const res = await fetch(WEB_APP_URL, {
-      method:'POST',
-      headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body: JSON.stringify({ action:'deleteGame', idToken:authToken, gameId })
-    });
-    const result = await res.json();
-    if (!result.success){
-      showToast('삭제 실패: ' + (result.error||''), 'error');
-    }
-  }catch(e){
-    console.error('삭제 실패', e);
-    showToast('서버에 연결하지 못했습니다.', 'error');
-  }
-}
-
-async function refreshGames(){
-  showToast('불러오는 중...');
-  await loadGames();
-  render();
-  showToast('최신 데이터를 불러왔습니다.');
-}
-
-/**
- * 목록이 이상하게 보일 때(예: 게임이 몇 개만 보이는 등), 게임별 원본 파일을
- * 기준으로 목록용 요약 파일을 다시 만듭니다. 한 번에 전체를 처리하지 않고
- * 조금씩(배치) 나눠서 처리하면서 진행률(%)을 보여줍니다. 원본 데이터는
- * 건드리지 않으므로 안전합니다.
- */
-const REBUILD_BATCH_SIZE = 15;
-
-async function triggerRebuildIndex(){
-  if (!confirm('목록을 원본 데이터 기준으로 다시 만듭니다. 게임 수에 따라 시간이 걸릴 수 있어요. 계속할까요?')) return;
-
-  showRebuildProgressModal_(0, 0);
-
-  try{
-    const idsRes = await fetch(WEB_APP_URL, {
-      method:'POST',
-      headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body: JSON.stringify({ action:'listGameIdsForRebuild', idToken:authToken })
-    });
-    const idsResult = await idsRes.json();
-    if (!idsResult.success){
-      closeRebuildProgressModal_();
-      showToast('처리 실패: ' + (idsResult.error||''), 'error');
-      return;
-    }
-
-    const ids = idsResult.ids || [];
-    const total = ids.length;
-    const collected = [];
-
-    for (let i = 0; i < total; i += REBUILD_BATCH_SIZE){
-      const batchIds = ids.slice(i, i + REBUILD_BATCH_SIZE);
-      const res = await fetch(WEB_APP_URL, {
-        method:'POST',
-        headers:{'Content-Type':'text/plain;charset=utf-8'},
-        body: JSON.stringify({ action:'rebuildIndexBatch', idToken:authToken, ids:batchIds })
-      });
-      const result = await res.json();
-      if (!result.success){
-        closeRebuildProgressModal_();
-        showToast('처리 실패: ' + (result.error||''), 'error');
-        return;
-      }
-      collected.push(...(result.games||[]));
-      updateRebuildProgressModal_(collected.length, total);
-    }
-
-    const finishRes = await fetch(WEB_APP_URL, {
-      method:'POST',
-      headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body: JSON.stringify({ action:'finishRebuildIndex', idToken:authToken, games:collected })
-    });
-    const finishResult = await finishRes.json();
-    closeRebuildProgressModal_();
-
-    if (finishResult.success){
-      showToast('목록을 다시 만들었습니다 (' + finishResult.count + '개 게임).');
-      await loadGames();
-      render();
-    } else {
-      showToast('처리 실패: ' + (finishResult.error||''), 'error');
-    }
-  }catch(e){
-    console.error(e);
-    closeRebuildProgressModal_();
-    showToast('서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.', 'error');
-  }
-}
-
-function showRebuildProgressModal_(done, total){
-  const old = document.getElementById('rebuildProgressBackdrop');
-  if (old) old.remove();
-  const backdrop = document.createElement('div');
-  backdrop.className = 'modal-backdrop';
-  backdrop.id = 'rebuildProgressBackdrop';
-  backdrop.innerHTML = `
-    <div class="modal" style="max-width:340px; text-align:center;">
-      <h3>목록 복구 중</h3>
-      <div class="dash-progress-bar-track" style="margin-top:6px;">
-        <div class="dash-progress-bar-fill" id="rebuildProgressFill" style="width:0%;"></div>
-        <div class="dash-progress-bar-label" id="rebuildProgressLabel">준비 중...</div>
-      </div>
-      <p style="font-size:12px; color:var(--ink-soft); margin-top:14px;">창을 닫지 말고 잠시만 기다려주세요.</p>
-    </div>`;
-  document.body.appendChild(backdrop);
-}
-
-function updateRebuildProgressModal_(done, total){
-  const fill = document.getElementById('rebuildProgressFill');
-  const label = document.getElementById('rebuildProgressLabel');
-  if (!fill || !label) return;
-  const pct = total > 0 ? Math.round(done/total*100) : 0;
-  fill.style.width = pct + '%';
-  label.textContent = pct + '% · ' + done + '/' + total;
-}
-
-function closeRebuildProgressModal_(){
-  const el = document.getElementById('rebuildProgressBackdrop');
-  if (el) el.remove();
-}
-
-
-let showDashboard = false;
-
-function render(){
-  const app = document.getElementById('app');
-  const isEditor = role==='editor';
-  document.getElementById('newGameBtn').style.display = isEditor ? 'inline-block' : 'none';
-  document.getElementById('accessBtn').style.display = isEditor ? 'inline-block' : 'none';
-  document.getElementById('dashboardBtn').style.display = isEditor ? 'inline-block' : 'none';
-  document.getElementById('rebuildBtn').style.display = isEditor ? 'inline-block' : 'none';
-  if (showDashboard){ renderDashboard(app); return; }
-  currentGameId ? renderDetail(app) : renderList(app);
-}
-
-function openDashboard(){ showDashboard=true; currentGameId=null; render(); }
-function closeDashboard(){ showDashboard=false; render(); }
-
-let dashboardFilter = 'all';
-function setDashboardFilter(v){ dashboardFilter = v; render(); }
-
-function renderDashboard(app){
-  const all = games.slice().sort((a,b)=> String(a.name).localeCompare(String(b.name), 'ko'));
-  const doneCount = all.filter(g=>g.guideDone).length;
-  const total = all.length;
-  const pct = total>0 ? Math.round(doneCount/total*100) : 0;
-
-  const filtered = all.filter(g=>{
-    if (dashboardFilter==='incomplete') return !g.guideDone;
-    if (dashboardFilter==='complete') return !!g.guideDone;
-    return true;
-  });
-
-  const rows = filtered.map(g=>{
-    const hasPhoto = g.hasPhoto != null ? g.hasPhoto : (g.photos||[]).some(p=>p.imageUrl);
-    const storeCount = (g.completedBy||[]).length;
-    return `<tr>
-      <td class="dash-id">${g.id}</td>
-      <td>${g.name}</td>
-      <td>${hasPhoto ? '<span class="dash-yes">✅ 있음</span>' : '<span class="dash-no">❌ 없음</span>'}</td>
-      <td><input type="checkbox" ${g.guideDone?'checked':''} onchange="toggleGuideDone('${g.id}', this.checked)"></td>
-      <td>${storeCount>0 ? `<span class="dash-count">${storeCount}개 매장 완료</span>` : '<span style="color:var(--ink-soft);">0</span>'}</td>
-      <td><button class="btn btn-ghost" style="padding:4px 10px; font-size:12px;" onclick="openGame('${g.id}')">열기</button></td>
-    </tr>`;
-  }).join('');
-
-  app.innerHTML = `
-    <button class="back" onclick="closeDashboard()">← 목록으로</button>
-    <div class="detail-title" style="margin-bottom:16px;">작업 진행 현황</div>
-    <div class="dash-progress-card">
-      <div class="dash-progress-bar-track">
-        <div class="dash-progress-bar-fill" style="width:${pct}%;"></div>
-        <div class="dash-progress-bar-label">${pct}% · ${doneCount}/${total}</div>
-      </div>
-    </div>
-    <div class="panel">
-      <div class="panel-label">
-        <span>게임별 현황</span>
-        <select onchange="setDashboardFilter(this.value)" style="border:1px solid var(--line); border-radius:6px; padding:5px 8px; font-size:12.5px;">
-          <option value="all" ${dashboardFilter==='all'?'selected':''}>전체</option>
-          <option value="incomplete" ${dashboardFilter==='incomplete'?'selected':''}>가이드 미완료만</option>
-          <option value="complete" ${dashboardFilter==='complete'?'selected':''}>가이드 완료만</option>
-        </select>
-      </div>
-      <div class="table-scroll">
-        <table>
-          <thead><tr><th>ID</th><th>게임명</th><th>사진</th><th>가이드 완료</th><th>매장 완료</th><th></th></tr></thead>
-          <tbody>${rows || '<tr><td colspan="6" style="color:var(--ink-soft);">해당하는 게임이 없습니다.</td></tr>'}</tbody>
-        </table>
-      </div>
-    </div>
-  `;
-}
-
-async function toggleGuideDone(gameId, checked){
-  const g = games.find(x=>x.id===gameId);
-  if (!g) return;
-  g.guideDone = checked;
-  await saveGames(gameId);
-  if (showDashboard) render();
-}
-
-let selectedGameIds = new Set();
-let sortOption = 'name';
-let filterOption = 'all';
-
-function setSortOption(v){ sortOption=v; render(); }
-function setFilterOption(v){ filterOption=v; render(); }
-
-function renderListControls_(){
-  return `<div class="list-controls">
-    <div class="list-control-group">
-      <label>정렬</label>
-      <select onchange="setSortOption(this.value)">
-        <option value="name" ${sortOption==='name'?'selected':''}>이름순 (ㄱㄴㄷ)</option>
-        <option value="id" ${sortOption==='id'?'selected':''}>ID순</option>
-        <option value="updated" ${sortOption==='updated'?'selected':''}>최근 수정순</option>
-      </select>
-    </div>
-    <div class="list-control-group">
-      <label>필터</label>
-      <select onchange="setFilterOption(this.value)">
-        <option value="all" ${filterOption==='all'?'selected':''}>전체</option>
-        <option value="myDone" ${filterOption==='myDone'?'selected':''}>완료</option>
-        <option value="myNotDone" ${filterOption==='myNotDone'?'selected':''}>미완료</option>
-      </select>
-    </div>
-  </div>`;
-}
-
-function renderList(app){
-  let filtered = games.filter(g=>{
-    if(!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    return g.name.toLowerCase().includes(q) || getChosung(g.name).includes(searchQuery) || g.id.includes(searchQuery);
-  });
-
-  filtered = filtered.filter(g=>{
-    if (filterOption==='myDone') return (g.completedBy||[]).includes(authEmail);
-    if (filterOption==='myNotDone') return !(g.completedBy||[]).includes(authEmail);
-    return true;
-  });
-
-  filtered = filtered.slice().sort((a,b)=>{
-    if (sortOption==='id') return (Number(a.id)-Number(b.id)) || String(a.id).localeCompare(String(b.id));
-    if (sortOption==='updated') return (b.updatedAt||0) - (a.updatedAt||0);
-    return String(a.name).localeCompare(String(b.name), 'ko');
-  });
-
-  const editable = role==='editor';
-  let html = renderListControls_();
-
-  if (selectedGameIds.size > 0) html += renderSelectionSummary();
-
-  if (filtered.length===0){
-    html += `<div class="empty">검색 결과가 없습니다.</div>`;
-  } else {
-    html += `<div class="grid">`;
-    filtered.forEach(g=>{
-      const counts = {};
-      g.cases.forEach(c=>{ counts[c.caseType] = (counts[c.caseType]||0) + 1; });
-      const types = Object.keys(counts);
-      const checked = selectedGameIds.has(g.id);
-      const iDone = (g.completedBy||[]).includes(authEmail);
-      html += `<div class="card ${iDone?'card-done':''}" onclick="openGame('${g.id}')">
-        <div class="card-top">
-          <input type="checkbox" class="card-select" ${checked?'checked':''} onclick="event.stopPropagation();" onchange="toggleGameSelect('${g.id}')" title="선택해서 필요 케이스 모아보기">
-          <div class="card-id">ID ${g.id}</div>
-          ${editable ? `<button class="card-delete" onclick="event.stopPropagation(); deleteGame('${g.id}')" title="게임 삭제">✕</button>` : ''}
-        </div>
-        <div class="card-name">${g.name}</div>
-        <div class="card-badges">${types.map(t=>`<span class="chip case-${t}"><span class="dot"></span>${t}${counts[t]>1?`x${counts[t]}`:''}</span>`).join('')}</div>
-        <label class="card-done-toggle" onclick="event.stopPropagation();">
-          <input type="checkbox" ${iDone?'checked':''} onchange="toggleWorkComplete('${g.id}')">
-          <span>작업 완료</span>
-        </label>
-      </div>`;
-    });
-    html += `</div>`;
-  }
-  app.innerHTML = html;
-}
-
-async function toggleWorkComplete(gameId){
-  const g = games.find(x=>x.id===gameId);
-  if (!g) return;
-  if (!g.completedBy) g.completedBy = [];
-  const idx = g.completedBy.indexOf(authEmail);
-  const wasCompleted = idx !== -1;
-  const desiredState = !wasCompleted; // 이번 클릭 이후 사용자가 "원하는" 최종 상태
-
-  // 낙관적 업데이트: 서버 응답을 기다리지 않고 화면에 즉시 반영 (깜빡임 방지)
-  if (wasCompleted) g.completedBy.splice(idx, 1);
-  else g.completedBy.push(authEmail);
-  render();
-
-  function revert(){
-    const i = g.completedBy.indexOf(authEmail);
-    if (wasCompleted && i===-1) g.completedBy.push(authEmail);
-    if (!wasCompleted && i!==-1) g.completedBy.splice(i,1);
-    render();
-  }
-
-  try{
-    const res = await fetch(WEB_APP_URL, {
-      method:'POST',
-      headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body: JSON.stringify({ action:'toggleWorkComplete', idToken:authToken, gameId, desiredState })
-    });
-    const result = await res.json();
-    if (!result.success){
-      revert();
-      showToast('처리 실패: ' + (result.error||''), 'error');
-    }
-  }catch(e){
-    console.error(e);
-    revert();
-    showToast('서버 오류가 발생했습니다.', 'error');
-  }
-}
-
-function toggleGameSelect(id){
-  if (selectedGameIds.has(id)) selectedGameIds.delete(id);
-  else selectedGameIds.add(id);
-  render();
-}
-
-function clearSelection(){
-  selectedGameIds.clear();
-  render();
-}
-
-function renderSelectionSummary(){
-  const selected = games.filter(g=>selectedGameIds.has(g.id));
-  const counts = {};
-  selected.forEach(g=> g.cases.forEach(c=>{ counts[c.caseType] = (counts[c.caseType]||0) + 1; }));
-  const types = Object.keys(counts).sort();
-
-  return `<div class="selection-panel">
-    <div class="selection-head">
-      <span>${selected.length}개 게임 선택됨 · 필요한 케이스 합계</span>
-      <button class="btn btn-ghost" style="padding:4px 10px; font-size:12px;" onclick="clearSelection()">선택 해제</button>
-    </div>
-    <div class="selection-games">
-      ${selected.map(g=>`<span class="sel-chip">${g.name}<button onclick="toggleGameSelect('${g.id}')">✕</button></span>`).join('')}
-    </div>
-    <div class="selection-totals">
-      ${types.length
-        ? types.map(t=>`<span class="case-badge case-${t}"><span class="dot"></span>${t}<span class="size-label">${counts[t]}개</span></span>`).join('')
-        : '<span style="color:var(--ink-soft); font-size:13px;">선택한 게임에 등록된 케이스가 없습니다.</span>'}
-    </div>
-  </div>`;
-}
-
-function deleteGame(id){
-  const g = games.find(x=>x.id===id);
-  if (!g) return;
-  if (!confirm(`"${g.name}" 게임을 삭제할까요? 이 작업은 되돌릴 수 없습니다.`)) return;
-  games = games.filter(x=>x.id!==id);
-  deleteGameOnServer(id);
-  render();
-}
-
-function renderDetail(app){
-  const g = games.find(x=>x.id===currentGameId);
-  if (!g){ currentGameId=null; renderList(app); return; }
-  if (!g.photos || g.photos.length===0) g.photos = [{markers:[]}];
-  if (currentPhotoIdx >= g.photos.length) currentPhotoIdx = 0;
-
-  let html = `
-    <button class="back" onclick="closeGame()">← 목록으로</button>
-    <div class="detail-head">
-      <div>
-        <div class="detail-title">${g.name}</div>
-        <div class="detail-id">ID ${g.id}</div>
-        ${role==='editor' ? `
-          <label class="guide-done-toggle">
-            <input type="checkbox" ${g.guideDone?'checked':''} onchange="toggleGuideDone('${g.id}', this.checked)">
-            <span>가이드 제작 완료</span>
-          </label>
-          <div style="display:flex; gap:8px; margin-top:10px;">
-            <button class="btn btn-primary" id="manualSaveBtn" style="padding:8px 16px; font-size:13px;" onclick="manualSaveGame()">💾 지금 저장</button>
-            <button class="btn btn-ghost" style="padding:8px 14px; font-size:13px;" onclick="showHistoryModal('${g.id}')">🕐 이전 버전</button>
-          </div>
-          <div id="saveProgressWrap" style="display:none; width:220px; margin-top:8px;">
-            <div class="dash-progress-bar-track" style="height:6px;">
-              <div class="dash-progress-bar-fill" id="saveProgressFill" style="width:0%;"></div>
-            </div>
-          </div>` : ''}
-      </div>
-      <div class="game-note-area">${renderGameNote_(g)}</div>
-    </div>
-    <div class="tabs">
-      <button class="${currentMode==='1'?'active':''}" onclick="setMode('1')">사진</button>
-      <button class="${currentMode==='2'?'active':''}" onclick="setMode('2')">표</button>
-    </div>
-  `;
-  html += currentMode==='2' ? renderTablePanel(g) : renderPhotoPanel(g);
-  html += `<div class="footer-note">데모 안내 · 실제 사진 대신 자리표시(placeholder)를 사용했습니다. 실 서비스에서는 드라이브에 업로드된 실제 배치 사진이 표시됩니다.</div>`;
-  app.innerHTML = html;
-  if (currentMode==='1') attachPhotoHandlers(g);
-}
-
-function renderTablePanel(g){
-  const editable = role==='editor';
-  let rows='';
-  g.cases.forEach((c,ci)=>{
-    c.items.forEach((item,ii)=>{
-      const isLastOfCase = ii === c.items.length-1;
-      rows += `<tr class="${isLastOfCase ? 'case-end' : ''}">`;
-      if (ii===0){
-        rows += `<td rowspan="${c.items.length}" class="type-col">
-          ${editable ? caseSelectHtml(c.caseType,ci) : `<span class="case-badge case-${c.caseType}"><span class="dot"></span>${c.caseType}<span class="size-label">${CASE_SIZES[c.caseType]}mm</span></span>`}
-        </td>`;
-      }
-      const qtyDisplay = editable
-        ? `<input type="number" value="${item.qty}" onchange="updateItem(${ci},${ii},'qty',this.value)">`
-        : (Number(item.qty)===0 ? '<span style="color:var(--ink-soft); font-size:12px;">수량 체크 X</span>' : item.qty);
-      rows += `
-        <td>${editable ? `<input value="${item.name}" onchange="updateItem(${ci},${ii},'name',this.value)">` : item.name}</td>
-        <td class="qty-col">${qtyDisplay}</td>`;
-      if (ii===0){
-        rows += `<td rowspan="${c.items.length}" class="note-col">
-          ${editable ? `<input value="${c.note||''}" placeholder="비고 (선택)" onchange="updateCaseNote(${ci}, this.value)">` : (c.note ? `<span style="color:var(--ink-soft); font-size:12.5px;">${c.note}</span>` : '')}
-        </td>`;
-      }
-      rows += `${editable ? `<td style="width:32px;"><button class="row-del" onclick="deleteItem(${ci},${ii})">✕</button></td>` : ''}
-      </tr>`;
-    });
-  });
-  return `<div class="panel">
-    <div class="panel-label"><span>구성표</span>${editable?`<button class="add-row" onclick="addCase()">+ 케이스 추가</button>`:''}</div>
-    <div class="table-scroll">
-      <table><thead><tr><th>제품종류</th><th>구성품</th><th>수량</th><th>비고</th>${editable?'<th></th>':''}</tr></thead>
-      <tbody>${rows || '<tr><td colspan="5" style="color:var(--ink-soft);">등록된 구성품이 없습니다.</td></tr>'}</tbody></table>
-    </div>
-  </div>`;
-}
-function caseSelectHtml(current, ci){
-  return `<select onchange="updateCaseType(${ci}, this.value)">
-    ${CASE_TYPES.map(t=>`<option value="${t}" ${t===current?'selected':''}>${t} · ${CASE_SIZES[t]}mm</option>`).join('')}
-  </select>`;
-}
-
-function renderPhotoPanel(g){
-  const editable = role==='editor';
-  const total = g.photos.length;
-  const photo = g.photos[currentPhotoIdx];
-  const dots = g.photos.map((_,i)=>`<button class="${i===currentPhotoIdx?'active':''}" onclick="goToPhoto(${i})" aria-label="사진 ${i+1}"></button>`).join('');
-  const hasImage = !!photo.imageUrl;
-  return `<div class="panel">
-    <div class="panel-label">
-      <span>박스 배치 가이드</span>
-      ${editable ? `<button class="add-row" onclick="addPhoto()">+ 사진 페이지 추가</button>` : ''}
-    </div>
-    <div class="photo-pager">
-      <button class="pager-btn" onclick="prevPhoto()" ${currentPhotoIdx===0?'disabled':''}>‹</button>
-      <span class="photo-count">사진 ${currentPhotoIdx+1} / ${total}</span>
-      <div class="pager-dots">${dots}</div>
-      <button class="pager-btn" onclick="nextPhoto()" ${currentPhotoIdx===total-1?'disabled':''}>›</button>
-      ${editable && total>1 ? `
-        <button class="btn btn-ghost" style="padding:5px 9px; font-size:12px;" onclick="movePhoto(-1)" ${currentPhotoIdx===0?'disabled':''} title="사진 순서를 앞으로">◀ 순서</button>
-        <button class="btn btn-ghost" style="padding:5px 9px; font-size:12px;" onclick="movePhoto(1)" ${currentPhotoIdx===total-1?'disabled':''} title="사진 순서를 뒤로">순서 ▶</button>
-        <button class="btn btn-ghost" style="margin-left:auto; padding:5px 10px; font-size:12px;" onclick="deletePhoto(${currentPhotoIdx})">이 사진 삭제</button>` : ''}
-    </div>
-    ${editable ? `
-      <div class="photo-actions">
-        <input type="file" id="photoFileInput" accept="image/*" style="display:none;" onchange="handleFileSelect(event)">
-        <button class="btn btn-ghost" onclick="document.getElementById('photoFileInput').click()">📷 사진 업로드</button>
-        <button class="btn btn-ghost" onclick="autoGenerateMarkers()" title="표에 있지만 사진에 마커가 없는 케이스를 자동으로 배치합니다">📍 표 기준 마커 자동 생성</button>
-        <div class="marker-size-control" style="margin-left:auto;">
-          <label>마커 크기</label>
-          <input type="range" min="16" max="44" value="${g.markerSize||24}" oninput="previewMarkerSize(this.value)" onchange="updateMarkerSize(this.value)">
-        </div>
-      </div>
-      <div class="hint" style="margin-top:-4px;">또는 아래 사진 영역에 파일을 끌어다 놓으세요</div>` : ''}
-    <div class="photo-stage ${hasImage?'':'no-image'}" id="photoStage" style="--marker-size:${g.markerSize||24}px;">
-      ${hasImage
-        ? `<img class="stage-img" id="stageImg" src="${photo.imageUrl}" onerror="handleStageImgError(this)">`
-        : '<div class="ph-label">사진 없음 · 편집자 모드에서 업로드하세요</div>'}
-      <svg id="lineLayer" style="position:absolute; inset:0; width:100%; height:100%; pointer-events:none;"></svg>
-      <div id="markerLayer"></div>
-      <div id="boxLayer"></div>
-      <div id="labelLayer"></div>
-      <div id="uploadOverlay" class="upload-overlay" style="display:none;">업로드 중...</div>
-      ${!editable && total>1 ? `
-        <div class="nav-zone nav-zone-left" onclick="prevPhoto()" title="이전 사진">${currentPhotoIdx>0?'‹':''}</div>
-        <div class="nav-zone nav-zone-right" onclick="nextPhoto()" title="다음 사진">${currentPhotoIdx<total-1?'›':''}</div>
-      ` : ''}
-    </div>
-    <div class="hint">${editable ? '마커를 드래그해 위치를 옮기고, 박스에서 케이스종류·구성품·수량을 바로 수정할 수 있습니다. 사진의 빈 곳을 더블클릭하면 새 마커가 추가됩니다. "라벨" 버튼을 누르면 실제 라벨 인쇄 모습을 미리 볼 수 있는 검정 박스가 생깁니다.' : `점이 표시된 위치에 해당 구성품이 담긴 케이스를 배치하세요.${total>1 ? ' 사진 좌우를 클릭하거나 화면을 좌우로 밀어 다음 사진으로 넘길 수 있습니다.' : ''}`}</div>
-    ${editable && hasImage ? `<div class="hint">사진: <a href="${photo.imageUrl}" target="_blank" rel="noopener" style="color:var(--accent); font-weight:700;">새 탭에서 원본 보기 ↗</a></div>` : ''}
-    ${editable && !hasImage ? `<div class="hint">이 사진 페이지에는 아직 업로드된 이미지가 없습니다.</div>` : ''}
-    <div class="legend" id="photoLegend"></div>
-  </div>`;
-}
-
-function handleStageImgError(imgEl){
-  console.error('이미지 로드 실패:', imgEl.src);
-  const stage = imgEl.closest('.photo-stage');
-  imgEl.remove();
-  if (stage){
-    stage.classList.add('no-image');
-    const label = document.createElement('div');
-    label.className = 'ph-label';
-    label.style.color = 'var(--danger)';
-    label.textContent = '이미지를 불러오지 못했습니다 (링크 접근 오류) · 콘솔에서 URL 확인 가능';
-    stage.prepend(label);
-  }
-  showToast('사진을 불러오지 못했습니다. URL 접근 권한 문제일 수 있습니다.', 'error');
-}
-
-function attachPhotoHandlers(g){
-  const stage = document.getElementById('photoStage');
-  const lineLayer = document.getElementById('lineLayer');
-  const markerLayer = document.getElementById('markerLayer');
-  const boxLayer = document.getElementById('boxLayer');
-  const labelLayer = document.getElementById('labelLayer');
-  const legendEl = document.getElementById('photoLegend');
-  const editable = role==='editor';
-  const photo = g.photos[currentPhotoIdx];
-  if (!photo.labels) photo.labels = [];
-
-  function layoutAutoBoxes(){
-    const h = stage.clientHeight;
-    const left=[], right=[];
-    photo.markers.forEach((m,idx)=>{
-      if (m.box) return; // 수동으로 옮긴 박스는 자동 배치 계산에서 제외
-      (m.x<50?left:right).push({m,idx});
-    });
-    left.sort((a,b)=>a.m.y-b.m.y); right.sort((a,b)=>a.m.y-b.m.y);
-    const pos = {};
-    const gapL = Math.max(56, (h*0.92)/Math.max(left.length,1));
-    left.forEach((e,i)=>pos[e.idx]={side:'left', top:24+i*gapL});
-    const gapR = Math.max(56, (h*0.92)/Math.max(right.length,1));
-    right.forEach((e,i)=>pos[e.idx]={side:'right', top:24+i*gapR});
-    return pos;
-  }
-
-  let currentUiScale = 1;
-  let labelRectsCache = []; // 정렬 가이드용: 매번 그릴 때 각 라벨의 실제 화면 위치를 저장해둠
-
-  /**
-   * 라벨을 드래그할 때, 다른 라벨과 가장자리/중앙이 맞으면 빨간 점선으로 표시합니다.
-   * (파워포인트의 스마트 가이드와 같은 개념) x/y가 null이면 해당 방향 가이드를 지웁니다.
-   */
-  function renderAlignGuides_(xPos, yPos){
-    let guideLayer = stage.querySelector('#alignGuideLayer');
-    if (!guideLayer){
-      guideLayer = document.createElement('div');
-      guideLayer.id = 'alignGuideLayer';
-      guideLayer.style.cssText = 'position:absolute; inset:0; pointer-events:none; z-index:9; overflow:hidden;';
-      stage.appendChild(guideLayer);
-    }
-    guideLayer.innerHTML = '';
-    if (xPos != null){
-      const line = document.createElement('div');
-      line.style.cssText = `position:absolute; left:${xPos}px; top:0; bottom:0; border-left:1.5px dashed #ff4444;`;
-      guideLayer.appendChild(line);
-    }
-    if (yPos != null){
-      const line = document.createElement('div');
-      line.style.cssText = `position:absolute; top:${yPos}px; left:0; right:0; border-top:1.5px dashed #ff4444;`;
-      guideLayer.appendChild(line);
-    }
-  }
-
-
-  function draw(){
-    const w = stage.clientWidth, h = stage.clientHeight;
-    // 텍스트박스/마커: 너무 작아져서 편집이 불편해지지 않도록 최소 50%는 유지
-    const uiScale = Math.max(0.5, Math.min(1, w / 650));
-    currentUiScale = uiScale;
-    stage.style.setProperty('--ui-scale', uiScale);
-    stage.style.setProperty('--marker-size', Math.round((g.markerSize||24) * uiScale) + 'px');
-    const autoPos = layoutAutoBoxes();
-    markerLayer.innerHTML=''; boxLayer.innerHTML=''; lineLayer.innerHTML='';
-    let legendHtml = '';
-
-    photo.markers.forEach((m, idx)=>{
-      const c = g.cases[m.caseIdx];
-      if (!c) return;
-      const mx = w*m.x/100, my = h*m.y/100;
-
-      const el = document.createElement('div');
-      el.className = `marker case-${c.caseType} ${editable?'editable':''}`;
-      el.style.left = mx+'px'; el.style.top = my+'px';
-      el.textContent = c.caseType;
-      if (editable) el.addEventListener('pointerdown', e=>{
-        draggingMarker = idx;
-        const elRect = el.getBoundingClientRect();
-        dragMarkerOffset = { dx: e.clientX - (elRect.left+elRect.width/2), dy: e.clientY - (elRect.top+elRect.height/2) };
-        e.stopPropagation();
-      });
-      markerLayer.appendChild(el);
-
-      // 박스 위치: 수동으로 옮긴 적 있으면 그 좌표, 없으면 자동 좌/우 정렬
-      let boxLeftPx, boxTopPx, side = null;
-      if (m.box){
-        boxLeftPx = w * m.box.x/100;
-        boxTopPx = h * m.box.y/100;
-      } else {
-        const p = autoPos[idx] || {side:'left', top:24};
-        side = p.side;
-        boxTopPx = p.top;
-      }
-
-      const box = document.createElement('div');
-      box.className = 'anno-box case-'+c.caseType + (editable ? ' draggable' : ' readonly');
-      box.style.top = boxTopPx+'px';
-      if (m.box){
-        box.style.left = boxLeftPx+'px';
-      } else {
-        box.style[side] = '10px';
-      }
-
-      if (editable){
-        box.innerHTML = `
-          <div class="anno-head">
-            <select onchange="updateCaseType(${m.caseIdx}, this.value)">
-              ${CASE_TYPES.map(t=>`<option value="${t}" ${t===c.caseType?'selected':''}>${t}</option>`).join('')}
-            </select>
-            <span style="font-size:10px; color:var(--ink-soft);">${CASE_SIZES[c.caseType]}mm</span>
-            <button class="anno-label-btn" onclick="createLabelFromCase(${idx})" title="실제 라벨 인쇄 모습 미리보기 생성">라벨</button>
-            <button class="anno-label-btn" onclick="duplicateCase(${idx})" title="이 텍스트박스(케이스) 복제">복제</button>
-            ${m.box ? `<button class="anno-remove" onclick="resetBoxPosition(${idx})" title="자동 위치로 되돌리기">↺</button>` : ''}
-            <button class="anno-remove" onclick="removeMarkerCase(${idx})" title="마커 삭제">✕</button>
-          </div>
-          ${c.items.map((item,ii)=>`
-            <div class="anno-item">
-              <input type="text" value="${item.name}" size="${Math.min(26, Math.max(6, (item.name||'').length + 1))}" onchange="updateItem(${m.caseIdx},${ii},'name',this.value)">
-              <input type="number" value="${item.qty}" onchange="updateItem(${m.caseIdx},${ii},'qty',this.value)">
-              <button onclick="deleteItemRedraw(${m.caseIdx},${ii})">✕</button>
-            </div>`).join('')}
-          <button class="anno-additem" onclick="addItemRedraw(${m.caseIdx})">+ 항목 추가</button>
-          ${(c.note && c.note.length>0) || expandedCaseNotes.has(m.caseIdx) ? `
-            <div class="anno-note-row">
-              <textarea class="anno-note" placeholder="비고 (예: 카드 프로텍터 기준 / 코인 캡슐 사용)" onchange="updateCaseNote(${m.caseIdx}, this.value)">${c.note||''}</textarea>
-            </div>
-          ` : `<button class="anno-note-add" onclick="expandCaseNote(${m.caseIdx})">+ 비고</button>`}
-        `;
-        box.querySelectorAll('.anno-item input[type=text]').forEach(inp=>{
-          autoSizeTextInput(inp);
-          inp.addEventListener('input', ()=> autoSizeTextInput(inp));
-        });
-        box.addEventListener('pointerdown', e=>{
-          if (['INPUT','SELECT','BUTTON','OPTION'].includes(e.target.tagName)) return;
-          draggingBox = idx;
-          const boxRect = box.getBoundingClientRect();
-          dragBoxOffset = { dx: e.clientX - boxRect.left, dy: e.clientY - (boxRect.top + boxRect.height/2) };
-          e.stopPropagation();
-        });
-      } else {
-        box.innerHTML = `<span class="case-badge case-${c.caseType}"><span class="dot"></span>${c.caseType}<span class="size-label">${CASE_SIZES[c.caseType]}mm</span></span><div style="margin-top:${(7*uiScale).toFixed(1)}px; font-size:${(12.5*uiScale).toFixed(1)}px; line-height:1.6;">${c.items.map(i=> Number(i.qty)===0 ? i.name : `${i.name} ${i.qty}개`).join('<br>')}</div>${c.note ? `<div class="anno-note-view" style="font-size:${(11*uiScale).toFixed(1)}px;">📝 ${c.note}</div>` : ''}`;
-      }
-      boxLayer.appendChild(box);
-
-      const bx = m.box ? boxLeftPx : (side==='left' ? 10 : w-10);
-      const by = boxTopPx;
-      const ln = document.createElementNS('http://www.w3.org/2000/svg','line');
-      ln.setAttribute('x1',mx); ln.setAttribute('y1',my);
-      ln.setAttribute('x2',bx); ln.setAttribute('y2',by);
-      ln.setAttribute('class','annot-line');
-      const colorVar = getComputedStyle(el).getPropertyValue('--c') || '#333';
-      ln.setAttribute('style', `stroke:${colorVar}; stroke-width:${(3.2*uiScale).toFixed(2)};`);
-      lineLayer.appendChild(ln);
-
-      legendHtml += `<span class="chip case-${c.caseType}"><span class="dot"></span>${c.caseType} · ${c.items.map(i=>i.name).join(', ')}</span>`;
-    });
-
-    legendEl.innerHTML = legendHtml;
-  }
-
-  function drawLabels(){
-    const w = stage.clientWidth, h = stage.clientHeight;
-    labelLayer.innerHTML = '';
-    labelRectsCache = [];
-
-    photo.labels.forEach((lbl, li) => {
-      // 구버전 호환: 예전엔 절대 px(fontSize/width/height, 기준폭 650px)로 저장했음 → % 값으로 환산
-      const fsPct = lbl.fontSizePct != null ? lbl.fontSizePct : ((lbl.fontSize || 14) / 650 * 100);
-      const wPct = lbl.widthPct != null ? lbl.widthPct : (lbl.width != null ? lbl.width / 650 * 100 : null);
-      const hPct = lbl.heightPct != null ? lbl.heightPct : (lbl.height != null ? lbl.height / 487.5 * 100 : null);
-
-      const wrap = document.createElement('div');
-      wrap.className = 'photo-label-wrap';
-      wrap.style.left = (w*lbl.x/100)+'px';
-      wrap.style.top = (h*lbl.y/100)+'px';
-
-      const rotation = lbl.rotation || 0;
-      const swapped = (rotation === 90 || rotation === 270);
-
-      // 회전 그룹: 라벨을 감싸서 회전시킵니다.
-      const rotateGroup = document.createElement('div');
-      rotateGroup.className = 'photo-label-rotate-group';
-      rotateGroup.style.transform = `rotate(${rotation}deg)`;
-
-      const labelEl = document.createElement('div');
-      labelEl.className = 'photo-label';
-      // 화면 폭(w)의 %로 직접 계산 → 데스크톱/모바일 어디서든 사진 대비 정확히 같은 비율
-      labelEl.style.fontSize = (w * fsPct / 100) + 'px';
-      if (lbl.sized && wPct != null && hPct != null){
-        // widthPct/heightPct는 "화면에 보이는(회전 후) 크기" 기준으로 저장됩니다.
-        // 90/270도 회전이면 실제 라벨 요소의 가로/세로를 서로 바꿔서 적용해야
-        // 회전 후 화면에 보이는 크기가 저장된 값과 일치합니다.
-        const visualWpx = w * wPct / 100;
-        const visualHpx = h * hPct / 100;
-        labelEl.style.width = (swapped ? visualHpx : visualWpx) + 'px';
-        labelEl.style.height = (swapped ? visualWpx : visualHpx) + 'px';
-        labelEl.style.overflow = 'hidden';
-      }
-      labelEl.textContent = lbl.text;
-      rotateGroup.appendChild(labelEl);
-      wrap.appendChild(rotateGroup);
-      labelLayer.appendChild(wrap); // 실제 위치/크기를 측정하려면 먼저 화면(DOM)에 붙어있어야 함
-
-      {
-        const stageRectNow = stage.getBoundingClientRect();
-        const wrapRectFinal = wrap.getBoundingClientRect();
-        labelRectsCache[li] = {
-          left: wrapRectFinal.left - stageRectNow.left,
-          top: wrapRectFinal.top - stageRectNow.top,
-          right: wrapRectFinal.right - stageRectNow.left,
-          bottom: wrapRectFinal.bottom - stageRectNow.top,
-          centerX: (wrapRectFinal.left + wrapRectFinal.right)/2 - stageRectNow.left,
-          centerY: (wrapRectFinal.top + wrapRectFinal.bottom)/2 - stageRectNow.top
-        };
-      }
-
-      if (editable){
-        labelEl.contentEditable = 'true';
-        labelEl.addEventListener('blur', ()=>{
-          lbl.text = labelEl.innerText;
-          debouncedSaveGames();
-        });
-
-        // 회전 후 실제 화면에 보이는 라벨의 테두리를 측정해서, 툴바는 왼쪽 위
-        // 모서리 바로 위, 손잡이는 오른쪽 아래 모서리에 맞춰 배치합니다.
-        const wrapRect = wrap.getBoundingClientRect();
-        const groupRect = rotateGroup.getBoundingClientRect();
-        const relLeft = groupRect.left - wrapRect.left;
-        const relTop = groupRect.top - wrapRect.top;
-        const relRight = groupRect.right - wrapRect.left;
-        const relBottom = groupRect.bottom - wrapRect.top;
-
-        const toolbar = document.createElement('div');
-        toolbar.className = 'label-toolbar';
-        toolbar.style.left = relLeft + 'px';
-        toolbar.style.top = (relTop - 28) + 'px';
-        toolbar.innerHTML = `
-          <span class="label-drag" title="이동">⠿</span>
-          <button title="글자 작게" onclick="changeLabelFontSize(${li},-1)">A-</button>
-          <button title="글자 크게" onclick="changeLabelFontSize(${li},1)">A+</button>
-          <button title="라벨 회전 (90도씩)" onclick="rotateLabel(${li})">⟳</button>
-          <button title="라벨 복제" onclick="duplicateLabel(${li})">⧉</button>
-          <button class="label-del" title="삭제" onclick="deleteLabel(${li})">✕</button>
-        `;
-        toolbar.querySelector('.label-drag').addEventListener('pointerdown', e=>{
-          draggingLabel = li;
-          const wrapRect2 = wrap.getBoundingClientRect();
-          dragLabelOffset = { dx: e.clientX - wrapRect2.left, dy: e.clientY - wrapRect2.top, size: { width: wrapRect2.width, height: wrapRect2.height } };
-          e.stopPropagation();
-        });
-        wrap.appendChild(toolbar);
-
-        // 손잡이는 회전시키지 않고, 회전 후 실제 화면에 보이는 오른쪽 아래
-        // 모서리에 고정합니다.
-        const resizeHandle = document.createElement('div');
-        resizeHandle.className = 'label-resize';
-        resizeHandle.style.left = (relRight - 6) + 'px';
-        resizeHandle.style.top = (relBottom - 6) + 'px';
-        resizeHandle.addEventListener('pointerdown', e=>{
-          resizingLabel = li;
-          const stageRect = stage.getBoundingClientRect();
-          const groupRect2 = rotateGroup.getBoundingClientRect();
-          resizeLabelStart = {
-            anchorLeft: groupRect2.left - stageRect.left, // 화면상 왼쪽위 모서리(스테이지 기준) - 이 지점을 고정합니다
-            anchorTop: groupRect2.top - stageRect.top,
-            rotation: rotation,
-            startFontSizePct: fsPct
-          };
-          e.stopPropagation();
-          e.preventDefault();
-        });
-        wrap.appendChild(resizeHandle);
-      }
-    });
-  }
-
-  draw();
-  drawLabels();
-
-  if (editable){
-    stage.onpointermove = e=>{
-      if (draggingMarker===null && draggingBox===null && draggingLabel===null && resizingLabel===null) return;
-      const rect = stage.getBoundingClientRect();
-      if (draggingMarker!==null){
-        const cx = e.clientX - dragMarkerOffset.dx;
-        const cy = e.clientY - dragMarkerOffset.dy;
-        let x=(cx-rect.left)/rect.width*100, y=(cy-rect.top)/rect.height*100;
-        x=Math.max(3,Math.min(97,x)); y=Math.max(3,Math.min(97,y));
-        photo.markers[draggingMarker].x=x; photo.markers[draggingMarker].y=y;
-        draw();
-      } else if (draggingBox!==null){
-        const cx = e.clientX - dragBoxOffset.dx;
-        const cy = e.clientY - dragBoxOffset.dy;
-        let x=(cx-rect.left)/rect.width*100, y=(cy-rect.top)/rect.height*100;
-        x=Math.max(0,Math.min(100,x)); y=Math.max(0,Math.min(100,y));
-        photo.markers[draggingBox].box = {x, y};
-        draw();
-      } else if (draggingLabel!==null){
-        const cx = e.clientX - dragLabelOffset.dx;
-        const cy = e.clientY - dragLabelOffset.dy;
-        let x=(cx-rect.left)/rect.width*100, y=(cy-rect.top)/rect.height*100;
-        x=Math.max(0,Math.min(98,x)); y=Math.max(0,Math.min(98,y));
-
-        // 정렬 가이드: 다른 라벨들의 테두리/중앙과 가까워지면 딱 맞춰서(스냅) 점선으로 표시
-        const SNAP_PX = 6;
-        const size = dragLabelOffset.size || {width:60, height:30};
-        const curLeft = x/100*rect.width, curTop = y/100*rect.height;
-        const curRight = curLeft + size.width, curBottom = curTop + size.height;
-        const curCenterX = curLeft + size.width/2, curCenterY = curTop + size.height/2;
-
-        let bestX = null, bestY = null;
-        labelRectsCache.forEach((r, idx)=>{
-          if (!r || idx === draggingLabel) return;
-          [[curLeft, r.left, 0], [curRight, r.right, -size.width], [curCenterX, r.centerX, -size.width/2]].forEach(([cur, target, adj])=>{
-            const diff = Math.abs(cur - target);
-            if (diff < SNAP_PX && (!bestX || diff < bestX.diff)) bestX = { diff, snap: target+adj, guidePos: target };
-          });
-          [[curTop, r.top, 0], [curBottom, r.bottom, -size.height], [curCenterY, r.centerY, -size.height/2]].forEach(([cur, target, adj])=>{
-            const diff = Math.abs(cur - target);
-            if (diff < SNAP_PX && (!bestY || diff < bestY.diff)) bestY = { diff, snap: target+adj, guidePos: target };
-          });
-        });
-        if (bestX) x = (bestX.snap/rect.width)*100;
-        if (bestY) y = (bestY.snap/rect.height)*100;
-
-        renderAlignGuides_(bestX ? bestX.guidePos : null, bestY ? bestY.guidePos : null);
-        photo.labels[draggingLabel].x = x; photo.labels[draggingLabel].y = y;
-        drawLabels();
-      } else if (resizingLabel!==null){
-        const lbl = photo.labels[resizingLabel];
-        const mouseX = e.clientX - rect.left;
-        const mouseY = e.clientY - rect.top;
-        // 화면상 오른쪽 아래(마우스)가 왼쪽위 고정점(anchor) 기준으로 얼마나 떨어져 있는지 = 화면에 보이는 크기
-        const visualW = Math.max(20, mouseX - resizeLabelStart.anchorLeft);
-        const visualH = Math.max(14, mouseY - resizeLabelStart.anchorTop);
-
-        lbl.widthPct = (visualW / rect.width) * 100;
-        lbl.heightPct = (visualH / rect.height) * 100;
-        lbl.sized = true;
-
-        // 90/270도면 실제 라벨 요소의 가로/세로가 서로 바뀌어 적용되므로(렌더링과 동일 로직),
-        // 회전축이 중앙이라 생기는 위치 밀림을 아래에서 보정합니다.
-        const rot = resizeLabelStart.rotation || 0;
-        const swappedNow = (rot===90 || rot===270);
-        const localW = swappedNow ? visualH : visualW;
-        const localH = swappedNow ? visualW : visualH;
-        const offsetX = (localW - visualW) / 2;
-        const offsetY = (localH - visualH) / 2;
-
-        // 화면상 왼쪽위가 고정되도록 라벨의 위치(x/y)도 함께 보정합니다.
-        const newWrapLeft = resizeLabelStart.anchorLeft - offsetX;
-        const newWrapTop = resizeLabelStart.anchorTop - offsetY;
-        lbl.x = Math.max(0, Math.min(98, (newWrapLeft / rect.width) * 100));
-        lbl.y = Math.max(0, Math.min(98, (newWrapTop / rect.height) * 100));
-
-        // 글자 크기는 A-/A+로 설정한 값 그대로 유지 (박스 크기와 별개)
-        delete lbl.width; delete lbl.height; delete lbl.fontSize; // 구버전 필드 정리
-        drawLabels();
-      }
-    };
-    window.onpointerup = ()=>{
-      if (draggingMarker!==null || draggingBox!==null){
-        draggingMarker=null; draggingBox=null; dragMarkerOffset=null; dragBoxOffset=null; debouncedSaveGames();
-      }
-      if (draggingLabel!==null || resizingLabel!==null){
-        draggingLabel=null; resizingLabel=null; dragLabelOffset=null; resizeLabelStart=null; debouncedSaveGames();
-        renderAlignGuides_(null, null); // 드래그 끝나면 가이드선 지움
-      }
-    };
-    stage.ondblclick = e=>{
-      if (e.target !== stage && e.target.id!=='markerLayer' && e.target.id!=='boxLayer' && e.target.id!=='stageImg') return;
-      const rect = stage.getBoundingClientRect();
-      const x=(e.clientX-rect.left)/rect.width*100, y=(e.clientY-rect.top)/rect.height*100;
-      // 새 텍스트박스는 마커 바로 옆(화면 안쪽 방향)에 생성
-      const boxX = x < 60 ? Math.min(97, x+10) : Math.max(3, x-10);
-      const boxY = Math.max(5, Math.min(95, y-6));
-      g.cases.push({caseType:'A', items:[{name:'새 구성품', qty:1}]});
-      photo.markers.push({x, y, caseIdx:g.cases.length-1, box:{x:boxX, y:boxY}});
-      debouncedSaveGames();
-      draw();
-    };
-    stage.addEventListener('dragover', e=>{ e.preventDefault(); stage.classList.add('dragover'); });
-    stage.addEventListener('dragleave', ()=> stage.classList.remove('dragover'));
-    stage.addEventListener('drop', e=>{
-      e.preventDefault();
-      stage.classList.remove('dragover');
-      const file = e.dataTransfer.files && e.dataTransfer.files[0];
-      if (file && file.type.startsWith('image/')) openCropModal(file);
-      else showToast('이미지 파일만 업로드할 수 있습니다.', 'error');
-    });
-  } else if (g.photos.length > 1) {
-    // 뷰어: 좌우 스와이프로 사진 넘기기 (모바일 터치 대응)
-    let swipeStartX = null, swipeStartY = null;
-    stage.addEventListener('pointerdown', e=>{
-      swipeStartX = e.clientX; swipeStartY = e.clientY;
-    });
-    stage.addEventListener('pointerup', e=>{
-      if (swipeStartX === null) return;
-      const dx = e.clientX - swipeStartX;
-      const dy = e.clientY - swipeStartY;
-      swipeStartX = null; swipeStartY = null;
-      if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy) * 1.5) return; // 가로 스와이프가 아니면 무시
-      if (dx < 0) nextPhoto(); else prevPhoto();
-    });
-  }
-}
-
-function handleFileSelect(e){
-  const file = e.target.files[0];
-  if (file) openCropModal(file);
-  e.target.value = ''; // 같은 파일 다시 선택 가능하도록 초기화
-}
-
-/* ============================================================
-   사진 크롭 편집창 (자유 드래그 방식 - 표준 포토 에디터 스타일)
-   ============================================================ */
-const CROP_OUTPUT_MAX = 1400; // 저장되는 이미지의 최대 가로/세로 길이
-const CROP_MIN_BOX = 40; // 크롭 박스 최소 크기(렌더링 기준 px)
-let cropState = null;
-let cropDrag = null; // { mode: 'move'|'nw'|'ne'|'sw'|'se', startX, startY, startBox }
-
-function openCropModal(file){
-  if (WEB_APP_URL === 'YOUR_WEB_APP_URL'){
-    showToast('WEB_APP_URL이 아직 설정되지 않아 업로드할 수 없습니다.', 'error');
-    return;
-  }
-  if (!authToken){
-    showToast('로그인이 확인되지 않았습니다. 편집자로 다시 로그인해주세요.', 'error');
-    return;
-  }
-  const url = URL.createObjectURL(file);
-  const img = new Image();
-  img.onload = () => {
-    cropState = { originalImg: img, img: img, url, rotation: 0 };
-    renderCropModal();
-  };
-  img.onerror = () => showToast('이미지를 불러오지 못했습니다.', 'error');
-  img.src = url;
-}
-
-/**
- * 원본 이미지를 90도 단위로 회전시킨 새 캔버스를 만듭니다.
- * 이후 크롭/미리보기 코드는 이 캔버스를 그냥 "이미지"처럼 취급합니다.
- */
-function makeRotatedCanvas_(img, rotationDeg){
-  const rad = rotationDeg * Math.PI / 180;
-  const swapped = (rotationDeg === 90 || rotationDeg === 270);
-  const w = img.width, h = img.height;
-  const canvas = document.createElement('canvas');
-  canvas.width = swapped ? h : w;
-  canvas.height = swapped ? w : h;
-  const ctx = canvas.getContext('2d');
-  ctx.save();
-  ctx.translate(canvas.width/2, canvas.height/2);
-  ctx.rotate(rad);
-  ctx.drawImage(img, -w/2, -h/2);
-  ctx.restore();
-  return canvas;
-}
-
-function rotateCropImage(deltaDeg){
-  cropState.rotation = ((cropState.rotation||0) + deltaDeg + 360) % 360;
-  cropState.img = cropState.rotation === 0
-    ? cropState.originalImg
-    : makeRotatedCanvas_(cropState.originalImg, cropState.rotation);
-  recomputeCropLayout_(); // 회전하면 가로/세로 비율이 바뀌므로 선택 영역을 전체로 리셋
-  drawCropImage();
-  updateCropBoxUI();
-}
-
-/**
- * 화면에 렌더링된 크기를 측정해서, 그 좌표계로 모든 계산을 통일합니다.
- * (CSS로 축소/확대되는 캔버스와 좌표 기준이 어긋나는 것을 방지)
- * 회전 직후 또는 최초 진입 시 호출되며, 선택 영역을 전체 이미지로 리셋합니다.
- */
-function recomputeCropLayout_(){
-  const wrap = document.getElementById('cropWrap');
-  const canvas = document.getElementById('cropCanvas');
-  const rect = wrap.getBoundingClientRect();
-  const W = Math.max(100, Math.round(rect.width));
-  const H = Math.max(100, Math.round(rect.height));
-  canvas.width = W;
-  canvas.height = H;
-
-  const img = cropState.img;
-  const containScale = Math.min(W/img.width, H/img.height);
-  const dispW = img.width * containScale, dispH = img.height * containScale;
-  const dispX = (W - dispW) / 2, dispY = (H - dispH) / 2;
-
-  cropState.stageW = W;
-  cropState.stageH = H;
-  cropState.containScale = containScale;
-  cropState.imgBounds = { x: dispX, y: dispY, w: dispW, h: dispH };
-  cropState.box = { left: dispX, top: dispY, width: dispW, height: dispH }; // 전체 선택으로 초기화
-  cropState.shrinkPct = cropState.shrinkPct != null ? cropState.shrinkPct : 100;
-}
-
-function renderCropModal(){
-  const backdrop = document.createElement('div');
-  backdrop.className = 'modal-backdrop';
-  backdrop.id = 'cropBackdrop';
-  backdrop.innerHTML = `
-    <div class="modal crop-modal">
-      <h3>사진 자르기</h3>
-      <div class="crop-toolbar">
-        <button class="btn btn-ghost" onclick="rotateCropImage(-90)" title="왼쪽으로 90도 회전">↺ 회전</button>
-        <button class="btn btn-ghost" onclick="rotateCropImage(90)" title="오른쪽으로 90도 회전">회전 ↻</button>
-      </div>
-      <div class="crop-canvas-wrap" id="cropWrap">
-        <canvas id="cropCanvas"></canvas>
-        <div class="crop-box" id="cropBox">
-          <div class="crop-dim-label" id="cropDimLabel"></div>
-          <div class="crop-handle handle-nw" data-h="nw"></div>
-          <div class="crop-handle handle-ne" data-h="ne"></div>
-          <div class="crop-handle handle-sw" data-h="sw"></div>
-          <div class="crop-handle handle-se" data-h="se"></div>
-          <div class="crop-edge-handle edge-n" data-h="n"></div>
-          <div class="crop-edge-handle edge-s" data-h="s"></div>
-          <div class="crop-edge-handle edge-w" data-h="w"></div>
-          <div class="crop-edge-handle edge-e" data-h="e"></div>
-        </div>
-      </div>
-      <div class="crop-hint">모서리나 변 중앙을 드래그해 원하는 영역만 선택하고, 박스 안쪽을 드래그하면 위치를 옮길 수 있습니다.</div>
-      <div class="crop-shrink-row">
-        <label>전체 축소</label>
-        <input type="range" id="cropShrinkRange" min="40" max="100" value="100">
-        <span id="cropShrinkVal">100%</span>
-      </div>
-      <div class="crop-result-row">
-        <div class="crop-result-label">실제 저장될 모습 미리보기</div>
-        <canvas id="cropResultPreview" width="220" height="160"></canvas>
-      </div>
-      <div class="modal-actions">
-        <button class="btn btn-ghost" onclick="resetCropBox()">전체 선택으로 초기화</button>
-        <button class="btn btn-ghost" onclick="cancelCropModal()">취소</button>
-        <button class="btn btn-primary" onclick="applyCrop()">적용 · 업로드</button>
-      </div>
-    </div>`;
-  document.body.appendChild(backdrop);
-
-  recomputeCropLayout_();
-  drawCropImage();
-  updateCropBoxUI();
-
-  const wrap = document.getElementById('cropWrap');
-  const cropBox = document.getElementById('cropBox');
-
-  cropBox.addEventListener('pointerdown', e=>{
-    if (e.target.classList.contains('crop-handle') || e.target.classList.contains('crop-edge-handle')) return;
-    cropDrag = { mode:'move', startX:e.clientX, startY:e.clientY, startBox:{...cropState.box} };
-    wrap.setPointerCapture(e.pointerId);
-    e.stopPropagation();
-  });
-
-  cropBox.querySelectorAll('.crop-handle, .crop-edge-handle').forEach(handle=>{
-    handle.addEventListener('pointerdown', e=>{
-      cropDrag = { mode: handle.dataset.h, startX:e.clientX, startY:e.clientY, startBox:{...cropState.box} };
-      wrap.setPointerCapture(e.pointerId);
-      e.stopPropagation();
-    });
-  });
-
-  wrap.addEventListener('pointermove', e=>{
-    if (!cropDrag) return;
-    const dx = e.clientX - cropDrag.startX;
-    const dy = e.clientY - cropDrag.startY;
-    updateCropBoxFromDrag(dx, dy);
-  });
-  wrap.addEventListener('pointerup', ()=>{ cropDrag = null; });
-  wrap.addEventListener('pointerleave', ()=>{ cropDrag = null; });
-
-  document.getElementById('cropShrinkRange').addEventListener('input', e=>{
-    cropState.shrinkPct = Number(e.target.value);
-    document.getElementById('cropShrinkVal').textContent = cropState.shrinkPct + '%';
-    updateResultPreview();
-  });
-}
-
-function updateCropBoxFromDrag(dx, dy){
-  const { imgBounds } = cropState;
-  const start = cropDrag.startBox;
-  let { left, top, width, height } = start;
-  const minB = imgBounds, maxX = imgBounds.x + imgBounds.w, maxY = imgBounds.y + imgBounds.h;
-
-  if (cropDrag.mode === 'move'){
-    left = start.left + dx; top = start.top + dy;
-    left = Math.max(minB.x, Math.min(maxX - width, left));
-    top = Math.max(minB.y, Math.min(maxY - height, top));
-  } else {
-    let right = start.left + start.width, bottom = start.top + start.height;
-    if (cropDrag.mode.includes('w')) left = Math.min(right - CROP_MIN_BOX, Math.max(minB.x, start.left + dx));
-    if (cropDrag.mode.includes('e')) right = Math.max(left + CROP_MIN_BOX, Math.min(maxX, right + dx));
-    if (cropDrag.mode.includes('n')) top = Math.min(bottom - CROP_MIN_BOX, Math.max(minB.y, start.top + dy));
-    if (cropDrag.mode.includes('s')) bottom = Math.max(top + CROP_MIN_BOX, Math.min(maxY, bottom + dy));
-    width = right - left; height = bottom - top;
-  }
-
-  cropState.box = { left, top, width, height };
-  updateCropBoxUI();
-}
-
-function updateCropBoxUI(){
-  const box = document.getElementById('cropBox');
-  if (!box) return;
-  const { left, top, width, height } = cropState.box;
-  box.style.left = left+'px'; box.style.top = top+'px';
-  box.style.width = width+'px'; box.style.height = height+'px';
-
-  const realW = Math.round(width / cropState.containScale);
-  const realH = Math.round(height / cropState.containScale);
-  document.getElementById('cropDimLabel').textContent = `${realW} x ${realH}`;
-
-  updateResultPreview();
-}
-
-/**
- * 점선 표시 대신, 실제로 저장될 때의 모습(선택 영역 + 축소 비율 반영)을
- * 별도 캔버스에 그대로 그려서 보여줍니다. applyCrop()과 동일한 계산식을 씁니다.
- */
-function updateResultPreview(){
-  const canvas = document.getElementById('cropResultPreview');
-  if (!canvas || !cropState || !cropState.box) return;
-  const ctx = canvas.getContext('2d');
-  const outW = canvas.width, outH = canvas.height;
-  ctx.clearRect(0,0,outW,outH);
-  ctx.fillStyle = '#F6F6F3';
-  ctx.fillRect(0,0,outW,outH);
-
-  const { img, imgBounds, containScale, box } = cropState;
-  const sx = (box.left - imgBounds.x) / containScale;
-  const sy = (box.top - imgBounds.y) / containScale;
-  const sW = box.width / containScale;
-  const sH = box.height / containScale;
-  if (sW <= 0 || sH <= 0) return;
-
-  // 선택 영역을 미리보기 캔버스 안에 '포함(contain)' 되도록 기본 배치
-  const fitScale = Math.min(outW/sW, outH/sH);
-  const baseW = sW * fitScale, baseH = sH * fitScale;
-
-  const shrink = (cropState.shrinkPct || 100) / 100;
-  const drawW = baseW * shrink, drawH = baseH * shrink;
-  const drawX = (outW - drawW) / 2, drawY = (outH - drawH) / 2;
-
-  ctx.drawImage(img, sx, sy, sW, sH, drawX, drawY, drawW, drawH);
-}
-
-function resetCropBox(){
-  const b = cropState.imgBounds;
-  cropState.box = { left: b.x, top: b.y, width: b.w, height: b.h };
-  updateCropBoxUI();
-}
-
-function drawCropImage(){
-  const canvas = document.getElementById('cropCanvas');
-  const ctx = canvas.getContext('2d');
-  const { img, imgBounds, stageW, stageH } = cropState;
-  ctx.clearRect(0,0,stageW,stageH);
-  ctx.fillStyle = '#111';
-  ctx.fillRect(0,0,stageW,stageH);
-  ctx.drawImage(img, 0, 0, img.width, img.height, imgBounds.x, imgBounds.y, imgBounds.w, imgBounds.h);
-}
-
-function cancelCropModal(){
-  const backdrop = document.getElementById('cropBackdrop');
-  if (backdrop) backdrop.remove();
-  if (cropState) URL.revokeObjectURL(cropState.url);
-  cropState = null;
-  cropDrag = null;
-}
-
-function applyCrop(){
-  const { img, imgBounds, containScale, box } = cropState;
-
-  // 미리보기 좌표계 -> 원본 이미지 좌표계로 변환
-  const sx = (box.left - imgBounds.x) / containScale;
-  const sy = (box.top - imgBounds.y) / containScale;
-  const sW = box.width / containScale;
-  const sH = box.height / containScale;
-
-  const aspect = sW / sH;
-  const outW = aspect >= 1 ? CROP_OUTPUT_MAX : Math.round(CROP_OUTPUT_MAX * aspect);
-  const outH = aspect >= 1 ? Math.round(CROP_OUTPUT_MAX / aspect) : CROP_OUTPUT_MAX;
-
-  const outCanvas = document.createElement('canvas');
-  outCanvas.width = outW; outCanvas.height = outH;
-  const ctx = outCanvas.getContext('2d');
-
-  const shrink = (cropState.shrinkPct || 100) / 100;
-  if (shrink < 1){
-    ctx.fillStyle = '#F6F6F3';
-    ctx.fillRect(0,0,outW,outH);
-    const drawW = outW*shrink, drawH = outH*shrink;
-    const drawX = (outW-drawW)/2, drawY = (outH-drawH)/2;
-    ctx.drawImage(img, sx, sy, sW, sH, drawX, drawY, drawW, drawH);
-  } else {
-    ctx.drawImage(img, sx, sy, sW, sH, 0, 0, outW, outH);
-  }
-
-  const dataUrl = outCanvas.toDataURL('image/jpeg', 0.88);
-  cancelCropModal();
-  applyPhotoDataUrl(dataUrl);
-}
-
-/**
- * 사진을 data URI(base64) 형태로 게임 데이터에 바로 저장합니다.
- * 별도 업로드 서버 왕복 없이, 일반 저장(saveGames)과 동일하게 처리됩니다.
- */
-async function applyPhotoDataUrl(dataUrl){
-  const g = games.find(x=>x.id===currentGameId);
-  const photo = g.photos[currentPhotoIdx];
-  const overlay = document.getElementById('uploadOverlay');
-  if (overlay) overlay.style.display = 'flex';
-
-  photo.imageUrl = dataUrl;
-  render();
-
-  try{
-    await saveGames();
-    showToast('사진이 저장되었습니다.');
-  }catch(err){
-    console.error(err);
-    showToast('사진 저장 중 오류가 발생했습니다.', 'error');
-  }finally{
-    if (overlay) overlay.style.display = 'none';
-  }
-}
-
-
-function previewMarkerSize(v){
-  const stage = document.getElementById('photoStage');
-  if (stage) stage.style.setProperty('--marker-size', v+'px');
-}
-function updateMarkerSize(v){
-  const g = games.find(x=>x.id===currentGameId);
-  g.markerSize = Number(v);
-  debouncedSaveGames();
-}
-
-/* ============================================================
-   이용 방법 안내
-   ============================================================ */
-let helpTab = 'viewer';
-
-function showHelpModal(){
-  const isEditor = role==='editor';
-  if (!isEditor) helpTab = 'viewer';
-
-  const backdrop = document.createElement('div');
-  backdrop.className = 'modal-backdrop';
-  backdrop.id = 'helpBackdrop';
-  backdrop.innerHTML = `
-    <div class="modal help-modal">
-      <h3>이용 방법</h3>
-      <p class="help-intro">이 사이트는 보드게임을 <b>가이드에 따라 정해진 플라스틱 케이스에 정리</b>하는 작업을 위해 만들어졌습니다. 게임별로 어떤 케이스종류(A~L)에 어떤 구성품을 담아야 하는지 사진과 표로 확인할 수 있습니다.</p>
-      ${isEditor ? `
-        <div class="tabs" id="helpTabs">
-          <button class="${helpTab==='viewer'?'active':''}" onclick="setHelpTab('viewer')">뷰어용</button>
-          <button class="${helpTab==='editor'?'active':''}" onclick="setHelpTab('editor')">편집자용</button>
-        </div>` : ''}
-      <div id="helpContent">${helpTab==='viewer' ? helpViewerContent_() : helpEditorContent_()}</div>
-      <div class="modal-actions">
-        <button class="btn btn-primary" onclick="document.getElementById('helpBackdrop').remove()">확인</button>
-      </div>
-    </div>`;
-  document.body.appendChild(backdrop);
-}
-
-function setHelpTab(tab){
-  helpTab = tab;
-  document.getElementById('helpTabs').querySelectorAll('button').forEach((b,i)=>{
-    b.classList.toggle('active', (i===0 ? 'viewer':'editor')===tab);
-  });
-  document.getElementById('helpContent').innerHTML = tab==='viewer' ? helpViewerContent_() : helpEditorContent_();
-}
-
-function helpViewerContent_(){
-  return `
-    <ul class="help-list">
-      <li><b>로그인</b> — 사이트 접속 시 구글 계정 로그인이 먼저 필요합니다 (레드버튼 내부 자료 보호를 위함). 처음 로그인하면 매장·이름·직급을 입력하는 신청서를 작성하게 되고, 승인 후 조회 가능합니다.</li>
-      <li><b>게임 찾기</b> — 상단 검색창에 게임 이름을 입력하세요. 초성만 입력해도 검색됩니다 (예: <code>ㅋㅅㅋㄷㅇ</code> → 캐스캐디아).</li>
-      <li><b>가이드 보기</b> — 게임을 클릭하면 <b>사진</b> 탭과 <b>표</b> 탭으로 볼 수 있습니다.
-        <ul>
-          <li><b>사진</b>: 실제 배치 사진 위 점(마커)이 각 케이스 위치를 나타냅니다. 점을 누르면 어떤 케이스종류(A~L)에 무엇을 담는지 나옵니다. 사진이 여러 장이면 상단 화살표·점(dot) 외에도, 사진의 좌우를 클릭하거나 화면을 좌우로 밀어(스와이프) 넘길 수 있습니다.</li>
-          <li><b>표</b>: 게임 전체 구성품을 케이스종류·수량과 함께 표로 한눈에 확인할 수 있습니다.</li>
-        </ul>
-      </li>
-      <li><b>케이스종류</b> — A~L 배지로 표시되며, 각 배지에는 실제 제품 사이즈(mm)도 함께 나옵니다.</li>
-      <li><b>게임 메모</b> — 게임 제목 옆에 메모가 있으면 노란 박스로 표시됩니다. 사진/표 탭과 무관하게 게임 전체에 대한 안내입니다.</li>
-      <li><b>정렬·필터</b> — 목록 상단에서 이름순(ㄱㄴㄷ)·ID순·최근 수정순 정렬과, 완료·미완료 필터를 적용할 수 있습니다.</li>
-      <li><b>작업 완료 체크</b> — 각 게임 카드 하단의 "작업 완료" 체크박스로, 매장에서 그 게임 정리를 끝냈는지 표시할 수 있습니다. 내 계정 기준으로만 기록되어 다른 매장 기록과 섞이지 않습니다.</li>
-      <li><b>여러 게임 준비물 한번에 확인</b> — 목록 화면에서 작업할 게임들을 체크박스로 여러 개 선택하면, 상단에 <b>필요한 케이스종류별 총 개수</b>가 자동으로 계산되어 나옵니다. 작업 전에 필요한 케이스를 미리 챙길 때 유용합니다.</li>
-    </ul>
-    <p class="help-note">뷰어 모드에서는 내용을 보기만 할 수 있고 수정은 되지 않습니다.</p>
-  `;
-}
-
-function helpEditorContent_(){
-  return `
-    <ul class="help-list">
-      <li><b>편집자 전환</b> — 이미 로그인된 상태이므로, 상단 "편집자" 버튼을 누르면 별도 팝업 없이 바로 승인 여부를 확인합니다. 승인된 계정이면 즉시 편집 가능하고, 아닌 경우 승인 요청이 자동 접수됩니다.</li>
-      <li><b>권한 관리</b> — "🔑 권한 관리" 화면에서 대기 중인 요청을 이름·매장·직급과 함께 확인하고 <b>편집자 또는 뷰어로 승인</b>하거나 거절할 수 있습니다. 승인 시 매장을 다시 지정/수정할 수도 있습니다. 이름 옆 ✏️ 버튼으로 언제든 이름을 수정할 수 있습니다. 이메일을 직접 입력해 요청 없이도 먼저 권한을 부여할 수 있고, 등록된 계정은 언제든 삭제할 수 있습니다. "매장 추가"에서 매장 코드·매장명을 등록해두면 신청서 작성 시 선택 목록에 나타납니다.</li>
-      <li><b>새 가이드 만들기</b> — 상단 "+ 새 가이드" 버튼으로 게임 ID·이름을 입력해 새로 생성합니다.</li>
-      <li><b>사진 등록</b> — 사진 탭에서 "사진 업로드" 또는 사진 영역에 파일을 끌어다 놓으면, 회전·자르기(크롭)·이동·확대·축소 편집창이 뜹니다. 회전 버튼으로 사진 방향을 바로잡고, 축소 슬라이더 아래 미리보기에서 실제 저장될 모습을 그대로 확인할 수 있습니다. "+ 사진 페이지 추가"로 사진을 여러 장 등록하고 넘겨가며 관리할 수 있습니다.</li>
-      <li><b>마커(케이스 위치) 추가·편집</b> — 사진의 빈 곳을 더블클릭하면 새 마커와 텍스트박스가 생깁니다. 마커와 텍스트박스는 각각 드래그로 위치를 옮길 수 있고, 텍스트박스 안에서 케이스종류·구성품명·수량을 바로 수정할 수 있습니다.</li>
-      <li><b>표 기준 마커 자동 생성</b> — 표에는 등록돼있지만 아직 사진에 마커가 없는 케이스들을, "📍 표 기준 마커 자동 생성" 버튼으로 한 번에 격자 배치할 수 있습니다. 이후 실제 배치에 맞게 위치만 드래그로 옮겨주면 됩니다. (일괄로 데이터만 먼저 등록한 게임에 유용합니다)</li>
-      <li><b>라벨 미리보기</b> — 텍스트박스 상단의 검정 "라벨" 버튼을 누르면, 실제 라벨기로 인쇄해 붙였을 때의 모습(검정 바탕 흰 글씨)을 미리 볼 수 있는 박스가 따로 생깁니다. 내용 수정, 줄바꿈, 글자 크기 조절(A-/A+), 모서리 드래그로 크기 조절(글자도 같이 커짐/작아짐), ⟳ 버튼으로 90도씩 회전(세로로 붙여야 하는 라벨 등), ⧉ 버튼으로 복제가 모두 가능합니다.</li>
-      <li><b>텍스트박스 복제</b> — 텍스트박스 상단의 "복제" 버튼을 누르면 구성품·수량·비고까지 그대로 복사된 새 마커가 바로 옆에 생깁니다. 비슷한 케이스를 여러 개 만들 때 유용합니다.</li>
-      <li><b>표에서 직접 수정</b> — 표 탭에서도 케이스종류·구성품·수량·비고를 셀에서 바로 편집하거나, 케이스/항목을 추가·삭제할 수 있습니다. 사진과 표는 같은 데이터를 공유합니다.</li>
-      <li><b>비고(메모)</b> — 텍스트박스 하단의 "+ 비고" 버튼을 누르면 메모칸이 나타납니다. 카드가 프로텍터 기준인지 코팅 기준인지, 토큰에 코인 캡슐을 쓰는지 등을 적어두면 표 탭의 "비고" 열에도 똑같이 반영됩니다. 선택 사항이라 안 적으면 표시되지 않습니다.</li>
-      <li><b>게임 전체 메모</b> — 이건 특정 구성품이 아니라 게임 전체에 대한 메모입니다. 게임 제목 옆의 "+ 게임 메모"로 추가하며, 사진 탭·표 탭 어디서 보든 동일하게 상단에 나타납니다.</li>
-      <li><b>게임 삭제</b> — 목록 화면 카드의 ✕ 버튼으로 삭제할 수 있습니다 (되돌릴 수 없으니 주의).</li>
-      <li><b>저장</b> — 편집 내용은 잠시 후 자동으로 저장되지만, 확실히 지금 바로 저장해두고 싶으면 제목 아래 "💾 지금 저장" 버튼을 누르면 됩니다.</li>
-      <li><b>이전 버전</b> — 제목 아래 "🕐 이전 버전" 버튼으로 최근 5개까지 저장됐던 이전 내용을 확인할 수 있습니다. "미리보기"로 그 시점 사진·구성표를 먼저 보고, 마음에 들면 "복원"으로 그 버전으로 되돌릴 수 있습니다. 복원해도 되돌리기 직전 내용이 다시 이력에 남으므로 안심하고 써도 됩니다.</li>
-      <li><b>사진 순서 변경</b> — 사진이 여러 장이면 "◀ 순서 / 순서 ▶" 버튼으로 순서를 바꿀 수 있습니다. 그 사진에 찍어둔 마커·라벨도 함께 이동합니다.</li>
-      <li><b>작업 진행 현황</b> — 상단 "📊 진행현황" 버튼으로 전체 게임의 완료율(%)과 진행 개수를 한눈에 보고, 게임별 사진 등록 여부·가이드 완료 여부(직접 체크)·매장 작업 완료 수를 확인할 수 있습니다. "가이드 미완료만" 필터로 남은 작업을 바로 골라볼 수 있습니다. 가이드 완료 체크는 대시보드뿐 아니라 게임 상세 화면 제목 아래에서도 바로 할 수 있습니다.</li>
-      <li><b>목록 복구</b> — 목록에 게임이 몇 개만 보이거나 이상하게 나올 때, 상단 "🔧 목록 복구" 버튼으로 Apps Script에 안 들어가고도 바로 복구할 수 있습니다. 진행률(%)이 실시간으로 표시되며, 원본 데이터는 건드리지 않고 목록용 요약만 다시 만드므로 안전합니다.</li>
-      <li><b>동시 편집</b> — 여러 명이 각자 다른 게임을 동시에 편집해도 서로의 작업을 덮어쓰지 않습니다. 다른 편집자가 추가한 게임을 보려면 상단 "↻ 새로고침"을 눌러주세요.</li>
-    </ul>
-    <p class="help-note">사진 탭과 표 탭 어디서 수정하든 동일한 데이터가 저장되어, 뷰어에게 바로 반영됩니다.</p>
-  `;
-}
-
-function createLabelFromCase(markerIdxInCurrentPhoto){
-  const g = games.find(x=>x.id===currentGameId);
-  const photo = g.photos[currentPhotoIdx];
-  if (!photo.labels) photo.labels = [];
-  const m = photo.markers[markerIdxInCurrentPhoto];
-  const c = g.cases[m.caseIdx];
-  if (!c) return;
-
-  const text = c.items.map(i => Number(i.qty)===0 ? i.name : `${i.name} ${i.qty}개`).join('\n');
-  const baseX = m.box ? m.box.x : m.x;
-  const baseY = m.box ? m.box.y : m.y;
-
-  photo.labels.push({
-    x: Math.min(94, baseX + 6),
-    y: Math.min(94, baseY + 8),
-    text,
-    fontSizePct: 2.15, // 화면 폭의 2.15% (기존 "650px 기준 14px" 디자인과 동일한 비율)
-    sized: false
-  });
-  debouncedSaveGames();
-  render();
-}
-
-/**
- * 텍스트박스(케이스+마커)를 통째로 복제합니다. 구성품·수량·비고까지 그대로 복사되고,
- * 새 마커는 원본에서 살짝 옆으로 옮겨서 겹치지 않게 만듭니다.
- */
-function duplicateCase(markerIdxInCurrentPhoto){
-  const g = games.find(x=>x.id===currentGameId);
-  const photo = g.photos[currentPhotoIdx];
-  const m = photo.markers[markerIdxInCurrentPhoto];
-  const c = g.cases[m.caseIdx];
-  if (!c) return;
-
-  const newCase = JSON.parse(JSON.stringify(c));
-  g.cases.push(newCase);
-
-  const newMarker = { x: Math.min(97, m.x + 5), y: Math.min(95, m.y + 5), caseIdx: g.cases.length - 1 };
-  if (m.box){
-    newMarker.box = { x: Math.min(97, m.box.x + 5), y: Math.min(95, m.box.y + 5) };
-  }
-  photo.markers.push(newMarker);
-
-  debouncedSaveGames();
-  render();
-  showToast('텍스트박스를 복제했습니다.');
-}
-
-/**
- * 라벨(실제 인쇄 미리보기)을 복제합니다. 글자·크기·회전까지 그대로 복사되고,
- * 원본에서 살짝 옆으로 옮겨서 생성됩니다.
- */
-function duplicateLabel(li){
-  const g = games.find(x=>x.id===currentGameId);
-  const photo = g.photos[currentPhotoIdx];
-  const lbl = photo.labels[li];
-  if (!lbl) return;
-
-  const newLbl = JSON.parse(JSON.stringify(lbl));
-  newLbl.x = Math.min(94, (lbl.x||0) + 5);
-  newLbl.y = Math.min(94, (lbl.y||0) + 5);
-  photo.labels.push(newLbl);
-
-  debouncedSaveGames();
-  render();
-  showToast('라벨을 복제했습니다.');
-}
-
-function deleteLabel(li){
-  const g = games.find(x=>x.id===currentGameId);
-  const photo = g.photos[currentPhotoIdx];
-  photo.labels.splice(li, 1);
-  debouncedSaveGames();
-  render();
-}
-
-function changeLabelFontSize(li, delta){
-  const g = games.find(x=>x.id===currentGameId);
-  const photo = g.photos[currentPhotoIdx];
-  const lbl = photo.labels[li];
-  const current = lbl.fontSizePct != null ? lbl.fontSizePct : ((lbl.fontSize||14)/650*100);
-  lbl.fontSizePct = Math.max(0.4, Math.min(20, current + delta*0.3));
-  delete lbl.fontSize;
-  debouncedSaveGames();
-  render();
-}
-
-/**
- * 라벨을 90도씩 회전시킵니다. 실제로 세로로 붙여야 하는 케이스 등에 사용합니다.
- */
-function rotateLabel(li){
-  const g = games.find(x=>x.id===currentGameId);
-  const photo = g.photos[currentPhotoIdx];
-  const lbl = photo.labels[li];
-  lbl.rotation = ((lbl.rotation || 0) + 90) % 360;
-  debouncedSaveGames();
-  render();
-}
-
-let gameNoteExpanded = false;
-
-async function openGame(id){
-  flushPendingSave_(currentGameId); // 다른 게임으로 넘어가기 전, 대기 중이던 저장을 먼저 확정
-  currentGameId=id; currentMode='1'; currentPhotoIdx=0; gameNoteExpanded=false; showDashboard=false;
-  document.getElementById('app').innerHTML = `<div class="empty">불러오는 중...</div>`;
-  await fetchFullGame_(id);
-  render();
-}
-
-/**
- * 목록/대시보드에는 사진 데이터가 빠진 가벼운 버전만 있으므로,
- * 게임을 열 때 사진을 포함한 전체 데이터를 따로 불러와 games 배열에 채워 넣습니다.
- */
-async function fetchFullGame_(id){
-  try{
-    const res = await fetch(WEB_APP_URL, {
-      method:'POST',
-      headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body: JSON.stringify({ action:'getGame', idToken:authToken, gameId:id })
-    });
-    const result = await res.json();
-    if (result.success && result.game){
-      const idx = games.findIndex(g=>g.id===id);
-      if (idx !== -1) games[idx] = result.game;
-      else games.push(result.game);
-    } else if (result.error === 'NOT_AUTHENTICATED' || result.error === 'NOT_APPROVED'){
-      // 로그인(구글 토큰)이 시간 지나 만료된 경우 - 다시 로그인하도록 안내
-      clearCachedAuthToken();
-      clearCachedEditorApproval();
-      showGate();
-      showToast('로그인이 만료되었습니다. 다시 로그인해주세요.', 'error');
-    } else {
-      showToast('게임 데이터를 불러오지 못했습니다. (' + (result.error||'') + ')', 'error');
-    }
-  }catch(e){
-    console.error(e);
-    showToast('서버 오류가 발생했습니다.', 'error');
-  }
-}
-function closeGame(){ flushPendingSave_(currentGameId); currentGameId=null; showDashboard=false; render(); }
-
-function renderGameNote_(g){
-  const editable = role==='editor';
-  const hasNote = g.note && g.note.length>0;
-  if (editable){
-    if (hasNote || gameNoteExpanded){
-      return `<textarea class="game-note-input" placeholder="게임 전체에 대한 메모 (선택, 사진/표 어디에도 종속되지 않음)" onchange="updateGameNote(this.value)">${g.note||''}</textarea>`;
-    }
-    return `<button class="game-note-add" onclick="expandGameNote()">+ 게임 메모</button>`;
-  }
-  return hasNote ? `<div class="game-note-view">📝 ${g.note}</div>` : '';
-}
-
-function expandGameNote(){
-  gameNoteExpanded = true;
-  render();
-}
-
-function updateGameNote(value){
-  const g = games.find(x=>x.id===currentGameId);
-  g.note = value;
-  debouncedSaveGames();
-}
-function setMode(m){ currentMode=m; currentPhotoIdx=0; render(); }
-function prevPhoto(){ if (currentPhotoIdx>0){ currentPhotoIdx--; render(); } }
-function nextPhoto(){ const g=games.find(x=>x.id===currentGameId); if (currentPhotoIdx<g.photos.length-1){ currentPhotoIdx++; render(); } }
-function goToPhoto(i){ currentPhotoIdx=i; render(); }
-/**
- * 표(g.cases)에는 있지만 어떤 사진에도 마커가 없는 케이스들을,
- * 현재 보고 있는 사진 위에 격자 형태로 자동 배치합니다.
- */
-function autoGenerateMarkers(){
-  const g = games.find(x=>x.id===currentGameId);
-  const photo = g.photos[currentPhotoIdx];
-
-  const placedCaseIdx = new Set();
-  g.photos.forEach(p => (p.markers||[]).forEach(m => placedCaseIdx.add(m.caseIdx)));
-
-  const missing = [];
-  g.cases.forEach((c, ci) => { if (!placedCaseIdx.has(ci)) missing.push(ci); });
-
-  if (missing.length === 0){
-    showToast('이미 모든 케이스에 마커가 있습니다.');
-    return;
-  }
-
-  const positions = computeGridPositions_(missing.length);
-  missing.forEach((ci, i) => {
-    photo.markers.push({ x: positions[i].x, y: positions[i].y, caseIdx: ci });
-  });
-
-  debouncedSaveGames();
-  render();
-  showToast(missing.length + '개 마커를 자동 생성했습니다. 위치를 드래그해서 실제 배치에 맞게 옮겨주세요.');
-}
-
-function computeGridPositions_(count){
-  const cols = Math.max(1, Math.ceil(Math.sqrt(count)));
-  const rows = Math.max(1, Math.ceil(count / cols));
-  const positions = [];
-  for (let i = 0; i < count; i++){
-    const col = i % cols, row = Math.floor(i / cols);
-    const x = cols === 1 ? 50 : 12 + col * (76 / (cols - 1));
-    const y = rows === 1 ? 50 : 12 + row * (76 / (rows - 1));
-    positions.push({ x, y });
-  }
-  return positions;
-}
-
-/**
- * 사진 순서를 앞/뒤로 바꿉니다. 마커·라벨은 사진 객체 안에 함께 들어있어서 자동으로 같이 이동합니다.
- */
-function movePhoto(direction){
-  const g = games.find(x=>x.id===currentGameId);
-  const newIdx = currentPhotoIdx + direction;
-  if (newIdx < 0 || newIdx >= g.photos.length) return;
-  const tmp = g.photos[currentPhotoIdx];
-  g.photos[currentPhotoIdx] = g.photos[newIdx];
-  g.photos[newIdx] = tmp;
-  currentPhotoIdx = newIdx;
-  debouncedSaveGames();
-  render();
-}
-
-function addPhoto(){
-  const g = games.find(x=>x.id===currentGameId);
-  g.photos.push({markers:[]});
-  currentPhotoIdx = g.photos.length-1;
-  debouncedSaveGames(); render();
-}
-function deletePhoto(idx){
-  const g = games.find(x=>x.id===currentGameId);
-  if (g.photos.length<=1) return;
-  if (!confirm('이 사진의 마커 정보도 함께 삭제됩니다. 계속할까요?')) return;
-  g.photos.splice(idx,1);
-  currentPhotoIdx = Math.max(0, idx-1);
-  debouncedSaveGames(); render();
-}
-
-function updateItem(ci, ii, field, value){
-  const g = games.find(x=>x.id===currentGameId);
-  g.cases[ci].items[ii][field] = field==='qty' ? Number(value) : value;
-  debouncedSaveGames();
-  if (currentMode==='2') render();
-}
-function deleteItemRedraw(ci, ii){
-  const g = games.find(x=>x.id===currentGameId);
-  g.cases[ci].items.splice(ii,1);
-  if (g.cases[ci].items.length===0) removeCaseEverywhere(g, ci);
-  debouncedSaveGames(); render();
-}
-function addItemRedraw(ci){
-  const g = games.find(x=>x.id===currentGameId);
-  g.cases[ci].items.push({name:'새 구성품', qty:1});
-  debouncedSaveGames(); render();
-}
-function updateCaseType(ci, value){
-  const g = games.find(x=>x.id===currentGameId);
-  g.cases[ci].caseType = value;
-  debouncedSaveGames(); render();
-}
-function updateCaseNote(ci, value){
-  const g = games.find(x=>x.id===currentGameId);
-  g.cases[ci].note = value;
-  debouncedSaveGames();
-}
-function expandCaseNote(ci){
-  expandedCaseNotes.add(ci);
-  render();
-}
-function deleteItem(ci, ii){
-  const g = games.find(x=>x.id===currentGameId);
-  g.cases[ci].items.splice(ii,1);
-  if (g.cases[ci].items.length===0) removeCaseEverywhere(g, ci);
-  debouncedSaveGames(); render();
-}
-function addCase(){
-  const g = games.find(x=>x.id===currentGameId);
-  g.cases.push({caseType:'A', items:[{name:'', qty:1}]});
-  debouncedSaveGames(); render();
-}
-function resetBoxPosition(markerIdxInCurrentPhoto){
-  const g = games.find(x=>x.id===currentGameId);
-  const photo = g.photos[currentPhotoIdx];
-  delete photo.markers[markerIdxInCurrentPhoto].box;
-  debouncedSaveGames(); render();
-}
-
-function removeMarkerCase(markerIdxInCurrentPhoto){
-  const g = games.find(x=>x.id===currentGameId);
-  const photo = g.photos[currentPhotoIdx];
-  const caseIdx = photo.markers[markerIdxInCurrentPhoto].caseIdx;
-  photo.markers.splice(markerIdxInCurrentPhoto,1);
-  removeCaseEverywhere(g, caseIdx);
-  debouncedSaveGames(); render();
-}
-// 케이스를 전역 목록에서 제거하고, 모든 사진의 마커 캐이스 참조 인덱스를 보정합니다.
-function removeCaseEverywhere(g, caseIdx){
-  g.cases.splice(caseIdx,1);
-  g.photos.forEach(p=>{
-    p.markers = p.markers.filter(m=>m.caseIdx!==caseIdx);
-    p.markers.forEach(m=>{ if (m.caseIdx>caseIdx) m.caseIdx--; });
-  });
-}
-
-document.getElementById('searchInput').addEventListener('input', e=>{
-  searchQuery = e.target.value.trim();
-  if (currentGameId){
-    flushPendingSave_(currentGameId); // 보던 게임에 저장 대기 중인 내용이 있으면 먼저 확정
-    currentGameId = null;
-    showDashboard = false;
-  }
-  render();
-});
-
-// 모든 팝업(모달) 공통: 바깥 회색 영역을 클릭하면 닫히도록 처리
-document.addEventListener('click', (e)=>{
-  if (e.target.classList && e.target.classList.contains('modal-backdrop')){
-    if (e.target.id === 'cropBackdrop') cancelCropModal(); // 크롭 모달은 별도 정리(objectURL 해제)가 필요
-    else e.target.remove();
-  }
-});
-document.getElementById('roleViewerBtn').addEventListener('click', ()=>setRole('viewer'));
-document.getElementById('roleEditorBtn').addEventListener('click', ()=>enterEditorMode());
-
-const AUTH_TTL_MS = 5 * 60 * 60 * 1000; // 세션 토큰 최대 유효시간(6시간)보다 약간 짧게
-
-function getCachedAuthToken(){
-  try{
-    const token = localStorage.getItem('authToken');
-    const email = localStorage.getItem('authEmail');
-    const ts = Number(localStorage.getItem('authTokenTime') || 0);
-    if (token && email && (Date.now()-ts) < AUTH_TTL_MS) return { token, email };
-  }catch(e){ /* localStorage 사용 불가 환경이면 그냥 매번 로그인 */ }
-  return null;
-}
-function cacheAuthToken(token, email){
-  try{
-    localStorage.setItem('authToken', token);
-    localStorage.setItem('authEmail', email);
-    localStorage.setItem('authTokenTime', String(Date.now()));
-  }catch(e){}
-}
-function clearCachedAuthToken(){
-  try{
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('authEmail');
-    localStorage.removeItem('authTokenTime');
-  }catch(e){}
-  authToken = null; authEmail = null;
-}
-
-const EDITOR_APPROVAL_TTL_MS = 10 * 60 * 1000; // 10분
-
-function getCachedEditorApproval(){
-  try{
-    const ts = Number(localStorage.getItem('editorApprovedAt') || 0);
-    const savedEmail = localStorage.getItem('editorApprovedEmail');
-    if (ts && savedEmail && savedEmail === authEmail && (Date.now()-ts) < EDITOR_APPROVAL_TTL_MS) return true;
-  }catch(e){}
-  return false;
-}
-function cacheEditorApproval(){
-  try{
-    localStorage.setItem('editorApprovedAt', String(Date.now()));
-    localStorage.setItem('editorApprovedEmail', authEmail || '');
-  }catch(e){}
-}
-function clearCachedEditorApproval(){
-  try{
-    localStorage.removeItem('editorApprovedAt');
-    localStorage.removeItem('editorApprovedEmail');
-  }catch(e){}
-}
-
-/**
- * "편집자" 버튼 클릭 시 호출됩니다.
- * 이미 로그인 게이트를 통과한 상태이므로, 새 팝업 없이 그 토큰으로 승인 여부만 확인합니다.
- * 10분 안에 이미 승인 확인이 됐다면 서버에 다시 묻지 않고 바로 전환합니다.
- */
-async function enterEditorMode(){
-  if (!authToken){ showGate(); return; }
-
-  if (getCachedEditorApproval()){
-    setRole('editor');
-    return;
-  }
-
-  showToast('권한 확인 중...');
-  const result = await requestEditorUpgradeOnServer(authToken);
-
-  if (result.status === 'approved'){
-    authEmail = result.email;
-    cacheAuthToken(authToken, authEmail);
-    cacheEditorApproval(); // 10분 창 시작(연장)
-    setRole('editor');
-    showToast('편집자로 전환되었습니다 (' + authEmail + ')');
-  } else if (result.status === 'pending'){
-    showToast(result.newRequest ? '편집자 권한 요청이 접수되었습니다. 승인을 기다려주세요.' : '아직 승인 대기 중입니다. 편집자에게 문의해주세요.', 'error');
-  } else if (result.status === 'invalid_token'){
-    showToast('로그인이 만료되었습니다. 다시 로그인해주세요.', 'error');
-    clearCachedAuthToken();
-    clearCachedEditorApproval();
-    showGate();
-  } else {
-    showToast('권한 확인 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.', 'error');
-  }
-}
-
-function setRole(r){
-  role = r;
-  document.getElementById('roleViewerBtn').classList.toggle('active', r==='viewer');
-  document.getElementById('roleEditorBtn').classList.toggle('active', r==='editor');
-  render();
-}
-
-function logout(){
-  clearCachedAuthToken();
-  clearCachedEditorApproval();
-  role = 'viewer';
-  currentGameId = null;
-  document.getElementById('appRoot').style.display = 'none';
-  showGate();
-}
-
-/**
- * ============================================================
- * 구글 로그인 (사이트 진입 관문 - 뷰어도 로그인 필요)
- * ============================================================
- */
-function showGate(){
-  document.getElementById('loginGate').style.display = 'flex';
-  document.getElementById('appRoot').style.display = 'none';
-  renderGateDefault_();
-}
-
-function renderGateDefault_(){
-  document.getElementById('gateContent').innerHTML = `
-    <div class="brand" style="justify-content:center; pointer-events:none;">RED BUTTON<span class="r-mark">®</span></div>
-    <p>레드버튼 오거나이징 가이드는 사내 전용 자료입니다.<br>구글 계정으로 로그인해주세요.</p>
-    <div id="gateGsiButton" style="display:flex; justify-content:center; margin-top:16px;"></div>
-    <div id="gateError" style="display:none; color:var(--danger); font-size:12.5px; margin-top:10px; text-align:center;"></div>
-  `;
-  renderGateButton();
-}
-
-function renderGatePending_(isNew){
-  document.getElementById('gateContent').innerHTML = `
-    <div class="brand" style="justify-content:center; pointer-events:none;">RED BUTTON<span class="r-mark">®</span></div>
-    <p style="margin-top:10px;">${isNew ? '접근 권한 요청이 접수되었습니다.' : '아직 승인 대기 중입니다.'}<br>담당자의 승인 후 이용하실 수 있습니다.</p>
-    <p style="margin-top:14px; font-size:12px; color:var(--ink-soft);">로그인 계정: ${authEmail || ''}</p>
-    <button class="btn btn-ghost" style="margin-top:16px;" onclick="logout()">다른 계정으로 로그인</button>
-  `;
-}
-
-function renderGateButton(){
-  const container = document.getElementById('gateGsiButton');
-  const errorEl = document.getElementById('gateError');
-  errorEl.style.display = 'none';
-  container.innerHTML = '<div style="font-size:12px; color:var(--ink-soft);">로그인 준비 중...</div>';
-
-  waitForGoogleSDK_(()=>{
-    container.innerHTML = '';
-    google.accounts.id.initialize({
-      client_id: GOOGLE_CLIENT_ID,
-      callback: handleGateCredential
-    });
-    google.accounts.id.renderButton(container, { theme:'outline', size:'large', width:280 });
-  }, container, errorEl);
-}
-
-/**
- * 구글 로그인 스크립트(gsi/client)는 async로 로딩되기 때문에, 시크릿 창처럼
- * 캐시가 없어 느린 환경에서는 페이지가 그려질 때 아직 준비 안 됐을 수 있습니다.
- * 즉시 실패 처리하지 않고, 최대 5초간 200ms 간격으로 재확인합니다.
- */
-function waitForGoogleSDK_(callback, container, errorEl, attemptsLeft){
-  if (attemptsLeft === undefined) attemptsLeft = 25; // 25 * 200ms = 5초
-  if (window.google && google.accounts && google.accounts.id){
-    callback();
-    return;
-  }
-  if (attemptsLeft <= 0){
-    container.innerHTML = '';
-    errorEl.style.display = 'block';
-    errorEl.textContent = '구글 로그인 라이브러리를 불러오지 못했습니다. 새로고침 해주세요.';
-    return;
-  }
-  setTimeout(()=> waitForGoogleSDK_(callback, container, errorEl, attemptsLeft-1), 200);
-}
-
-/**
- * 구글 로그인 성공 시 호출됩니다.
- * 승인된 편집자/뷰어인지 서버에 확인한 뒤에만 실제 화면으로 들어갑니다.
- * (승인 안 된 계정은 목록 조회 자체가 안 되도록 보호)
- */
-async function handleGateCredential(response){
-  authToken = response.credential;
-  authEmail = decodeJwtEmail_(authToken);
-
-  document.getElementById('gateContent').innerHTML = `
-    <div class="brand" style="justify-content:center; pointer-events:none;">RED BUTTON<span class="r-mark">®</span></div>
-    <p style="margin-top:10px;">로그인 확인 중...</p>
-  `;
-
-  const result = await checkAccessOnServer(authToken);
-
-  if (result.status === 'approved' || result.status === 'viewer_ok'){
-    authEmail = result.email;
-    if (result.sessionToken) authToken = result.sessionToken; // 이후 요청은 세션 토큰 사용 (구글 토큰보다 훨씬 오래감)
-    cacheAuthToken(authToken, authEmail);
-    if (result.status === 'approved') cacheEditorApproval(); // 편집자 승인까지 이미 확인된 상태
-    await enterApp();
-  } else if (result.status === 'pending'){
-    renderGatePending_(!!result.newRequest);
-  } else if (result.status === 'needs_profile'){
-    await renderGateProfileForm_();
-  } else {
-    renderGateDefault_();
-    document.getElementById('gateError').style.display = 'block';
-    document.getElementById('gateError').textContent = '로그인에 실패했습니다. 다시 시도해주세요.';
-  }
-}
-
-const POSITIONS = ['점주','점장','매니저','트레이너','버트너','본사'];
-
-/**
- * 처음 로그인한 사람에게 매장·이름·직급을 입력받는 신청서 화면입니다.
- */
-async function renderGateProfileForm_(){
-  document.getElementById('gateContent').innerHTML = `
-    <div class="brand" style="justify-content:center; pointer-events:none;">RED BUTTON<span class="r-mark">®</span></div>
-    <p style="margin-top:10px; margin-bottom:14px;">처음 로그인하셨네요. 접근 요청을 위해<br>아래 정보를 입력해주세요.</p>
-    <div id="gateProfileFormBody" style="text-align:left;">
-      <div style="font-size:12px; color:var(--ink-soft); text-align:center;">불러오는 중...</div>
-    </div>
-  `;
-
-  let stores = [];
-  try{
-    const res = await fetch(WEB_APP_URL, {
-      method:'POST',
-      headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body: JSON.stringify({ action:'listStores', idToken:authToken })
-    });
-    const data = await res.json();
-    stores = (data && data.stores) || [];
-  }catch(e){ console.error(e); }
-
-  stores = stores.slice().sort((a,b)=> String(a.name).localeCompare(String(b.name), 'ko'));
-
-  document.getElementById('gateProfileFormBody').innerHTML = `
-    <div class="field">
-      <label>매장</label>
-      <select id="gateStoreSelect">
-        <option value="">매장을 선택하세요</option>
-        ${stores.map(s=>`<option value="${s.code}">${s.name}</option>`).join('')}
-      </select>
-    </div>
-    <div class="field">
-      <label>이름</label>
-      <input type="text" id="gateNameInput" placeholder="홍길동">
-    </div>
-    <div class="field">
-      <label>직급</label>
-      <select id="gatePositionSelect">
-        <option value="">직급을 선택하세요</option>
-        ${POSITIONS.map(p=>`<option value="${p}">${p}</option>`).join('')}
-      </select>
-    </div>
-    <div id="gateProfileError" style="display:none; color:var(--danger); font-size:12.5px; margin-bottom:8px;"></div>
-    <button class="btn btn-primary" style="width:100%;" onclick="submitGateProfile_()">제출</button>
-  `;
-}
-
-async function submitGateProfile_(){
-  const storeCode = document.getElementById('gateStoreSelect').value;
-  const name = document.getElementById('gateNameInput').value.trim();
-  const position = document.getElementById('gatePositionSelect').value;
-  const errorEl = document.getElementById('gateProfileError');
-
-  if (!storeCode || !name || !position){
-    errorEl.style.display = 'block';
-    errorEl.textContent = '매장·이름·직급을 모두 입력해주세요.';
-    return;
-  }
-  errorEl.style.display = 'none';
-
-  try{
-    const res = await fetch(WEB_APP_URL, {
-      method:'POST',
-      headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body: JSON.stringify({ action:'submitAccessRequest', idToken:authToken, name, position, storeCode })
-    });
-    const result = await res.json();
-    if (result.status === 'pending'){
-      renderGatePending_(!!result.newRequest);
-    } else {
-      errorEl.style.display = 'block';
-      errorEl.textContent = '제출 중 문제가 발생했습니다. 다시 시도해주세요.';
-    }
-  }catch(e){
-    console.error(e);
-    errorEl.style.display = 'block';
-    errorEl.textContent = '서버 오류가 발생했습니다.';
-  }
-}
-
-/**
- * 구글 ID 토큰(JWT)의 payload를 클라이언트에서 간단히 디코딩해 이메일만 뽑아냅니다.
- * (화면 표시용일 뿐, 실제 검증은 서버에서 매번 다시 수행됩니다)
- */
-function decodeJwtEmail_(token){
-  try{
-    const payloadB64 = token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/');
-    const json = decodeURIComponent(atob(payloadB64).split('').map(c=>'%'+('00'+c.charCodeAt(0).toString(16)).slice(-2)).join(''));
-    const payload = JSON.parse(json);
-    return payload.email ? String(payload.email).toLowerCase() : null;
-  }catch(e){ return null; }
-}
-
-async function enterApp(){
-  document.getElementById('loginGate').style.display = 'none';
-  document.getElementById('appRoot').style.display = 'block';
-  document.getElementById('app').innerHTML = `<div class="empty">게임 목록을 불러오는 중입니다...</div>`;
-  await loadGames();
-  render();
-}
-
-async function checkAccessOnServer(idToken){
-  try{
-    const res = await fetch(WEB_APP_URL, {
-      method:'POST',
-      headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body: JSON.stringify({ action:'checkAccess', idToken })
-    });
-    return await res.json();
-  }catch(e){
-    console.error(e);
-    showToast('로그인 확인 중 오류가 발생했습니다.', 'error');
-    return { status: 'error' };
-  }
-}
-
-async function requestEditorUpgradeOnServer(idToken){
-  try{
-    const res = await fetch(WEB_APP_URL, {
-      method:'POST',
-      headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body: JSON.stringify({ action:'requestEditorUpgrade', idToken })
-    });
-    return await res.json();
-  }catch(e){
-    console.error(e);
-    showToast('권한 확인 중 오류가 발생했습니다.', 'error');
-    return { status: 'error' };
-  }
-}
-
-/**
- * ============================================================
- * 권한 관리 (승인된 편집자만 접근 가능)
- * ============================================================
- */
-async function showAccessModal(){
-  if (!authToken){ showToast('로그인이 필요합니다.', 'error'); return; }
-  showToast('권한 목록 불러오는 중...');
-  const data = await fetchAccessList();
-  if (!data || !data.success){
-    showToast('권한 목록을 불러오지 못했습니다. (' + (data && data.error || '') + ')', 'error');
-    return;
-  }
-  renderAccessModal(data.editors, data.viewers, data.pending, data.profiles||{}, data.stores||[]);
-}
-
-async function fetchAccessList(){
-  try{
-    const res = await fetch(WEB_APP_URL, {
-      method:'POST',
-      headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body: JSON.stringify({ action:'listAccess', idToken:authToken })
-    });
-    return await res.json();
-  }catch(e){
-    console.error(e);
+function verifyGoogleToken_(idToken) {
+  if (!idToken) return null;
+
+  const cache = CacheService.getScriptCache();
+  const cacheKey = 'tok_' + md5Hex_(idToken);
+  const cached = cache.get(cacheKey);
+  if (cached) return cached;
+
+  try {
+    const resp = withRetry_(() => UrlFetchApp.fetch(
+      'https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(idToken),
+      { muteHttpExceptions: true }
+    ), 3);
+    if (resp.getResponseCode() !== 200) return null;
+    const payload = JSON.parse(resp.getContentText());
+    if (payload.aud !== CONFIG.GOOGLE_CLIENT_ID) return null;
+    if (Number(payload.exp) < Math.floor(Date.now() / 1000)) return null;
+    const email = payload.email ? String(payload.email).toLowerCase().trim() : null;
+    if (email) cache.put(cacheKey, email, 300); // 5분간 재사용
+    return email;
+  } catch (e) {
     return null;
   }
 }
 
-function storeNameByCode_(stores, code){
-  const s = stores.find(x=>x.code===code);
-  return s ? s.name : null;
+function md5Hex_(str) {
+  const bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, str, Utilities.Charset.UTF_8);
+  return bytes.map(b => ((b < 0 ? b + 256 : b).toString(16)).padStart(2, '0')).join('');
 }
 
-function personLabel_(email, profiles, stores){
-  const p = profiles[email] || {};
-  const storeName = p.storeCode ? storeNameByCode_(stores, p.storeCode) : null;
-  const parts = [p.name, storeName, p.position].filter(Boolean).join(' · ');
-  const safeCurrentName = (p.name||'').replace(/'/g,"\\'").replace(/"/g,'&quot;');
-  const nameHtml = parts
-    ? `<div><b>${parts}</b><div class="access-email-sub">${email}</div></div>`
-    : `<span class="access-email-only">${email}</span>`;
-  return `<div class="access-person">
-    ${nameHtml}
-    <button class="access-edit-name" onclick="editPersonName('${email}','${safeCurrentName}')" title="이름 수정">✏️</button>
-  </div>`;
+/**
+ * ============================================================
+ * 세션 토큰 (구글 로그인 대신 이후 요청에서 계속 쓰는 토큰)
+ * ============================================================
+ * 구글 ID 토큰은 유효시간이 짧고(1시간 안팎), 브라우저에서 조용히 갱신하는
+ * 방식은 최근 브라우저 정책 변화로 신뢰하기 어려워졌습니다. 그래서 최초
+ * 로그인 시에만 구글 토큰을 확인하고, 그 이후 요청들은 저희가 직접 발급한
+ * "세션 토큰"을 씁니다. 이 세션 토큰은 사용할 때마다 유효시간이 6시간으로
+ * 계속 연장(슬라이딩)되어서, 계속 활동 중이면 사실상 끊기지 않습니다.
+ * (Apps Script CacheService의 최대 보관시간이 6시간이라 그 이상은 못 늘립니다 -
+ *  6시간 넘게 완전히 활동이 없으면 다시 로그인해야 합니다)
+ */
+const SESSION_TTL_SEC = 21600; // 6시간 (CacheService 최대값)
+
+function issueSessionToken_(email) {
+  const sessionToken = Utilities.getUuid();
+  CacheService.getScriptCache().put('sess_' + sessionToken, email, SESSION_TTL_SEC);
+  return sessionToken;
 }
 
-async function editPersonName(email, currentName){
-  const newName = prompt('이름을 입력하세요.', currentName || '');
-  if (newName === null) return; // 취소
-  await postAccessAction('updateProfile', email, null, null, null, newName.trim());
-  showAccessModal();
+function verifySessionToken_(sessionToken) {
+  if (!sessionToken) return null;
+  const cache = CacheService.getScriptCache();
+  const key = 'sess_' + sessionToken;
+  const email = cache.get(key);
+  if (email) {
+    cache.put(key, email, SESSION_TTL_SEC); // 사용할 때마다 6시간으로 다시 연장
+  }
+  return email;
 }
 
-function renderAccessModal(editors, viewers, pending, profiles, stores){
-  const old = document.getElementById('accessBackdrop');
-  if (old) old.remove();
-  const sortedStores = stores.slice().sort((a,b)=> String(a.name).localeCompare(String(b.name), 'ko'));
+/**
+ * 세션 토큰을 먼저 확인하고, 아니면 구글 원본 토큰으로도 확인해봅니다.
+ * (프론트엔드가 아직 예전 방식으로 구글 토큰을 보내고 있거나, 배포 버전이
+ *  잠깐 안 맞는 상황에서도 로그인이 실패하지 않도록 하는 안전장치입니다)
+ */
+function verifyAnyToken_(token) {
+  const email = verifySessionToken_(token);
+  if (email) return email;
+  return verifyGoogleToken_(token);
+}
 
-  const storeSelectHtml = (email) => {
-    const currentCode = (profiles[email] && profiles[email].storeCode) || '';
-    return `<select id="storeSel-${email.replace(/[^a-zA-Z0-9]/g,'')}" class="access-store-select">
-      <option value="">매장 미지정</option>
-      ${sortedStores.map(s=>`<option value="${s.code}" ${s.code===currentCode?'selected':''}>${s.name}</option>`).join('')}
-    </select>`;
+/**
+ * 토큰이 유효하고, 그 이메일이 승인된 목록에 있으면 이메일을 반환합니다. (없으면 null)
+ */
+function requireApprovedEditor_(token) {
+  const email = verifyAnyToken_(token);
+  if (!email) return null;
+  const access = readAccess_();
+  return access.editors.indexOf(email) !== -1 ? email : null;
+}
+
+function getAccessFile_() {
+  const folder = getFolder_();
+  const files = folder.getFilesByName(CONFIG.ACCESS_FILE_NAME);
+  if (files.hasNext()) return files.next();
+  return folder.createFile(CONFIG.ACCESS_FILE_NAME, JSON.stringify({ editors: [], viewers: [], pending: [], stores: [], profiles: {} }), MimeType.PLAIN_TEXT);
+}
+
+function readAccess_() {
+  try {
+    const file = getAccessFile_();
+    const raw = file.getBlob().getDataAsString('UTF-8');
+    const data = raw ? JSON.parse(raw) : {};
+    // data.approved는 구버전 필드명(예전엔 편집자만 있었음) - 있으면 editors로 이어받음
+    return {
+      editors: data.editors || data.approved || [],
+      viewers: data.viewers || [],
+      pending: data.pending || [],
+      stores: data.stores || [],       // [{code, name}, ...] - code는 화면에 노출 안 함
+      profiles: data.profiles || {}    // { email: {name, position, storeCode} }
+    };
+  } catch (e) {
+    return { editors: [], viewers: [], pending: [], stores: [], profiles: {} };
+  }
+}
+
+function writeAccess_(data) {
+  getAccessFile_().setContent(JSON.stringify(data));
+}
+
+/**
+ * 로그인(뷰어 진입) 시 호출됩니다.
+ * - 편집자 목록에 있으면 'approved'
+ * - 뷰어 목록에 있으면 'viewer_ok'
+ * - 이미 신청서를 낸(대기 중인) 경우 'pending'
+ * - 처음 로그인하는 계정이면 'needs_profile' (매장·이름·직급 입력 화면을 보여줘야 함)
+ */
+function handleCheckAccess_(idToken) {
+  const email = verifyGoogleToken_(idToken);
+  if (!email) return jsonOutput_({ status: 'invalid_token' });
+
+  const access = readAccess_();
+  if (access.editors.indexOf(email) !== -1) {
+    return jsonOutput_({ status: 'approved', email: email, sessionToken: issueSessionToken_(email) });
+  }
+  if (access.viewers.indexOf(email) !== -1) {
+    return jsonOutput_({ status: 'viewer_ok', email: email, sessionToken: issueSessionToken_(email) });
+  }
+  if (access.pending.indexOf(email) !== -1) {
+    return jsonOutput_({ status: 'pending', email: email });
+  }
+  return jsonOutput_({ status: 'needs_profile', email: email });
+}
+
+/**
+ * 매장 목록만 조회합니다. (아직 승인 안 된 사람도 신청서 작성을 위해 호출 가능 - 로그인만 되어있으면 됨)
+ */
+function handleListStores_(idToken) {
+  const email = verifyGoogleToken_(idToken);
+  if (!email) return jsonOutput_({ success: false, error: 'NOT_AUTHENTICATED' });
+  const access = readAccess_();
+  return jsonOutput_({ success: true, stores: access.stores });
+}
+
+/**
+ * 처음 로그인한 사람이 매장·이름·직급을 입력해서 접근 요청을 제출합니다.
+ */
+function handleSubmitAccessRequest_(idToken, name, position, storeCode) {
+  const email = verifyGoogleToken_(idToken);
+  if (!email) return jsonOutput_({ status: 'invalid_token' });
+
+  const access = readAccess_();
+  if (access.editors.indexOf(email) !== -1) return jsonOutput_({ status: 'approved', email: email });
+  if (access.viewers.indexOf(email) !== -1) return jsonOutput_({ status: 'viewer_ok', email: email });
+
+  access.profiles[email] = {
+    name: String(name || '').trim(),
+    position: String(position || '').trim(),
+    storeCode: String(storeCode || '').trim()
   };
-
-  const backdrop = document.createElement('div');
-  backdrop.className = 'modal-backdrop';
-  backdrop.id = 'accessBackdrop';
-  backdrop.innerHTML = `
-    <div class="modal access-modal">
-      <h3>권한 관리</h3>
-      <div class="access-section">
-        <div class="access-section-title">승인 대기 중 (${pending.length})</div>
-        ${pending.length ? pending.map(email=>{
-          const safeId = email.replace(/[^a-zA-Z0-9]/g,'');
-          return `
-          <div class="access-row access-row-pending">
-            ${personLabel_(email, profiles, stores)}
-            <div class="access-actions">
-              ${storeSelectHtml(email)}
-              <button class="btn btn-primary" style="padding:5px 10px; font-size:12px;" onclick="approveEmail('${email}','editor','${safeId}')">편집자로 승인</button>
-              <button class="btn btn-ghost" style="padding:5px 10px; font-size:12px;" onclick="approveEmail('${email}','viewer','${safeId}')">뷰어로 승인</button>
-              <button class="btn btn-ghost" style="padding:5px 10px; font-size:12px;" onclick="rejectEmail('${email}')">거절</button>
-            </div>
-          </div>`;
-        }).join('') : '<div class="access-empty">대기 중인 요청이 없습니다.</div>'}
-      </div>
-      <div class="access-section">
-        <div class="access-section-title">승인된 편집자 (${editors.length})</div>
-        ${editors.length ? editors.map(email=>`
-          <div class="access-row">
-            ${personLabel_(email, profiles, stores)}
-            <button class="btn btn-ghost" style="padding:5px 10px; font-size:12px;" onclick="removeApprovedEmail('${email}')">삭제</button>
-          </div>`).join('') : '<div class="access-empty">등록된 편집자가 없습니다.</div>'}
-      </div>
-      <div class="access-section">
-        <div class="access-section-title">승인된 뷰어 (${viewers.length})</div>
-        ${viewers.length ? viewers.map(email=>`
-          <div class="access-row">
-            ${personLabel_(email, profiles, stores)}
-            <button class="btn btn-ghost" style="padding:5px 10px; font-size:12px;" onclick="removeApprovedEmail('${email}')">삭제</button>
-          </div>`).join('') : '<div class="access-empty">등록된 뷰어가 없습니다.</div>'}
-      </div>
-      <div class="access-section">
-        <div class="access-section-title">이메일로 직접 등록 (요청 없이 먼저 권한 부여)</div>
-        <div class="access-row">
-          <input type="email" id="newApprovedEmail" placeholder="example@gmail.com" style="flex:1; border:1px solid var(--line); border-radius:6px; padding:7px 9px; font-size:13px;">
-          <select id="newApprovedStore" class="access-store-select">
-            <option value="">매장 미지정</option>
-            ${sortedStores.map(s=>`<option value="${s.code}">${s.name}</option>`).join('')}
-          </select>
-          <select id="newApprovedRole" style="border:1px solid var(--line); border-radius:6px; padding:7px 6px; font-size:12.5px;">
-            <option value="viewer" selected>뷰어</option>
-            <option value="editor">편집자</option>
-          </select>
-          <button class="btn btn-primary" style="padding:7px 12px; font-size:12px;" onclick="addApprovedEmailFromInput()">등록</button>
-        </div>
-      </div>
-      <div class="access-section">
-        <div class="access-section-title">매장 추가 (등록된 매장 ${stores.length}개)</div>
-        <div class="access-row">
-          <input type="text" id="newStoreCode" placeholder="매장 코드 (예: RB260701_01)" style="flex:1; border:1px solid var(--line); border-radius:6px; padding:7px 9px; font-size:13px;">
-          <input type="text" id="newStoreName" placeholder="매장명 (예: 강남점)" style="flex:1; border:1px solid var(--line); border-radius:6px; padding:7px 9px; font-size:13px;">
-          <button class="btn btn-primary" style="padding:7px 12px; font-size:12px;" onclick="addStoreFromInput()">추가</button>
-        </div>
-      </div>
-      <div class="modal-actions">
-        <button class="btn btn-primary" onclick="document.getElementById('accessBackdrop').remove()">닫기</button>
-      </div>
-    </div>`;
-  document.body.appendChild(backdrop);
+  if (access.pending.indexOf(email) === -1) access.pending.push(email);
+  writeAccess_(access);
+  return jsonOutput_({ status: 'pending', email: email, newRequest: true });
 }
 
-async function approveEmail(email, roleType, safeId){
-  const sel = document.getElementById('storeSel-' + safeId);
-  const storeCode = sel ? sel.value : '';
-  await postAccessAction('approveRequest', email, roleType, storeCode);
-  showAccessModal();
-}
-async function rejectEmail(email){
-  if (!confirm(email + ' 요청을 거절할까요?')) return;
-  await postAccessAction('rejectRequest', email);
-  showAccessModal();
-}
-async function removeApprovedEmail(email){
-  if (!confirm(email + '의 접근 권한을 삭제할까요?')) return;
-  await postAccessAction('removeApprovedEmail', email);
-  showAccessModal();
-}
-function addApprovedEmailFromInput(){
-  const input = document.getElementById('newApprovedEmail');
-  const roleSelect = document.getElementById('newApprovedRole');
-  const storeSelect = document.getElementById('newApprovedStore');
-  const email = input.value.trim();
-  if (!email || email.indexOf('@')===-1){ showToast('올바른 이메일을 입력해주세요.', 'error'); return; }
-  postAccessAction('addApprovedEmail', email, roleSelect.value, storeSelect.value).then(()=> showAccessModal());
-}
-function addStoreFromInput(){
-  const code = document.getElementById('newStoreCode').value.trim();
-  const name = document.getElementById('newStoreName').value.trim();
-  if (!code || !name){ showToast('매장 코드와 매장명을 모두 입력해주세요.', 'error'); return; }
-  postStoreAction('addStore', code, name).then(()=> showAccessModal());
-}
-async function postStoreAction(action, code, name){
-  try{
-    const res = await fetch(WEB_APP_URL, {
-      method:'POST',
-      headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body: JSON.stringify({ action, idToken:authToken, code, name })
-    });
-    const result = await res.json();
-    if (!result.success) showToast('처리 실패: ' + (result.error||''), 'error');
-    else showToast('처리되었습니다.');
-  }catch(e){
-    console.error(e);
-    showToast('서버 오류가 발생했습니다.', 'error');
+/**
+ * 이미 뷰어인 사람이 편집자 권한을 추가로 요청할 때 호출됩니다.
+ * (기존 프로필 정보는 그대로 유지된 채 대기 목록에만 다시 올라갑니다)
+ */
+function handleRequestEditorUpgrade_(idToken) {
+  const email = verifyAnyToken_(idToken);
+  if (!email) return jsonOutput_({ status: 'invalid_token' });
+
+  const access = readAccess_();
+  if (access.editors.indexOf(email) !== -1) {
+    return jsonOutput_({ status: 'approved', email: email });
   }
-}
-async function postAccessAction(action, targetEmail, roleType, storeCode, position, name){
-  try{
-    const res = await fetch(WEB_APP_URL, {
-      method:'POST',
-      headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body: JSON.stringify({ action, idToken:authToken, targetEmail, roleType, storeCode, position, name })
-    });
-    const result = await res.json();
-    if (!result.success) showToast('처리 실패: ' + (result.error||''), 'error');
-    else showToast('처리되었습니다.');
-  }catch(e){
-    console.error(e);
-    showToast('서버 오류가 발생했습니다.', 'error');
+  if (access.pending.indexOf(email) === -1) {
+    access.pending.push(email);
+    writeAccess_(access);
+    return jsonOutput_({ status: 'pending', email: email, newRequest: true });
   }
+  return jsonOutput_({ status: 'pending', email: email });
 }
-document.getElementById('newGameBtn').addEventListener('click', ()=>{
-  const backdrop = document.createElement('div');
-  backdrop.className='modal-backdrop';
-  backdrop.innerHTML = `<div class="modal"><h3>새 가이드 만들기</h3>
-    <div class="field"><label>게임 ID</label><input id="newId" placeholder="예: 501"></div>
-    <div class="field"><label>게임명</label><input id="newName" placeholder="예: 아그리콜라"></div>
-    <div class="modal-actions">
-      <button class="btn btn-ghost" onclick="this.closest('.modal-backdrop').remove()">취소</button>
-      <button class="btn btn-primary" id="createConfirm">생성</button>
-    </div></div>`;
-  document.body.appendChild(backdrop);
-  document.getElementById('createConfirm').addEventListener('click', async ()=>{
-    const id = document.getElementById('newId').value.trim();
-    const name = document.getElementById('newName').value.trim();
-    if (!id || !name){ showToast('게임 ID와 게임명을 입력해주세요.', 'error'); return; }
-    games.push({id, name, cases:[], photos:[{markers:[]}]});
-    await saveGames(id);
-    backdrop.remove();
-    openGame(id);
+
+function handleListAccess_(idToken) {
+  const requester = requireApprovedEditor_(idToken);
+  if (!requester) return jsonOutput_({ success: false, error: 'NOT_APPROVED' });
+  const access = readAccess_();
+  return jsonOutput_({
+    success: true,
+    editors: access.editors,
+    viewers: access.viewers,
+    pending: access.pending,
+    profiles: access.profiles,
+    stores: access.stores
   });
-});
+}
 
-(async function init(){
-  const cached = getCachedAuthToken();
-  if (cached){
-    authToken = cached.token;
-    authEmail = cached.email;
-    await enterApp();
+/**
+ * roleType: 'editor' 또는 'viewer' - 대기 목록의 요청을 어느 등급으로 승인할지 선택
+ * storeCode: 승인 시점에 매장을 다시 지정/수정하고 싶을 때 (선택사항, 없으면 기존 프로필 유지)
+ */
+function handleApprove_(idToken, targetEmail, roleType, storeCode) {
+  const requester = requireApprovedEditor_(idToken);
+  if (!requester) return jsonOutput_({ success: false, error: 'NOT_APPROVED' });
+  targetEmail = String(targetEmail || '').toLowerCase().trim();
+  if (!targetEmail) return jsonOutput_({ success: false, error: 'EMAIL_REQUIRED' });
+
+  const access = readAccess_();
+  access.pending = access.pending.filter(e => e !== targetEmail);
+  if (roleType === 'editor') {
+    if (access.editors.indexOf(targetEmail) === -1) access.editors.push(targetEmail);
   } else {
-    showGate();
+    if (access.viewers.indexOf(targetEmail) === -1) access.viewers.push(targetEmail);
   }
-})();
-</script>
-</body>
-</html>
+  if (storeCode) {
+    if (!access.profiles[targetEmail]) access.profiles[targetEmail] = {};
+    access.profiles[targetEmail].storeCode = String(storeCode).trim();
+  }
+  writeAccess_(access);
+  return jsonOutput_({ success: true });
+}
+
+function handleReject_(idToken, targetEmail) {
+  const requester = requireApprovedEditor_(idToken);
+  if (!requester) return jsonOutput_({ success: false, error: 'NOT_APPROVED' });
+  targetEmail = String(targetEmail || '').toLowerCase().trim();
+
+  const access = readAccess_();
+  access.pending = access.pending.filter(e => e !== targetEmail);
+  writeAccess_(access);
+  return jsonOutput_({ success: true });
+}
+
+/**
+ * 요청이 오지 않아도, 편집자가 이메일을 직접 입력해서 먼저 승인해두는 기능
+ * roleType: 'editor' 또는 'viewer'
+ */
+function handleAddApproved_(idToken, targetEmail, roleType, storeCode, name, position) {
+  const requester = requireApprovedEditor_(idToken);
+  if (!requester) return jsonOutput_({ success: false, error: 'NOT_APPROVED' });
+  targetEmail = String(targetEmail || '').toLowerCase().trim();
+  if (!targetEmail || targetEmail.indexOf('@') === -1) {
+    return jsonOutput_({ success: false, error: 'INVALID_EMAIL' });
+  }
+
+  const access = readAccess_();
+  access.pending = access.pending.filter(e => e !== targetEmail);
+  if (roleType === 'editor') {
+    if (access.editors.indexOf(targetEmail) === -1) access.editors.push(targetEmail);
+  } else {
+    if (access.viewers.indexOf(targetEmail) === -1) access.viewers.push(targetEmail);
+  }
+  if (storeCode || name || position) {
+    const existing = access.profiles[targetEmail] || {};
+    access.profiles[targetEmail] = {
+      name: name != null ? String(name).trim() : (existing.name || ''),
+      position: position != null ? String(position).trim() : (existing.position || ''),
+      storeCode: storeCode != null ? String(storeCode).trim() : (existing.storeCode || '')
+    };
+  }
+  writeAccess_(access);
+  return jsonOutput_({ success: true });
+}
+
+/**
+ * 이미 등록된 사람의 프로필(이름/직급/매장)을 수정합니다. (승인된 편집자만 가능)
+ * 전달된 값만 갱신하고, 나머지는 기존 값을 유지합니다.
+ */
+function handleUpdateProfile_(idToken, targetEmail, name, position, storeCode) {
+  const requester = requireApprovedEditor_(idToken);
+  if (!requester) return jsonOutput_({ success: false, error: 'NOT_APPROVED' });
+  targetEmail = String(targetEmail || '').toLowerCase().trim();
+  if (!targetEmail) return jsonOutput_({ success: false, error: 'EMAIL_REQUIRED' });
+
+  const access = readAccess_();
+  const existing = access.profiles[targetEmail] || {};
+  access.profiles[targetEmail] = {
+    name: name != null ? String(name).trim() : (existing.name || ''),
+    position: position != null ? String(position).trim() : (existing.position || ''),
+    storeCode: storeCode != null ? String(storeCode).trim() : (existing.storeCode || '')
+  };
+  writeAccess_(access);
+  return jsonOutput_({ success: true });
+}
+
+/**
+ * 편집자든 뷰어든 목록에서 완전히 제거합니다. (접근 권한 회수)
+ */
+function handleRemoveApproved_(idToken, targetEmail) {
+  const requester = requireApprovedEditor_(idToken);
+  if (!requester) return jsonOutput_({ success: false, error: 'NOT_APPROVED' });
+  targetEmail = String(targetEmail || '').toLowerCase().trim();
+
+  const access = readAccess_();
+  access.editors = access.editors.filter(e => e !== targetEmail);
+  access.viewers = access.viewers.filter(e => e !== targetEmail);
+  writeAccess_(access);
+  return jsonOutput_({ success: true });
+}
+
+/**
+ * 매장(로그인 계정) 기준 작업 완료 체크를 토글합니다.
+ * 게임 데이터 안의 completedBy 배열에 본인 이메일을 추가/제거합니다.
+ * (편집자·뷰어 누구나 가능 - 본인 계정 기준으로만 토글되므로 다른 사람 기록에는 영향 없음)
+ */
+/**
+ * 매장을 새로 등록합니다. (매장코드는 내부 식별용 - 화면에는 매장명만 노출)
+ */
+function handleAddStore_(idToken, code, name) {
+  const requester = requireApprovedEditor_(idToken);
+  if (!requester) return jsonOutput_({ success: false, error: 'NOT_APPROVED' });
+  code = String(code || '').trim();
+  name = String(name || '').trim();
+  if (!code || !name) return jsonOutput_({ success: false, error: 'CODE_AND_NAME_REQUIRED' });
+
+  const access = readAccess_();
+  if (access.stores.some(s => s.code === code)) {
+    return jsonOutput_({ success: false, error: 'STORE_CODE_EXISTS' });
+  }
+  access.stores.push({ code: code, name: name });
+  writeAccess_(access);
+  return jsonOutput_({ success: true });
+}
+
+function handleRemoveStore_(idToken, code) {
+  const requester = requireApprovedEditor_(idToken);
+  if (!requester) return jsonOutput_({ success: false, error: 'NOT_APPROVED' });
+  code = String(code || '').trim();
+
+  const access = readAccess_();
+  access.stores = access.stores.filter(s => s.code !== code);
+  writeAccess_(access);
+  return jsonOutput_({ success: true });
+}
+
+/**
+ * desiredState가 true/false로 명시되면 그 상태로 "확정"시킵니다 (토글이 아님).
+ * 이렇게 하면 여러 요청이 순서대로 처리되지 않아도, 각 요청이 "정확히 무엇을 원하는지"가
+ * 분명해서 최종 결과가 사용자의 마지막 클릭과 어긋나지 않습니다.
+ * (desiredState가 안 오면 구버전 호환으로 기존처럼 단순 토글합니다)
+ *
+ * ※ 여기서는 스크립트 전체 잠금을 걸지 않습니다. 이 게임 파일은 다른 게임과
+ *   공유되는 자원이 아니라서, 서로 다른 게임끼리는 동시에 처리돼도 안전합니다.
+ *   (공유 자원인 인덱스 파일 갱신은 saveOneGame_ 안에서 별도의, 훨씬 짧은
+ *   범위의 잠금으로 보호됩니다 - 이전엔 이 함수 전체를 잠가서 서로 다른
+ *   게임끼리도 불필요하게 줄서서 기다리다가 시간초과가 났었습니다)
+ */
+function handleToggleWorkComplete_(idToken, gameId, desiredState) {
+  const email = verifyAnyToken_(idToken);
+  if (!email) return jsonOutput_({ success: false, error: 'NOT_AUTHENTICATED' });
+
+  const access = readAccess_();
+  const allowed = access.editors.indexOf(email) !== -1 || access.viewers.indexOf(email) !== -1;
+  if (!allowed) return jsonOutput_({ success: false, error: 'NOT_APPROVED' });
+  if (!gameId) return jsonOutput_({ success: false, error: 'GAME_ID_REQUIRED' });
+
+  const game = getOneGame_(gameId);
+  if (!game) return jsonOutput_({ success: false, error: 'GAME_NOT_FOUND' });
+
+  if (!game.completedBy) game.completedBy = [];
+  const idx = game.completedBy.indexOf(email);
+  let completed;
+
+  if (desiredState === true) {
+    if (idx === -1) game.completedBy.push(email);
+    completed = true;
+  } else if (desiredState === false) {
+    if (idx !== -1) game.completedBy.splice(idx, 1);
+    completed = false;
+  } else {
+    // 구버전 호환: desiredState가 없으면 기존처럼 단순 토글
+    if (idx === -1) { game.completedBy.push(email); completed = true; }
+    else { game.completedBy.splice(idx, 1); completed = false; }
+  }
+
+  saveOneGame_(game);
+  return jsonOutput_({ success: true, completed: completed, completedCount: game.completedBy.length });
+}
+
+function getFolder_() {
+  return DriveApp.getFolderById(CONFIG.DATA_FOLDER_ID);
+}
+
+function gameFileName_(id) {
+  const safeId = String(id).replace(/[^A-Za-z0-9_-]/g, '_');
+  return CONFIG.FILE_PREFIX + safeId + '.json';
+}
+
+/**
+ * 폴더 안의 game_*.json 파일을 모두 읽어서 배열로 반환합니다.
+ */
+/**
+ * 목록/대시보드 화면에는 사진의 실제 이미지 데이터가 필요 없습니다.
+ * (사진 있음/없음 여부만 필요) 이미지(imageUrl)를 통째로 빼서
+ * 인덱스 파일 크기를 가볍게 유지합니다. 사진이 많아져도 목록 불러오기가
+ * 느려지거나 응답이 깨지지 않도록 하기 위함입니다.
+ */
+function stripForIndex_(game) {
+  const hasPhoto = (game.photos || []).some(p => !!p.imageUrl);
+  return {
+    id: game.id,
+    name: game.name,
+    cases: game.cases || [],
+    note: game.note || '',
+    guideDone: !!game.guideDone,
+    completedBy: game.completedBy || [],
+    markerSize: game.markerSize,
+    updatedAt: game.updatedAt,
+    hasPhoto: hasPhoto,
+    photoCount: (game.photos || []).length
+  };
+}
+
+/**
+ * 드라이브 서비스가 일시적으로 오류를 낼 때(예: "서비스 오류: Drive"), 바로 실패
+ * 처리하지 않고 짧게 기다렸다가 자동으로 다시 시도합니다. 대부분의 경우 한두 번
+ * 재시도하면 정상적으로 처리됩니다.
+ */
+function withRetry_(fn, maxAttempts) {
+  maxAttempts = maxAttempts || 3;
+  let lastError;
+  for (let i = 0; i < maxAttempts; i++) {
+    try {
+      return fn();
+    } catch (e) {
+      lastError = e;
+      if (i < maxAttempts - 1) {
+        Utilities.sleep(400 * (i + 1)); // 400ms, 800ms 순서로 점점 늘려가며 대기
+      }
+    }
+  }
+  throw lastError;
+}
+
+function getAllGames_() {
+  const folder = getFolder_();
+  const it = folder.getFiles();
+  const games = [];
+  while (it.hasNext()) {
+    const f = it.next();
+    const name = f.getName();
+    if (name.indexOf(CONFIG.FILE_PREFIX) === 0 && name.endsWith('.json')) {
+      try {
+        const raw = withRetry_(() => f.getBlob().getDataAsString('UTF-8'));
+        games.push(JSON.parse(raw));
+      } catch (e) {
+        // 손상된 파일은 건너뜀
+      }
+    }
+  }
+  return games;
+}
+
+const HISTORY_LIMIT = 2; // 원래 5였으나, 저장할 때마다 사진 포함 전체 데이터를 다시 읽고 쓰는
+                          // 부담이 커서 2개로 줄임 (저장 속도에 가장 큰 영향을 주는 부분)
+
+function historyFileName_(id) {
+  const safeId = String(id).replace(/[^A-Za-z0-9_-]/g, '_');
+  return 'history_' + safeId + '.json';
+}
+
+function readHistory_(id) {
+  const folder = getFolder_();
+  const files = folder.getFilesByName(historyFileName_(id));
+  if (!files.hasNext()) return [];
+  try {
+    return JSON.parse(files.next().getBlob().getDataAsString('UTF-8')) || [];
+  } catch (e) {
+    return [];
+  }
+}
+
+/**
+ * 어떤 게임을 덮어쓰기 직전, "곧 예전 버전이 될" 내용을 이력에 남깁니다.
+ * 게임당 최근 2개까지만 보관하고, 그 이상은 오래된 것부터 버립니다.
+ * (사이트에 부담을 주지 않도록 개수를 제한합니다)
+ *
+ * ★ 속도 최적화: 같은 게임을 3분 이내에 또 저장하면 이력을 또 남기지 않고
+ *   건너뜁니다. (캐시로 먼저 확인하므로, 건너뛸 때는 드라이브 파일을 아예
+ *   안 읽습니다 - 연속 저장 시 체감 속도가 크게 빨라집니다)
+ */
+function pushHistorySnapshot_(id, oldContentStr) {
+  const cache = CacheService.getScriptCache();
+  const cooldownKey = 'hist_last_' + id;
+  const lastTime = Number(cache.get(cooldownKey) || 0);
+  const now = Date.now();
+  if (lastTime && (now - lastTime) < 3 * 60 * 1000) {
+    return; // 최근에 이미 이력을 남겼으므로 무거운 읽기/쓰기를 생략
+  }
+
+  let parsedGame;
+  try {
+    parsedGame = JSON.parse(oldContentStr);
+  } catch (e) {
+    return; // 예전 내용 자체가 이상하면 이력에 안 남김
+  }
+  const folder = getFolder_();
+  const hname = historyFileName_(id);
+  const files = folder.getFilesByName(hname);
+  let history = [];
+  let file = null;
+  if (files.hasNext()) {
+    file = files.next();
+    try {
+      history = JSON.parse(file.getBlob().getDataAsString('UTF-8')) || [];
+    } catch (e) {
+      history = [];
+    }
+  }
+  history.unshift({ savedAt: now, snapshot: parsedGame });
+  if (history.length > HISTORY_LIMIT) history = history.slice(0, HISTORY_LIMIT);
+
+  const newContent = JSON.stringify(history);
+  if (file) file.setContent(newContent);
+  else folder.createFile(hname, newContent, MimeType.PLAIN_TEXT);
+
+  cache.put(cooldownKey, String(now), 3600); // 1시간 동안 유지 (3분 쿨다운 판단용)
+}
+
+/**
+ * 게임 하나를 해당 파일에만 저장합니다. (다른 게임 파일에는 영향 없음)
+ * skipIndexUpdate=true 이면 인덱스는 갱신하지 않습니다. (대량 등록 시 사용, 끝나고 rebuildIndex_ 한 번만 호출)
+ */
+function saveOneGame_(game, skipIndexUpdate) {
+  if (!game || !game.id) {
+    throw new Error('저장할 게임 데이터가 올바르지 않습니다 (id 없음)');
+  }
+  game.updatedAt = Date.now(); // 최근 수정 시각 자동 기록 (정렬용)
+
+  const content = JSON.stringify(game);
+  // 저장 직전 안전장치: 내용이 비정상적으로 비었거나 JSON 형태가 아니면 저장을
+  // 아예 하지 않습니다. (이전에 파일이 0바이트로 비어버리는 사고가 있었음)
+  if (!content || content.length < 10 || content[0] !== '{') {
+    throw new Error('저장할 내용이 비정상적입니다. 저장을 취소했습니다.');
+  }
+
+  withRetry_(() => {
+    const folder = getFolder_();
+    const fname = gameFileName_(game.id);
+    const existing = folder.getFilesByName(fname);
+    let file;
+    if (existing.hasNext()) {
+      file = existing.next();
+      // 덮어쓰기 전에, 지금 있는(곧 예전 버전이 될) 내용을 이력에 남깁니다.
+      // (최근에 이미 이력을 남겼으면 - 캐시로 먼저 확인 - 무거운 내용 읽기 자체를 생략합니다)
+      try {
+        const cache = CacheService.getScriptCache();
+        const recentlySnapshotted = !!cache.get('hist_last_' + game.id);
+        if (!recentlySnapshotted) {
+          const oldContent = file.getBlob().getDataAsString('UTF-8');
+          if (oldContent && oldContent.length > 10 && oldContent[0] === '{') {
+            pushHistorySnapshot_(game.id, oldContent);
+          }
+        }
+      } catch (e) { /* 이력 저장 실패는 무시 */ }
+      file.setContent(content);
+    } else {
+      file = folder.createFile(fname, content, MimeType.PLAIN_TEXT);
+      invalidateGameCountCache_(); // 새 게임이 생겼으므로 캐시된 개수를 무효화
+    }
+    // 저장 직후 검증: 파일 용량만 빠르게 확인합니다 (전체 내용을 다시 읽는 것보다 훨씬 가벼움).
+    // 용량이 비정상적으로 작으면(비어있음) 예외를 던져서 withRetry_가 다시 시도하게 합니다.
+    const verifySize = file.getSize();
+    if (verifySize < 10) {
+      throw new Error('저장 직후 검증 실패 (파일이 비어있거나 손상됨) - 재시도합니다');
+    }
+  });
+  if (!skipIndexUpdate) {
+    updateIndexEntry_(stripForIndex_(game));
+  }
+}
+
+/**
+ * 게임 파일 하나만 빠르게 읽어옵니다. (전체 인덱스를 안 거침)
+ * 사진 등 전체 데이터가 필요할 때(게임 열람 시) 사용합니다.
+ */
+function getOneGame_(id) {
+  try {
+    return withRetry_(() => {
+      const folder = getFolder_();
+      const files = folder.getFilesByName(gameFileName_(id));
+      if (!files.hasNext()) return null;
+      return JSON.parse(files.next().getBlob().getDataAsString('UTF-8'));
+    });
+  } catch (e) {
+    return null;
+  }
+}
+
+function deleteOneGame_(gameId) {
+  withRetry_(() => {
+    const folder = getFolder_();
+    const fname = gameFileName_(gameId);
+    const existing = folder.getFilesByName(fname);
+    while (existing.hasNext()) {
+      existing.next().setTrashed(true);
+    }
+  });
+  invalidateGameCountCache_();
+  removeIndexEntry_(gameId);
+}
+
+function getIndexFile_() {
+  const folder = getFolder_();
+  const files = folder.getFilesByName(CONFIG.INDEX_FILE_NAME);
+  if (files.hasNext()) return files.next();
+  return folder.createFile(CONFIG.INDEX_FILE_NAME, '[]', MimeType.PLAIN_TEXT);
+}
+
+function readIndex_() {
+  try {
+    return withRetry_(() => {
+      const file = getIndexFile_();
+      const raw = file.getBlob().getDataAsString('UTF-8');
+      return raw ? JSON.parse(raw) : [];
+    });
+  } catch (e) {
+    return [];
+  }
+}
+
+function writeIndex_(games) {
+  withRetry_(() => {
+    const file = getIndexFile_();
+    file.setContent(JSON.stringify(games));
+  });
+}
+
+/**
+ * 인덱스 파일을 읽고 → 고치고 → 씁니다. (전달되는 game은 이미 stripForIndex_로
+ * 가볍게 만든 상태여야 합니다)
+ * ※ 일부러 잠금장치를 안 겁니다. 여러 게임을 동시에 체크할 때 이 부분에서
+ *   잠금을 걸면, 서로 무관한 게임끼리도 순서를 기다리다 시간초과로 실패하는
+ *   문제가 있었습니다. 아주 드물게 거의 동시에 두 요청이 겹치면 그 중 하나의
+ *   인덱스 반영이 다음 저장 때까지 늦게 보일 수는 있지만, 원본 데이터(게임별
+ *   파일)는 항상 정확하게 저장되고, 요청 자체가 실패하는 일은 없습니다.
+ *
+ * ★ 안전장치: 읽어온 인덱스 개수를 실제 게임 파일 개수와 비교합니다. 0개인
+ *   경우뿐 아니라, 실제 파일 수보다 눈에 띄게 적은 경우(절반 이하)도 읽기
+ *   손상으로 보고, 원본 게임 파일들을 기준으로 인덱스를 통째로 다시 만들어서
+ *   (느리지만 안전하게) 저장합니다. 사람이 직접 "목록 복구"를 누르지 않아도
+ *   스스로 복구되도록 하기 위함입니다.
+ */
+/**
+ * 실제 게임 파일 개수를 매번 폴더 전체를 훑어서 세면 저장할 때마다 느려지므로,
+ * 5분간 결과를 캐시해서 재사용합니다. 게임이 새로 생기거나 삭제될 때는
+ * invalidateGameCountCache_()로 즉시 캐시를 비워서 정확도를 유지합니다.
+ */
+function getCachedGameCount_() {
+  const cache = CacheService.getScriptCache();
+  const cached = cache.get('game_file_count');
+  if (cached != null) return Number(cached);
+  const count = listGameIds_().length;
+  cache.put('game_file_count', String(count), 300); // 5분
+  return count;
+}
+
+function invalidateGameCountCache_() {
+  CacheService.getScriptCache().remove('game_file_count');
+}
+
+function ensureHealthyIndex_(idx) {
+  const realCount = getCachedGameCount_();
+  if (realCount > 0 && idx.length < realCount * 0.5) {
+    return getAllGames_().map(stripForIndex_); // 원본 파일 기준으로 안전하게 재구성
+  }
+  return idx;
+}
+
+function updateIndexEntry_(lightweightGame) {
+  const idx = ensureHealthyIndex_(readIndex_());
+  const pos = idx.findIndex(g => String(g.id) === String(lightweightGame.id));
+  if (pos >= 0) idx[pos] = lightweightGame; else idx.push(lightweightGame);
+  writeIndex_(idx);
+}
+
+function removeIndexEntry_(gameId) {
+  const idx = ensureHealthyIndex_(readIndex_());
+  writeIndex_(idx.filter(g => String(g.id) !== String(gameId)));
+}
+
+/**
+ * 인덱스를 처음부터 다시 만듭니다. (느림 - 전체 파일을 하나씩 읽음)
+ * 대량 등록 직후, 또는 인덱스가 실제 데이터와 어긋난 것 같을 때 한 번 실행하세요.
+ * (수동으로 가끔 실행하는 함수라 여기서는 잠금을 유지합니다)
+ * 반환값: 재생성된 게임 개수
+ */
+function rebuildIndex_() {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const all = getAllGames_();
+    writeIndex_(all.map(stripForIndex_)); // 가벼운 버전으로 변환해서 저장
+    return all.length;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * 직접 실행용 함수입니다. 실행 목록 드롭다운에서 이 함수를 선택해서 실행하세요.
+ * (rebuildIndex_는 이름 끝에 _가 있어서 목록에 안 보입니다)
+ */
+function runRebuildIndex() {
+  const count = rebuildIndex_();
+  Logger.log('인덱스 재생성 완료: ' + count + '개 게임');
+}
+
+/**
+ * 사이트의 "🔧 목록 복구" 버튼에서 호출됩니다. (승인된 편집자만 가능)
+ * Apps Script 편집기에 안 들어가도, 사이트에서 바로 인덱스를 재생성할 수 있습니다.
+ */
+function handleRebuildIndexRemote_(idToken) {
+  const requester = requireApprovedEditor_(idToken);
+  if (!requester) return jsonOutput_({ success: false, error: 'NOT_APPROVED' });
+  const count = rebuildIndex_();
+  return jsonOutput_({ success: true, count: count });
+}
+
+/**
+ * 게임의 이전 버전 이력을 가볍게(사진 등 무거운 데이터는 빼고) 요약해서 보여줍니다.
+ */
+function handleListGameHistory_(idToken, gameId) {
+  const requester = requireApprovedEditor_(idToken);
+  if (!requester) return jsonOutput_({ success: false, error: 'NOT_APPROVED' });
+  if (!gameId) return jsonOutput_({ success: false, error: 'GAME_ID_REQUIRED' });
+
+  const history = readHistory_(gameId);
+  const summary = history.map((h, i) => ({
+    index: i,
+    savedAt: h.savedAt,
+    name: h.snapshot.name,
+    caseCount: (h.snapshot.cases || []).length,
+    photoCount: (h.snapshot.photos || []).length,
+    hasPhoto: (h.snapshot.photos || []).some(p => !!p.imageUrl)
+  }));
+  return jsonOutput_({ success: true, history: summary });
+}
+
+/**
+ * 이전 버전 하나의 전체 내용(사진 포함)을 미리보기용으로 가져옵니다.
+ */
+function handleGetHistorySnapshot_(idToken, gameId, index) {
+  const requester = requireApprovedEditor_(idToken);
+  if (!requester) return jsonOutput_({ success: false, error: 'NOT_APPROVED' });
+  if (!gameId) return jsonOutput_({ success: false, error: 'GAME_ID_REQUIRED' });
+
+  const history = readHistory_(gameId);
+  if (index == null || index < 0 || index >= history.length) {
+    return jsonOutput_({ success: false, error: 'INDEX_OUT_OF_RANGE' });
+  }
+  return jsonOutput_({ success: true, snapshot: history[index].snapshot, savedAt: history[index].savedAt });
+}
+
+/**
+ * 선택한 이전 버전을 현재 버전으로 되돌립니다.
+ * (이 저장 자체도 "복원 직전의 현재 버전"을 다시 이력에 남기므로, 복원도 되돌릴 수 있습니다)
+ */
+function handleRestoreHistorySnapshot_(idToken, gameId, index) {
+  const requester = requireApprovedEditor_(idToken);
+  if (!requester) return jsonOutput_({ success: false, error: 'NOT_APPROVED' });
+  if (!gameId) return jsonOutput_({ success: false, error: 'GAME_ID_REQUIRED' });
+
+  const history = readHistory_(gameId);
+  if (index == null || index < 0 || index >= history.length) {
+    return jsonOutput_({ success: false, error: 'INDEX_OUT_OF_RANGE' });
+  }
+  const snapshot = history[index].snapshot;
+  saveOneGame_(snapshot);
+  return jsonOutput_({ success: true, game: snapshot });
+}
+
+/**
+ * 아래 세 함수는 "🔧 목록 복구"를 진행률(%)과 함께 보여주기 위한 것입니다.
+ * 한 번에 전체를 처리하지 않고, 파일명만 먼저 빠르게 나열 → 여러 번에 나눠서
+ * 조금씩 처리 → 마지막에 한 번에 저장, 순서로 진행합니다.
+ */
+function handleListGameIds_(idToken) {
+  const requester = requireApprovedEditor_(idToken);
+  if (!requester) return jsonOutput_({ success: false, error: 'NOT_APPROVED' });
+  return jsonOutput_({ success: true, ids: listGameIds_() });
+}
+
+function listGameIds_() {
+  const folder = getFolder_();
+  const it = folder.getFiles();
+  const ids = [];
+  while (it.hasNext()) {
+    const f = it.next();
+    const name = f.getName();
+    if (name.indexOf(CONFIG.FILE_PREFIX) === 0 && name.endsWith('.json')) {
+      ids.push(name.slice(CONFIG.FILE_PREFIX.length, name.length - 5)); // '.json' = 5글자
+    }
+  }
+  return ids;
+}
+
+function handleRebuildIndexBatch_(idToken, ids) {
+  const requester = requireApprovedEditor_(idToken);
+  if (!requester) return jsonOutput_({ success: false, error: 'NOT_APPROVED' });
+  if (!ids || !ids.length) return jsonOutput_({ success: true, games: [] });
+  const results = [];
+  ids.forEach(id => {
+    const game = getOneGame_(id);
+    if (game) results.push(stripForIndex_(game));
+  });
+  return jsonOutput_({ success: true, games: results });
+}
+
+function handleFinishRebuildIndex_(idToken, games) {
+  const requester = requireApprovedEditor_(idToken);
+  if (!requester) return jsonOutput_({ success: false, error: 'NOT_APPROVED' });
+  writeIndex_(games || []);
+  return jsonOutput_({ success: true, count: (games || []).length });
+}
+
+/**
+ * ============================================================
+ * 최초 설정 / 마이그레이션용 함수 (직접 실행)
+ * ============================================================
+ */
+
+/**
+ * 최초 1회 실행: 첫 번째 편집자(관리자) 이메일을 승인 목록에 직접 추가합니다.
+ * 그 다음부터는 그 계정으로 로그인해서, 사이트의 "권한 관리" 화면에서
+ * 나머지 편집자들을 추가/승인할 수 있습니다.
+ * (승인 목록이 비어있으면 아무도 승인해줄 사람이 없기 때문에 필요한 최초 부트스트랩 단계입니다)
+ */
+function addFirstApprovedEditor() {
+  const email = 'awayminki@redbutton.co.kr';
+  if (email.indexOf('여기에') !== -1) {
+    Logger.log('❌ 위 email 변수를 실제 이메일 주소로 바꾼 뒤 다시 실행해주세요.');
+    return;
+  }
+  const access = readAccess_();
+  const normalized = email.toLowerCase().trim();
+  access.pending = access.pending.filter(e => e !== normalized);
+  if (access.editors.indexOf(normalized) === -1) access.editors.push(normalized);
+  writeAccess_(access);
+  Logger.log('✅ 승인된 편집자 목록: ' + JSON.stringify(access.editors));
+}
+
+/**
+ * 매장 계정처럼 많은 이메일을 한 번에 "뷰어"로 등록할 때 사용합니다.
+ * 아래 emails 배열 안에 이메일을 한 줄에 하나씩(쉼표로 구분) 붙여넣고 실행하세요.
+ * (편집 권한은 없고, 조회만 가능한 등급으로 등록됩니다)
+ */
+/**
+ * 매장 코드/매장명 목록을 한 번에 등록합니다. 최초 1회 실행하면 됩니다.
+ * (이미 등록된 코드는 건너뜁니다 - 여러 번 실행해도 안전합니다)
+ */
+function batchAddStores() {
+  const codes = [
+    'RB191112_01','RB210806_01','RB191128_01','RB191128_02','RB191128_03','RB191128_04','RB191128_05',
+    'RB210806_02','RB210806_03','RB191128_06','RB191128_07','RB191128_08','RB191128_09','RB191128_10',
+    'RB191128_11','RB191204_01','RB200108_01','RB200115_01','RB200303_01','RB200311_01','RB200507_01',
+    'RB200513_01','RB200708_01','RB200708_02','RB200824_01','RB200901_01','RB201012_01','RB210204_01',
+    'RB210222_01','RB220628_01','RB220628_02','RB220628_03','RB220824_01','RB220913_01','RB221017_01',
+    'RB221024_01','RB221019_01','RB221019_02','RB221019_03','RB221205_01','RB221209_01','RB221209_02',
+    'RB230111_01','RB230111_02','RB230227_01','RB230227_02','RB230309_01','RB230227_03','RB230313_01',
+    'RB230313_02','RB230404_01','RB230424_01','RB230517_01','RB230517_02','RB230526_01','RB230626_01',
+    'RB230705_01','RB230802_01','RB230802_02','RB230802_03','RB230911_01','RB230911_02','RB230922_01',
+    'RB231011_01','RB231012_01','RB231114_01','RB231012_02','RB231127_01','RB240103_01','RB240119_01',
+    'RB240214_01','RB240214_02','RB240228_01','RB240228_02','RB240307_01','RB240228_03','RB240508_01',
+    'RB240508_02','RB240514_01','RB240513_01','RB240513_02','RB240513_03','RB240520_01','RB240520_02',
+    'RB240520_03','RB240701_01','RB240701_02','RB240701_03','RB240701_04','RB240709_01','RB240808_01',
+    'RB240808_02','RB240822_01','RB240822_02','RB240923_01','RB240923_02','RB241010_01','RB241031_01',
+    'RB241107_01','RB250116_01','RB250116_02','RB250116_03','RB250212_01','RB250318_01','RB250318_02',
+    'RB250318_03','RB250328_01','RB250416_01','RB250423_01','RB250513_01','RB250611_01','RB250722_01',
+    'RB250731_01','RB250908_01','RB251110_01','RB251110_02','RB251117_01','RB251208_01','RB260102_01',
+    'RB260102_02','RB260203_01','RB260305_01','RB260331_01','RB260520_01'
+  ];
+  const names = [
+    '천안점','서현점','안산점','범계점','수원점','부천점','부평점','영통점','구월점','서면점','안양점',
+    '산본점','동성로점','경성대점','신촌점','신림점','대전은행점','화정점','광주충장로점','울산삼산점',
+    '대학로점','강남점','남포점','동성로2호점','노원점','서면2호점','부평테마의거리점','아주대점','홍대점',
+    '잠실새내점','창원상남점','연신내점','평택역점','전북대점','웨스턴돔점','용인동백점','철산점','제주시청점',
+    '광장코아점','청주터미널점','전남대점','울산성남점','강남2호점','수원인계점','수유역점','동탄북광장점',
+    '이수역점','여수학동점','충남대점','청주성안길점','용인보정점','부천시청점','경남대점','마곡발산점',
+    '구리돌다리점','김포구래점','수지구청역점','한양대점','서울대입구역점','아트몰링부산하단점','미금역점',
+    '성신여대점','오산시청점','의정부민락점','인천논현점','광주수완점','부산덕천점','성수점','광주첨단점',
+    '종로점','평택소사벌점','광주상무점','부산대점','인천검단신도시점','광명하안점','파주야당점','거제고현점',
+    '부산사상점','수원행궁점','시네마강남','방이점','광안리점','영등포점','둔산점','용인역북점','안산고잔점',
+    '울산일산지점','다산신도시점','순천호수공원점','계명대점','하남미사점','강남논현점','시흥정왕점','광주진월점',
+    '평내호평점','압구정로데오점','망원역점','인천청라점','오목교점','목포평화광장점','부산동래점','천호로데오점',
+    '둔촌역점','미아사거리역점','건대점','수원호매실점','대전관저점','숙명여대점','레이어드홍대','전주신시가지점',
+    '남부터미널점','수원성균관대점','인천주안점','부천역곡점','성남모란점','부산사직점','김포장기점','상봉점',
+    '마포점','분당정자점','명지대점','광교상현역점','인천연수점','청주동남지구점'
+  ];
+
+  if (codes.length !== names.length) {
+    Logger.log('❌ 매장코드(' + codes.length + '개)와 매장명(' + names.length + '개) 개수가 다릅니다. 확인해주세요.');
+    return;
+  }
+
+  const access = readAccess_();
+  let added = 0, skipped = 0;
+  for (let i = 0; i < codes.length; i++) {
+    const code = codes[i].trim();
+    const name = names[i].trim();
+    if (access.stores.some(s => s.code === code)) { skipped++; continue; }
+    access.stores.push({ code: code, name: name });
+    added++;
+  }
+  writeAccess_(access);
+  Logger.log('✅ 새로 등록된 매장: ' + added + '개');
+  Logger.log('⏭ 이미 있어서 건너뜀: ' + skipped + '개');
+  Logger.log('전체 매장 수: ' + access.stores.length);
+}
+
+/**
+ * 기존에 등록해둔 이메일들을 매장과 매칭합니다. (batchAddStores, batchAddApprovedViewers를
+ * 먼저 실행해서 매장/이메일이 등록되어 있어야 합니다)
+ * 두 배열은 같은 순서(같은 매장 = 같은 순번의 이메일)로 매칭됩니다.
+ */
+function batchLinkEmailProfiles() {
+  const storeNames = [
+    '천안점','서현점','안산점','범계점','수원점','부천점','부평점','영통점','구월점','서면점','안양점',
+    '산본점','동성로점','경성대점','신촌점','신림점','대전은행점','화정점','광주충장로점','울산삼산점',
+    '대학로점','강남점','남포점','동성로2호점','노원점','서면2호점','부평테마의거리점','아주대점','홍대점',
+    '잠실새내점','창원상남점','연신내점','평택역점','전북대점','웨스턴돔점','용인동백점','철산점','제주시청점',
+    '광장코아점','청주터미널점','전남대점','울산성남점','강남2호점','수원인계점','수유역점','동탄북광장점',
+    '이수역점','여수학동점','충남대점','청주성안길점','용인보정점','부천시청점','경남대점','마곡발산점',
+    '구리돌다리점','김포구래점','수지구청역점','한양대점','서울대입구역점','아트몰링부산하단점','미금역점',
+    '성신여대점','오산시청점','의정부민락점','인천논현점','광주수완점','부산덕천점','성수점','광주첨단점',
+    '종로점','평택소사벌점','광주상무점','부산대점','인천검단신도시점','광명하안점','파주야당점','거제고현점',
+    '부산사상점','수원행궁점','시네마강남','방이점','광안리점','영등포점','둔산점','용인역북점','안산고잔점',
+    '울산일산지점','다산신도시점','순천호수공원점','계명대점','하남미사점','강남논현점','시흥정왕점','광주진월점',
+    '평내호평점','압구정로데오점','망원역점','인천청라점','오목교점','목포평화광장점','부산동래점','천호로데오점',
+    '둔촌역점','미아사거리역점','건대점','수원호매실점','대전관저점','숙명여대점','레이어드홍대','전주신시가지점',
+    '남부터미널점','수원성균관대점','인천주안점','부천역곡점','성남모란점','부산사직점','김포장기점','상봉점',
+    '마포점','분당정자점','명지대점','광교상현역점','인천연수점'
+  ];
+  const emails = [
+    'buttontax001@gmail.com','redbuttonsh1@gmail.com','buttontax003@gmail.com','buttontax004@gmail.com',
+    'buttontax005@gmail.com','redbutton2022@gmail.com','buttontax007@gmail.com','redbuttonyt08@gmail.com',
+    'redbuttongw@gmail.com','buttontax010@gmail.com','buttontax011@gmail.com','buttontax012@gmail.com',
+    'buttontax013@gmail.com','buttontax014@gmail.com','buttontax015@gmail.com','buttontax016@gmail.com',
+    'buttontax017@gmail.com','buttontax018@gmail.com','buttontax019@gmail.com','buttontax020@gmail.com',
+    'buttontax021@gmail.com','buttontax022@gmail.com','buttontax023@gmail.com','buttontax024@gmail.com',
+    'buttontax025@gmail.com','buttontax026@gmail.com','buttontax027@gmail.com','redbuttonajuaju@gmail.com',
+    'buttontax029@gmail.com','redbuttonjs@gmail.com','buttontax031@gmail.com','redbutton032@gmail.com',
+    'pjj6981@gmail.com','ranso0828@gmail.com','buttontax035@gmail.com','dbredbutton@gmail.com',
+    'buttontax037@gmail.com','buttontax038@gmail.com','bhee0326@gmail.com','mimosa7626@gmail.com',
+    'gwangjuksh@gmail.com','redbtsungnam@gmail.com','buttontax043@gmail.com','buttontax044@gmail.com',
+    'buttontax045@gmail.com','pshg1105@gmail.com','ilsun8965@gmail.com','tjwl0571@gmail.com',
+    'xitns2012@gmail.com','buttontax050@gmail.com','kkincorprb@gmail.com','oheunju5394@gmail.com',
+    'buttontax053@gmail.com','redbutton054@gmail.com','redbutton055@gmail.com','redbutton.gimpo@gmail.com',
+    'rbsjg57@gmail.com','redbuttonhyd@gmail.com','redbutton059@gmail.com','artmallinghadan@gmail.com',
+    'rb7173799@gmail.com','redbutton6289@gmail.com','pokesegyo@gmail.com','jjyyjh8327@gmail.com',
+    'redbutton065@gmail.com','tjs66678811@gmail.com','rbdc3799@gmail.com','buttontax068@gmail.com',
+    'redbutton0069@gmail.com','redbuttonjongro@gmail.com','rbsosabal@gmail.com','072redbutton@gmail.com',
+    'redbutton1992@gmail.com','redbuttongd@gmail.com','kmnr0602@gmail.com','redbutton0076@gmail.com',
+    'redbutton077@gmail.com','redsasang@gmail.com','hmkim1222@gmail.com','buttontax080@gmail.com',
+    'redbutton821228@gmail.com','redgwangan@gmail.com','redbutton083@gmail.com','redbuttondunsan@gmail.com',
+    'redbutton085@gmail.com','redbutton086@gmail.com','rb087m@gmail.com','buttondasan@gmail.com',
+    'redbutton089@gmail.com','tjrrudaka@gmail.com','rb091c@gmail.com','redbutton092@gmail.com',
+    'aa23791205@gmail.com','rb094c@gmail.com','rb095c@gmail.com','buttontax096@gmail.com',
+    'rb097c@gmail.com','rb098c@gmail.com','buttontax099@gmail.com','redbutton100c@gmail.com',
+    'redbutton101c@gmail.com','foreverdj2016@gmail.com','rb103c@gmail.com','rb104c@gmail.com',
+    'buttontax105@gmail.com','rb106c@gmail.com','rb107c@gmail.com','rb108c@gmail.com',
+    'buttontax109@gmail.com','rb110cc@gmail.com','rb111cc@gmail.com','rb112c@gmail.com',
+    'rb113c@gmail.com','rb114c@gmail.com','rb115cc@gmail.com','rb116c@gmail.com',
+    'rb117cc@gmail.com','rb118c@gmail.com','rb119cc@gmail.com','bgcafejj@gmail.com',
+    'redbutton.mj@gmail.com','rbsanghyun@gmail.com','rb123cc@gmail.com'
+  ];
+
+  // 이 매장들은 담당자 개인 이름이 따로 없어서, "이름" 칸에 매장명을 그대로 넣어줍니다.
+  const nameFromStore = new Set([
+    '천안점','안산점','범계점','수원점','부평점','서면점','안양점','산본점','동성로점','경성대점',
+    '신촌점','신림점','대전은행점','화정점','광주충장로점','울산삼산점','대학로점','강남점','남포점',
+    '동성로2호점','노원점','서면2호점','홍대점','창원상남점','웨스턴돔점','철산점','제주시청점',
+    '강남2호점','청주성안길점','경남대점','성수점','시네마강남','건대점','레이어드홍대'
+  ]);
+
+  if (storeNames.length !== emails.length) {
+    Logger.log('❌ 매장명(' + storeNames.length + '개)과 이메일(' + emails.length + '개) 개수가 다릅니다.');
+    return;
+  }
+
+  const access = readAccess_();
+  let linked = 0, notFoundStore = 0;
+
+  for (let i = 0; i < emails.length; i++) {
+    const email = emails[i].toLowerCase().trim();
+    const storeName = storeNames[i].trim();
+    const store = access.stores.find(s => s.name === storeName);
+    if (!store) {
+      notFoundStore++;
+      Logger.log('⚠ 매장을 찾지 못함(먼저 batchAddStores를 실행했는지 확인): ' + storeName);
+      continue;
+    }
+    const existing = access.profiles[email] || {};
+    access.profiles[email] = {
+      name: nameFromStore.has(storeName) ? storeName : (existing.name || ''),
+      position: existing.position || '',
+      storeCode: store.code
+    };
+    linked++;
+  }
+
+  writeAccess_(access);
+  Logger.log('✅ 매칭 완료: ' + linked + '개');
+  Logger.log('⚠ 매장을 못 찾은 경우: ' + notFoundStore + '개');
+}
+
+function batchAddApprovedViewers() {
+  const emails = [
+    'buttontax001@gmail.com',
+    'redbuttonsh1@gmail.com',
+    'buttontax003@gmail.com',
+    'buttontax004@gmail.com',
+    'buttontax005@gmail.com',
+    'redbutton2022@gmail.com',
+    'buttontax007@gmail.com',
+    'redbuttonyt08@gmail.com',
+    'redbuttongw@gmail.com',
+    'buttontax010@gmail.com',
+    'buttontax011@gmail.com',
+    'buttontax012@gmail.com',
+    'buttontax013@gmail.com',
+    'buttontax014@gmail.com',
+    'buttontax015@gmail.com',
+    'buttontax016@gmail.com',
+    'buttontax017@gmail.com',
+    'buttontax018@gmail.com',
+    'buttontax019@gmail.com',
+    'buttontax020@gmail.com',
+    'buttontax021@gmail.com',
+    'buttontax022@gmail.com',
+    'buttontax023@gmail.com',
+    'buttontax024@gmail.com',
+    'buttontax025@gmail.com',
+    'buttontax026@gmail.com',
+    'buttontax027@gmail.com',
+    'redbuttonajuaju@gmail.com',
+    'buttontax029@gmail.com',
+    'redbuttonjs@gmail.com',
+    'buttontax031@gmail.com',
+    'redbutton032@gmail.com',
+    'pjj6981@gmail.com',
+    'ranso0828@gmail.com',
+    'buttontax035@gmail.com',
+    'dbredbutton@gmail.com',
+    'buttontax037@gmail.com',
+    'buttontax038@gmail.com',
+    'bhee0326@gmail.com',
+    'mimosa7626@gmail.com',
+    'gwangjuksh@gmail.com',
+    'redbtsungnam@gmail.com',
+    'buttontax043@gmail.com',
+    'buttontax044@gmail.com',
+    'buttontax045@gmail.com',
+    'pshg1105@gmail.com',
+    'ilsun8965@gmail.com',
+    'tjwl0571@gmail.com',
+    'xitns2012@gmail.com',
+    'buttontax050@gmail.com',
+    'kkincorprb@gmail.com',
+    'oheunju5394@gmail.com',
+    'buttontax053@gmail.com',
+    'redbutton054@gmail.com',
+    'redbutton055@gmail.com',
+    'redbutton.gimpo@gmail.com',
+    'rbsjg57@gmail.com',
+    'redbuttonhyd@gmail.com',
+    'redbutton059@gmail.com',
+    'artmallinghadan@gmail.com',
+    'rb7173799@gmail.com',
+    'redbutton6289@gmail.com',
+    'pokesegyo@gmail.com',
+    'jjyyjh8327@gmail.com',
+    'redbutton065@gmail.com',
+    'tjs66678811@gmail.com',
+    'rbdc3799@gmail.com',
+    'buttontax068@gmail.com',
+    'redbutton0069@gmail.com',
+    'redbuttonjongro@gmail.com',
+    'rbsosabal@gmail.com',
+    '072redbutton@gmail.com',
+    'redbutton1992@gmail.com',
+    'redbuttongd@gmail.com',
+    'kmnr0602@gmail.com',
+    'redbutton0076@gmail.com',
+    'redbutton077@gmail.com',
+    'redsasang@gmail.com',
+    'hmkim1222@gmail.com',
+    'buttontax080@gmail.com',
+    'redbutton821228@gmail.com',
+    'redgwangan@gmail.com',
+    'redbutton083@gmail.com',
+    'redbuttondunsan@gmail.com',
+    'redbutton085@gmail.com',
+    'redbutton086@gmail.com',
+    'rb087m@gmail.com',
+    'buttondasan@gmail.com',
+    'redbutton089@gmail.com',
+    'tjrrudaka@gmail.com',
+    'rb091c@gmail.com',
+    'redbutton092@gmail.com',
+    'aa23791205@gmail.com',
+    'rb094c@gmail.com',
+    'rb095c@gmail.com',
+    'buttontax096@gmail.com',
+    'rb097c@gmail.com',
+    'rb098c@gmail.com',
+    'buttontax099@gmail.com',
+    'redbutton100c@gmail.com',
+    'redbutton101c@gmail.com',
+    'foreverdj2016@gmail.com',
+    'rb103c@gmail.com',
+    'rb104c@gmail.com',
+    'buttontax105@gmail.com',
+    'rb106c@gmail.com',
+    'rb107c@gmail.com',
+    'rb108c@gmail.com',
+    'buttontax109@gmail.com',
+    'rb110cc@gmail.com',
+    'rb111cc@gmail.com',
+    'rb112c@gmail.com',
+    'rb113c@gmail.com',
+    'rb114c@gmail.com',
+    'rb115cc@gmail.com',
+    'rb116c@gmail.com',
+    'rb117cc@gmail.com',
+    'rb118c@gmail.com',
+    'rb119cc@gmail.com',
+    'bgcafejj@gmail.com',
+    'redbutton.mj@gmail.com',
+    'rbsanghyun@gmail.com',
+    'rb123cc@gmail.com',
+  ];
+
+  if (emails.length === 0) {
+    Logger.log('❌ emails 배열이 비어있습니다. 등록할 이메일을 배열 안에 채운 뒤 다시 실행해주세요.');
+    return;
+  }
+
+  const access = readAccess_();
+  let added = 0, skipped = 0;
+
+  emails.forEach(raw => {
+    const email = String(raw).toLowerCase().trim();
+    if (!email || email.indexOf('@') === -1) { skipped++; return; }
+    access.pending = access.pending.filter(e => e !== email);
+    if (access.editors.indexOf(email) === -1 && access.viewers.indexOf(email) === -1) {
+      access.viewers.push(email);
+      added++;
+    } else {
+      skipped++; // 이미 편집자거나 이미 뷰어인 경우
+    }
+  });
+
+  writeAccess_(access);
+  Logger.log('✅ 뷰어로 새로 등록됨: ' + added + '개');
+  Logger.log('⏭ 건너뜀(이미 등록됨/형식 오류): ' + skipped + '개');
+  Logger.log('현재 전체 뷰어 수: ' + access.viewers.length);
+}
+
+/**
+ * 현재 승인/대기 목록을 로그로 확인합니다.
+ */
+function debugPrintAccessList() {
+  const access = readAccess_();
+  Logger.log('편집자: ' + JSON.stringify(access.editors));
+  Logger.log('뷰어: ' + JSON.stringify(access.viewers));
+  Logger.log('대기중: ' + JSON.stringify(access.pending));
+}
+
+/**
+ * 예전 통합 파일(games-data.json) 방식으로 저장된 데이터가 있다면,
+ * 게임별 개별 파일로 나눠줍니다. 한 번만 실행하면 됩니다.
+ */
+function migrateLegacyData() {
+  const folder = getFolder_();
+  const files = folder.getFilesByName(CONFIG.LEGACY_FILE_NAME);
+  if (!files.hasNext()) {
+    Logger.log('마이그레이션할 예전 파일(' + CONFIG.LEGACY_FILE_NAME + ')이 없습니다. 이미 새 방식이거나, 처음 시작하는 경우입니다.');
+    return;
+  }
+  const file = files.next();
+  const raw = file.getBlob().getDataAsString('UTF-8');
+  let games = [];
+  try {
+    games = JSON.parse(raw);
+  } catch (e) {
+    Logger.log('예전 파일 파싱 실패: ' + e);
+    return;
+  }
+  games.forEach(g => saveOneGame_(g, true));
+  rebuildIndex_();
+  Logger.log(games.length + '개 게임을 개별 파일로 이전했습니다.');
+  Logger.log('확인 후 문제 없으면 드라이브에서 ' + CONFIG.LEGACY_FILE_NAME + ' 파일은 삭제하셔도 됩니다 (자동으로 지워지지 않습니다).');
+}
+
+/**
+ * 데모용 샘플 데이터를 미리 넣어둡니다. (선택 사항, 처음 시작할 때만)
+ */
+function seedInitialData() {
+  const sample = {
+    id: '487', name: '캐스캐디아',
+    cases: [
+      { caseType: 'D', items: [{ name: '지형 타일', qty: 2 }] },
+      { caseType: 'B', items: [{ name: '시작타일 5개, 지형타일', qty: 1 }] },
+      { caseType: 'A', items: [{ name: '솔방울토큰', qty: 1 }] },
+      { caseType: 'G', items: [{ name: '주머니', qty: 1 }, { name: '원형 토큰', qty: 1 }] },
+      { caseType: 'I', items: [{ name: '점수 기록지', qty: 1 }, { name: '볼펜', qty: 1 }] }
+    ],
+    photos: [
+      { markers: [{ x: 22, y: 28, caseIdx: 0 }, { x: 58, y: 22, caseIdx: 1 }, { x: 30, y: 62, caseIdx: 2 }] },
+      { markers: [{ x: 72, y: 55, caseIdx: 3 }, { x: 50, y: 80, caseIdx: 4 }] }
+    ]
+  };
+  saveOneGame_(sample);
+  Logger.log('샘플 데이터 저장 완료');
+}
+
+/**
+ * 현재 저장된 게임 목록을 로그로 확인합니다. (사진은 base64라서 매우 길게 나올 수 있어 요약만 출력)
+ */
+/**
+ * 특정 게임 ID의 파일을 직접 열어서 상태를 확인합니다.
+ * (같은 이름의 파일이 중복으로 있는지, 내용이 손상됐는지 등을 진단)
+ */
+function debugCheckGame(id) {
+  const folder = getFolder_();
+  const fname = gameFileName_(id);
+
+  const files = folder.getFilesByName(fname);
+  let count = 0;
+  while (files.hasNext()) { files.next(); count++; }
+  Logger.log('파일명: ' + fname);
+  Logger.log('같은 이름의 파일 개수: ' + count + (count > 1 ? ' ⚠ 중복 파일이 있습니다!' : ''));
+
+  if (count === 0) {
+    Logger.log('❌ 해당 파일을 찾지 못했습니다.');
+    return;
+  }
+
+  const target = folder.getFilesByName(fname).next();
+  const raw = target.getBlob().getDataAsString('UTF-8');
+  Logger.log('파일 크기: ' + raw.length + '자');
+  Logger.log('내용 시작 부분: ' + raw.substring(0, 200));
+  Logger.log('내용 끝 부분: ' + raw.substring(Math.max(0, raw.length - 200)));
+
+  try {
+    const parsed = JSON.parse(raw);
+    Logger.log('✅ JSON 파싱 성공. 게임 이름: ' + parsed.name + ', 케이스 수: ' + (parsed.cases||[]).length);
+  } catch (e) {
+    Logger.log('❌ JSON 파싱 실패 (파일 내용이 손상됐을 가능성): ' + e);
+  }
+}
+
+/**
+ * 위 함수는 매개변수가 필요해서 실행 버튼으로 바로 못 돌리므로,
+ * 매개변수 없이 바로 실행할 수 있는 전용 함수입니다.
+ */
+function debugCheckGame142() {
+  debugCheckGame('142');
+}
+
+function debugPrintStoredData() {
+  const data = getAllGames_();
+  Logger.log('게임 개수: ' + data.length);
+  Logger.log(JSON.stringify(data.map(g => ({
+    id: g.id, name: g.name,
+    caseCount: (g.cases || []).length,
+    photoCount: (g.photos || []).length
+  })), null, 2));
+}
+
+/**
+ * 드라이브 접근 문제를 진단하는 테스트 함수입니다.
+ */
+/**
+ * 인덱스 파일의 크기를 확인합니다. (사진 데이터 분리 후 얼마나 가벼워졌는지 확인용)
+ */
+function debugIndexFileInfo() {
+  const file = getIndexFile_();
+  const bytes = file.getSize();
+  Logger.log('인덱스 파일명: ' + file.getName());
+  Logger.log('크기: ' + bytes + ' byte (' + (bytes/1024).toFixed(1) + ' KB, ' + (bytes/1024/1024).toFixed(2) + ' MB)');
+}
+
+function testDriveAccess() {
+  try {
+    Logger.log('DATA_FOLDER_ID: ' + CONFIG.DATA_FOLDER_ID);
+    const folder = getFolder_();
+    Logger.log('✅ 폴더 접근 성공: ' + folder.getName());
+
+    const testFile = folder.createFile('test_access.txt', 'test', MimeType.PLAIN_TEXT);
+    Logger.log('✅ 파일 생성 성공: ' + testFile.getUrl());
+    testFile.setTrashed(true);
+    Logger.log('✅ 드라이브 접근/쓰기 정상.');
+  } catch (err) {
+    Logger.log('❌ 실패: ' + String(err));
+    Logger.log('- CONFIG.DATA_FOLDER_ID가 실제 폴더 ID가 맞는지 확인하세요.');
+    Logger.log('- 그 폴더가 이 스크립트를 배포한 구글 계정 소유(또는 편집자 권한)인지 확인하세요.');
+  }
+}
+
+/**
+ * ============================================================
+ * "사용제품정리" 시트 일괄 가져오기
+ * ============================================================
+ *
+ * 시트 컬럼 (0-indexed):
+ *   A(0)=게임ID, B(1)=필수게임여부, C(2)=게임이름, D(3)=구성물(=라벨 문구),
+ *   N(13)=케이스종류(A~L), P(15)=해당 케이스 사용 개수, V(21)=효율화 불필요/불가 메모
+ *
+ * 동작 방식:
+ *   - "필수게임"으로 표시된 행만 대상으로 합니다.
+ *   - N열(케이스종류)이 비어있거나 V열에 "효율화 불필요/불가"가 적힌 행은 건너뜁니다.
+ *   - P열(개수)만큼 같은 케이스종류를 여러 개 만듭니다. 구성물(D열)이 쉼표로
+ *     나뉘어 있고 그 개수가 P와 정확히 같으면 각 케이스에 한 조각씩 나눠 담고,
+ *     아니면 전체 문구를 그대로 복사해서 각 케이스에 담습니다.
+ *   - ⚠️ 이미 사이트에 등록되어 있는 게임(사진/마커 작업이 되어있을 수 있음)은
+ *     절대 덮어쓰지 않고 건너뜁니다. 새로 추가되는 게임만 생성됩니다.
+ */
+function importFromUsageSheet() {
+  const SOURCE_SHEET_ID = '19T9zVWb5eRrlShphyBiuDlnKvnKK1ktWJHAxlyHyNGc';
+  const SOURCE_TAB_NAME = '사용제품정리';
+
+  const COL = { ID: 0, REQUIRED: 1, NAME: 2, COMPONENT: 3, CASE_TYPE: 13, QTY: 15, NOTE: 21 };
+
+  const srcSs = SpreadsheetApp.openById(SOURCE_SHEET_ID);
+  const sheet = srcSs.getSheetByName(SOURCE_TAB_NAME);
+  if (!sheet) {
+    Logger.log('❌ "' + SOURCE_TAB_NAME + '" 탭을 찾지 못했습니다.');
+    return;
+  }
+  const values = sheet.getDataRange().getValues();
+
+  // 헤더 행 찾기 ("게임ID"라는 글자가 A열에 있는 행)
+  let headerRowIdx = -1;
+  for (let i = 0; i < values.length; i++) {
+    if (String(values[i][COL.ID]).trim() === '게임ID') { headerRowIdx = i; break; }
+  }
+  if (headerRowIdx === -1) {
+    Logger.log('❌ 헤더 행("게임ID")을 찾지 못했습니다. 시트 구조를 확인해주세요.');
+    return;
+  }
+
+  // 이미 등록된 게임 ID 목록 (덮어쓰기 방지용)
+  const existingIds = {};
+  getAllGames_().forEach(g => { existingIds[String(g.id)] = true; });
+
+  const gamesMap = {}; // id -> { id, name, cases: [] }
+
+  for (let i = headerRowIdx + 1; i < values.length; i++) {
+    const row = values[i];
+    const id = String(row[COL.ID] || '').trim();
+    if (!id) continue;
+
+    const required = String(row[COL.REQUIRED] || '');
+    if (required.indexOf('필수') === -1) continue; // 필수 게임만 대상
+
+    if (!gamesMap[id]) {
+      gamesMap[id] = { id: id, name: String(row[COL.NAME] || '').trim(), cases: [] };
+    }
+
+    const caseType = String(row[COL.CASE_TYPE] || '').trim();
+    const note = String(row[COL.NOTE] || '');
+    const component = String(row[COL.COMPONENT] || '').trim();
+    const qty = Number(row[COL.QTY]) || 0;
+
+    if (!caseType) continue; // 케이스 미사용 행
+    if (note.indexOf('효율화 불필요') !== -1 || note.indexOf('효율화 불가') !== -1) continue;
+    if (!component || component === '-') continue;
+
+    const count = Math.max(1, qty);
+    const parts = component.split(',').map(s => s.trim()).filter(Boolean);
+
+    if (parts.length === count) {
+      // 쉼표로 나뉜 조각 수가 개수와 정확히 일치 → 한 조각씩 케이스에 배분
+      parts.forEach(part => {
+        gamesMap[id].cases.push({ caseType: caseType, items: [{ name: part, qty: 0 }] });
+      });
+    } else {
+      // 안 맞으면 전체 문구를 그대로 복제
+      for (let k = 0; k < count; k++) {
+        gamesMap[id].cases.push({ caseType: caseType, items: [{ name: component, qty: 0 }] });
+      }
+    }
+  }
+
+  const allParsed = Object.keys(gamesMap).map(id => gamesMap[id]);
+  const toCreate = allParsed.filter(g => g.cases.length > 0 && !existingIds[g.id]);
+  const skippedExisting = allParsed.filter(g => existingIds[g.id]);
+  const skippedNoCase = allParsed.filter(g => g.cases.length === 0 && !existingIds[g.id]);
+
+  toCreate.forEach(g => {
+    g.photos = [{ markers: [] }];
+    saveOneGame_(g, true);
+  });
+  rebuildIndex_();
+
+  Logger.log('✅ 새로 생성된 게임: ' + toCreate.length + '개');
+  Logger.log(toCreate.map(g => g.id + ' ' + g.name).join(', '));
+  Logger.log('');
+  Logger.log('⏭ 이미 존재해서 건너뛴 게임: ' + skippedExisting.length + '개 (기존 사진/마커 보호를 위해 건드리지 않음)');
+  Logger.log(skippedExisting.map(g => g.id + ' ' + g.name).join(', '));
+  Logger.log('');
+  Logger.log('⏭ 케이스 데이터가 없어 건너뛴 게임: ' + skippedNoCase.length + '개 (효율화 불필요/불가 등)');
+}
