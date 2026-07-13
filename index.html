@@ -248,6 +248,9 @@
   .pg-game-row:hover{background:var(--bg);}
   .pg-game-name{flex:1;}
   .pg-game-id{font-family:var(--mono); font-size:11px; color:var(--ink-soft);}
+  .pg-top50-badge{font-size:10px; font-weight:800; color:var(--accent); background:color-mix(in srgb, var(--accent) 12%, white); border-radius:4px; padding:2px 6px; flex-shrink:0;}
+  .pg-search{width:100%; box-sizing:border-box; padding:8px 10px; border:1px solid var(--line); border-radius:7px; font-size:13px; font-family:var(--sans); margin-bottom:10px;}
+  .pg-search:focus{outline:none; border-color:var(--accent);}
   .pg-table{width:100%; border-collapse:collapse; font-size:13px;}
   .pg-table th{text-align:left; font-size:11.5px; color:var(--ink-soft); font-weight:600; padding:0 8px 8px; border-bottom:1px solid var(--line);}
   .pg-table td{padding:10px 8px; border-bottom:1px solid var(--line); vertical-align:middle;}
@@ -991,16 +994,31 @@ function deselectAllPurchaseGames(){
   render();
 }
 
+let purchaseGuideSearch_ = '';
+
+function setPurchaseGuideSearch(v){
+  purchaseGuideSearch_ = v;
+  render();
+}
+
 function renderPurchaseGuide(app){
-  const gameRows = TOP50_CASE_GAMES.map(tg=>{
-    const g = games.find(x=>String(x.id)===String(tg.id));
-    const name = g ? g.name : tg.name;
-    const checked = purchaseGuideSelected_.has(tg.id);
+  const top50Ids = new Set(TOP50_CASE_GAMES.map(g=>g.id));
+  const q = purchaseGuideSearch_.trim();
+
+  const visibleGames = games
+    .filter(g => !q || g.name.includes(q) || getChosung(g.name).includes(q))
+    .slice()
+    .sort((a,b)=>a.name.localeCompare(b.name, 'ko'));
+
+  const gameRows = visibleGames.map(g=>{
+    const isTop50 = top50Ids.has(String(g.id));
+    const checked = purchaseGuideSelected_.has(String(g.id));
     return `
       <label class="pg-game-row">
-        <input type="checkbox" ${checked?'checked':''} onchange="togglePurchaseGameSelect('${tg.id}', this.checked)">
-        <span class="pg-game-name">${name}</span>
-        <span class="pg-game-id">ID ${tg.id}</span>
+        <input type="checkbox" ${checked?'checked':''} onchange="togglePurchaseGameSelect('${g.id}', this.checked)">
+        <span class="pg-game-name">${g.name}</span>
+        ${isTop50 ? '<span class="pg-top50-badge">TOP50</span>' : ''}
+        <span class="pg-game-id">ID ${g.id}</span>
       </label>`;
   }).join('');
 
@@ -1028,7 +1046,7 @@ function renderPurchaseGuide(app){
     <button class="back" onclick="closePurchaseGuide()">← 목록으로</button>
     <div class="pg-head">
       <h2>🛒 구매 가이드</h2>
-      <p class="pg-desc">TOP50 게임 중 플라스틱 케이스로 정리하는 ${TOP50_CASE_GAMES.length}종을 기준으로, 선택한 게임에 필요한 케이스 수량과 구매 링크를 안내합니다. 매장에 이미 정리된 게임은 체크를 해제해주세요.</p>
+      <p class="pg-desc">전체 게임 목록에서 필요한 게임을 선택하면, 그 게임들에 필요한 케이스 수량과 구매 링크를 안내합니다. "TOP50 게임 선택"을 누르면 TOP50 중 플라스틱 케이스로 정리하는 ${TOP50_CASE_GAMES.length}종이 한 번에 선택됩니다. 매장에 이미 정리된 게임은 체크를 해제해주세요.</p>
       <div class="pg-actions">
         <button class="btn btn-primary" onclick="selectAllTop50Games()">TOP50 게임 선택</button>
         <button class="btn btn-ghost" onclick="deselectAllPurchaseGames()">전체 해제</button>
@@ -1036,8 +1054,9 @@ function renderPurchaseGuide(app){
     </div>
     <div class="pg-body">
       <div class="pg-panel">
-        <h3>게임 선택 (${purchaseGuideSelected_.size}/${TOP50_CASE_GAMES.length})</h3>
-        <div class="pg-game-list">${gameRows}</div>
+        <h3>게임 선택 (${purchaseGuideSelected_.size}개 선택됨)</h3>
+        <input type="text" class="pg-search" placeholder="게임 이름 검색" value="${purchaseGuideSearch_}" oninput="setPurchaseGuideSearch(this.value)">
+        <div class="pg-game-list">${gameRows || '<div class="access-empty">검색 결과가 없습니다.</div>'}</div>
       </div>
       <div class="pg-panel">
         <h3>필요한 케이스</h3>
