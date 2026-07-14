@@ -85,7 +85,15 @@
   .crop-canvas-wrap{position:relative; width:100%; background:#111; border-radius:8px; overflow:hidden;}
   .crop-canvas-wrap canvas{position:absolute; inset:0; width:100%; height:100%;}
   .crop-box{position:absolute; border:1.5px dashed #fff; box-shadow:0 0 0 2000px rgba(0,0,0,.45);}
-  .crop-handle{position:absolute; right:-6px; bottom:-6px; width:14px; height:14px; background:#fff; border:2px solid var(--accent); border-radius:3px; cursor:nwse-resize;}
+  .crop-handle{position:absolute; width:14px; height:14px; background:#fff; border:2px solid var(--accent); border-radius:3px;}
+  .crop-handle.corner-nw{left:-7px; top:-7px; cursor:nwse-resize;}
+  .crop-handle.corner-ne{right:-7px; top:-7px; cursor:nesw-resize;}
+  .crop-handle.corner-sw{left:-7px; bottom:-7px; cursor:nesw-resize;}
+  .crop-handle.corner-se{right:-7px; bottom:-7px; cursor:nwse-resize;}
+  .crop-handle.edge-n{left:50%; top:-7px; transform:translateX(-50%); cursor:ns-resize;}
+  .crop-handle.edge-s{left:50%; bottom:-7px; transform:translateX(-50%); cursor:ns-resize;}
+  .crop-handle.edge-w{left:-7px; top:50%; transform:translateY(-50%); cursor:ew-resize;}
+  .crop-handle.edge-e{right:-7px; top:50%; transform:translateY(-50%); cursor:ew-resize;}
   .modal-actions{display:flex; justify-content:flex-end; gap:8px; margin-top:16px;}
   .modal-actions button{border:none; border-radius:7px; padding:9px 16px; font-size:13px; font-weight:700; cursor:pointer;}
   .modal-actions .btn-cancel{background:none; color:var(--ink-soft); border:1px solid var(--line);}
@@ -876,6 +884,7 @@ function openHelpModal(){
         <li><b>구매 가이드</b> — 상단 "🛒 구매 가이드"에서 필요한 케이스 수량과 구매 링크를 확인할 수 있습니다.</li>
       </ul>
 
+      ${currentRole === 'editor' ? `
       <h4 style="font-size:13px; margin:16px 0 8px;">✏️ 편집자 안내</h4>
       <ul style="font-size:12.5px; line-height:1.7; padding-left:18px; margin:0;">
         <li><b>새 게임 추가</b> — 상단 "+ 새 게임"으로 이름을 입력해 생성합니다.</li>
@@ -890,6 +899,7 @@ function openHelpModal(){
         <li><b>🔑 권한 관리</b> — 승인 대기 요청 처리, 편집자/뷰어 등록·제거, 매장 관리를 할 수 있습니다.</li>
         <li><b>📥 데이터 가져오기</b> — 기존 시스템에서 내보낸 파일을 업로드해 전체 또는 특정 게임 하나만 다시 가져올 수 있습니다.</li>
       </ul>
+      ` : ''}
 
       <div class="modal-actions">
         <button class="btn-apply" onclick="document.getElementById('helpBackdrop').remove()">닫기</button>
@@ -1082,7 +1092,7 @@ function renderDetail(){
     <div id="presenceBannerSlot"></div>
     <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin-bottom:10px; flex-wrap:wrap;">
       <div>
-        <h2 style="margin:0 0 6px;">${g.name}</h2>
+        <h2 style="margin:0 0 4px;">${g.name} <span style="font-size:12px; font-weight:400; font-family:var(--mono); color:var(--ink-soft);">ID ${g.id}</span></h2>
         ${editable ? `
           <label style="display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--ink-soft); cursor:pointer;">
             <input type="checkbox" ${g.guideDone?'checked':''} onchange="toggleGuideDone(this.checked)"> 가이드 제작 완료
@@ -1640,7 +1650,16 @@ function renderCropModal_(){
       </div>
       <div class="crop-canvas-wrap" id="cropCanvasWrap">
         <canvas id="cropCanvas"></canvas>
-        <div class="crop-box" id="cropBox"><div class="crop-handle" id="cropHandle"></div></div>
+        <div class="crop-box" id="cropBox">
+          <div class="crop-handle corner-nw" data-h="nw"></div>
+          <div class="crop-handle corner-ne" data-h="ne"></div>
+          <div class="crop-handle corner-sw" data-h="sw"></div>
+          <div class="crop-handle corner-se" data-h="se"></div>
+          <div class="crop-handle edge-n" data-h="n"></div>
+          <div class="crop-handle edge-s" data-h="s"></div>
+          <div class="crop-handle edge-w" data-h="w"></div>
+          <div class="crop-handle edge-e" data-h="e"></div>
+        </div>
       </div>
       <div style="display:flex; align-items:center; gap:10px; margin-top:12px; padding-top:12px; border-top:1px solid var(--line);">
         <label style="font-size:12px; color:var(--ink-soft); white-space:nowrap;">전체 축소</label>
@@ -1702,7 +1721,7 @@ function setupCropCanvas_(){
   const wrap = document.getElementById('cropCanvasWrap');
   const canvas = document.getElementById('cropCanvas');
   const box = document.getElementById('cropBox');
-  const handle = document.getElementById('cropHandle');
+  const CROP_MIN = 30;
 
   const img = cropState_.img;
   const ctx = canvas.getContext('2d');
@@ -1721,7 +1740,7 @@ function setupCropCanvas_(){
   applyBoxStyle_();
 
   box.onpointerdown = (e)=>{
-    if (e.target === handle) return;
+    if (e.target.classList.contains('crop-handle')) return;
     const startX = e.clientX, startY = e.clientY;
     const start = { ...cropState_.box };
     const move = (ev)=>{
@@ -1738,21 +1757,45 @@ function setupCropCanvas_(){
     window.addEventListener('pointerup', up);
   };
 
-  handle.onpointerdown = (e)=>{
-    e.stopPropagation();
-    const startX = e.clientX, startY = e.clientY;
-    const start = { ...cropState_.box };
-    const move = (ev)=>{
-      const wrapRect = wrap.getBoundingClientRect();
-      let w = Math.max(30, Math.min(wrapRect.width - start.x, start.w + (ev.clientX - startX)));
-      let h = Math.max(30, Math.min(wrapRect.height - start.y, start.h + (ev.clientY - startY)));
-      cropState_.box.w = w; cropState_.box.h = h;
-      applyBoxStyle_();
+  // 모서리 4곳 + 변 중앙 4곳, 총 8개 손잡이로 어느 방향으로든 크기 조절 가능합니다.
+  box.querySelectorAll('.crop-handle').forEach(handleEl=>{
+    handleEl.onpointerdown = (e)=>{
+      e.stopPropagation();
+      const dir = handleEl.dataset.h;
+      const startX = e.clientX, startY = e.clientY;
+      const start = { ...cropState_.box };
+      const move = (ev)=>{
+        const wrapRect = wrap.getBoundingClientRect();
+        const dx = ev.clientX - startX, dy = ev.clientY - startY;
+        let { x, y, w, h } = start;
+
+        if (dir.includes('w')){
+          const newX = Math.min(start.x + start.w - CROP_MIN, Math.max(0, start.x + dx));
+          w = start.x + start.w - newX;
+          x = newX;
+        }
+        if (dir.includes('e')){
+          const newRight = Math.max(start.x + CROP_MIN, Math.min(wrapRect.width, start.x + start.w + dx));
+          w = newRight - start.x;
+        }
+        if (dir.includes('n')){
+          const newY = Math.min(start.y + start.h - CROP_MIN, Math.max(0, start.y + dy));
+          h = start.y + start.h - newY;
+          y = newY;
+        }
+        if (dir.includes('s')){
+          const newBottom = Math.max(start.y + CROP_MIN, Math.min(wrapRect.height, start.y + start.h + dy));
+          h = newBottom - start.y;
+        }
+
+        cropState_.box = { x, y, w, h };
+        applyBoxStyle_();
+      };
+      const up = ()=>{ window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', up);
     };
-    const up = ()=>{ window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', up);
-  };
+  });
 }
 
 function applyBoxStyle_(){
