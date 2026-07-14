@@ -138,6 +138,7 @@
     </div>
     <button class="btn btn-ghost2" onclick="renderList()">← 목록</button>
     <button class="btn btn-primary2" id="newGameBtn" style="display:none;" onclick="createNewGame()">+ 새 게임</button>
+    <button class="btn btn-ghost2" onclick="openHelpModal()">❓ 이용 방법</button>
     <button class="btn btn-ghost2" id="dashboardBtn" style="display:none;" onclick="openDashboard()">📊 진행현황</button>
     <button class="btn btn-ghost2" id="accessBtn" style="display:none;" onclick="openAccessManagement()">🔑 권한 관리</button>
     <button class="btn btn-ghost2" id="migrateBtn" style="display:none;" onclick="openMigrationTool()">📥 데이터 가져오기</button>
@@ -576,6 +577,18 @@ function openMigrationTool(){
       전부 다운로드한 뒤, 아래에서 <b>한꺼번에 여러 개 선택</b>해주세요. 게임 수가 많으면 시간이 꽤 걸릴 수 있습니다 — 창을 닫지 말고 기다려주세요.
     </p>
     <input type="file" id="migrationFileInput" accept="application/json" multiple style="margin:14px 0;">
+
+    <div style="background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:12px; margin-bottom:14px; max-width:480px;">
+      <label style="display:flex; align-items:center; gap:6px; font-size:12.5px; font-weight:700; margin-bottom:6px;">
+        <input type="checkbox" id="singleGameModeCheck"> 특정 게임 ID만 복구하기
+      </label>
+      <p style="font-size:11.5px; color:var(--ink-soft); margin:0 0 8px;">
+        게임 파일이 예전에 비어있었거나 손상됐던 경우, 그 게임이 포함된 내보내기 파일만
+        선택하고 여기에 ID를 입력하면 그 게임 하나만 다시 가져옵니다. (계정/매장 정보는 건드리지 않습니다)
+      </p>
+      <input type="text" id="singleGameIdInput" placeholder="게임 ID (예: 142)" style="width:160px; padding:7px 10px; border:1px solid var(--line); border-radius:6px; font-size:13px;">
+    </div>
+
     <div>
       <button class="btn btn-primary2" style="width:auto;" onclick="startMigration_()">가져오기 시작</button>
     </div>
@@ -604,6 +617,10 @@ async function startMigration_(){
   const files = Array.from(input.files || []);
   if (!files.length){ alert('파일을 선택해주세요.'); return; }
 
+  const singleGameMode = document.getElementById('singleGameModeCheck')?.checked;
+  const singleGameId = document.getElementById('singleGameIdInput')?.value.trim();
+  if (singleGameMode && !singleGameId){ alert('복구할 게임 ID를 입력해주세요.'); return; }
+
   // 선택된 파일들을 전부 읽어서, "메타(계정/매장)"와 "게임 묶음"들을 하나로 합칩니다.
   let merged = { editors: [], viewers: [], pending: [], stores: [], profiles: {}, games: [] };
   for (const file of files){
@@ -621,10 +638,25 @@ async function startMigration_(){
       return;
     }
   }
+
+  if (singleGameMode){
+    merged.games = merged.games.filter(g => String(g.id) === String(singleGameId));
+    merged.editors = []; merged.viewers = []; merged.pending = []; merged.stores = [];
+    if (!merged.games.length){
+      migLog_(`❌ 선택한 파일들에서 게임 ID "${singleGameId}"를 찾지 못했습니다.`);
+      return;
+    }
+  }
+
   const data = merged;
 
-  migLog_(`불러온 파일 ${files.length}개: 게임 ${data.games.length}개, 편집자 ${data.editors.length}명, 뷰어 ${data.viewers.length}명, 매장 ${data.stores.length}개`);
-  if (!confirm('가져오기를 시작할까요? 시간이 걸릴 수 있습니다.')) return;
+  migLog_(singleGameMode
+    ? `게임 ID "${singleGameId}" 발견: ${data.games[0].name}`
+    : `불러온 파일 ${files.length}개: 게임 ${data.games.length}개, 편집자 ${data.editors.length}명, 뷰어 ${data.viewers.length}명, 매장 ${data.stores.length}개`);
+  const confirmMsg = singleGameMode
+    ? `"${data.games[0].name}" (ID ${singleGameId})만 다시 가져옵니다. 지금 있는 내용을 덮어씁니다. 계속할까요?`
+    : '가져오기를 시작할까요? 시간이 걸릴 수 있습니다.';
+  if (!confirm(confirmMsg)) return;
 
   // ---- 1) 매장 ----
   migLog_('\n[1/4] 매장 정보 등록 중...');
@@ -817,6 +849,54 @@ function deselectAllPurchaseGames(){
   purchaseGuideSelected_.clear();
   renderPurchaseGameList_();
   renderPurchaseCaseSummary_();
+}
+
+/**
+ * ============================================================
+ * 이용 방법 (도움말)
+ * ============================================================
+ */
+function openHelpModal(){
+  const old = document.getElementById('helpBackdrop');
+  if (old) old.remove();
+
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.id = 'helpBackdrop';
+  backdrop.innerHTML = `
+    <div class="modal" style="max-width:560px; max-height:85vh; overflow-y:auto;">
+      <h3>이용 방법</h3>
+
+      <h4 style="font-size:13px; margin:16px 0 8px;">🙋 뷰어(매장) 안내</h4>
+      <ul style="font-size:12.5px; line-height:1.7; padding-left:18px; margin:0;">
+        <li><b>게임 찾기</b> — 목록 상단 검색창에 이름(초성도 가능)을 입력하면 바로 필터링됩니다.</li>
+        <li><b>사진 탭</b> — 실제 사진 위에 케이스종류(알파벳)와 위치가 표시됩니다. 점선으로 표시된 라벨은 실제 라벨기 인쇄 모습입니다.</li>
+        <li><b>표 탭</b> — 케이스종류·구성품·수량·비고를 표로 확인할 수 있습니다.</li>
+        <li><b>작업 완료 체크</b> — 목록 카드에서 체크하면 내 계정 기준으로 완료 여부가 저장됩니다.</li>
+        <li><b>구매 가이드</b> — 상단 "🛒 구매 가이드"에서 필요한 케이스 수량과 구매 링크를 확인할 수 있습니다.</li>
+      </ul>
+
+      <h4 style="font-size:13px; margin:16px 0 8px;">✏️ 편집자 안내</h4>
+      <ul style="font-size:12.5px; line-height:1.7; padding-left:18px; margin:0;">
+        <li><b>새 게임 추가</b> — 상단 "+ 새 게임"으로 이름을 입력해 생성합니다.</li>
+        <li><b>사진 업로드</b> — 사진 탭에서 파일 선택 후 자르기·회전(90도씩)·전체 축소(여백 포함) 편집창이 뜹니다. 실제 저장될 모습을 미리 볼 수 있습니다.</li>
+        <li><b>마커·텍스트박스</b> — 사진의 빈 곳을 더블클릭하면 마커(알파벳 원)와 텍스트박스가 함께 생깁니다. 각각 드래그로 옮길 수 있고, 텍스트박스에서 케이스종류·구성품·수량·비고를 바로 수정할 수 있습니다. ✕로 마커+케이스를 통째로 삭제합니다.</li>
+        <li><b>라벨</b> — 텍스트박스의 "라벨 만들기"로 실제 인쇄 미리보기(검정 바탕 흰 글씨)를 만듭니다. 드래그 이동, 글자 클릭 후 직접 수정, A-/A+ 글자 크기, ⟳ 90도 회전, 손잡이로 크기 조절이 가능합니다. 다른 라벨과 가장자리·중앙이 맞으면 빨간 점선으로 자동 정렬(스냅)됩니다.</li>
+        <li><b>표 편집</b> — 표 탭에서 케이스 추가/삭제, 구성품·수량·비고를 직접 입력합니다.</li>
+        <li><b>저장 · 이전 버전</b> — 제목 옆 "💾 저장"으로 저장하고, "🕐 이전 버전"으로 최근 5개까지 되돌릴 수 있습니다.</li>
+        <li><b>동시 편집</b> — 같은 게임을 다른 편집자도 보고 있으면 노란 배너로 알려줍니다. 이미 편집 중인 게임에 들어가면 "넘겨받으시겠습니까?" 확인 후 진행됩니다.</li>
+        <li><b>가이드 완료 · 게임 메모</b> — 상세 화면에서 체크박스와 메모란으로 표시합니다.</li>
+        <li><b>📊 진행현황</b> — 전체 완료율과 게임별 상태를 한눈에 보고 필터링할 수 있습니다.</li>
+        <li><b>🔑 권한 관리</b> — 승인 대기 요청 처리, 편집자/뷰어 등록·제거, 매장 관리를 할 수 있습니다.</li>
+        <li><b>📥 데이터 가져오기</b> — 기존 시스템에서 내보낸 파일을 업로드해 전체 또는 특정 게임 하나만 다시 가져올 수 있습니다.</li>
+      </ul>
+
+      <div class="modal-actions">
+        <button class="btn-apply" onclick="document.getElementById('helpBackdrop').remove()">닫기</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
 }
 
 let showDashboard_ = false;
@@ -1168,8 +1248,8 @@ function drawMarkers(stage, photo, editable){
           `).join('')}
         </div>
         <button class="anno-additem" onclick="addMarkerItem(${mi})">+ 항목 추가</button>
-        <input type="text" value="${c.note||''}" placeholder="비고 (선택)" style="width:100%; margin-top:6px; padding:4px 6px; font-size:11px; border:1px solid var(--line); border-radius:4px; box-sizing:border-box;"
-          onchange="updateCaseNote(${m.caseIdx}, this.value)">
+        <textarea placeholder="비고 (선택)" rows="2" style="width:100%; margin-top:6px; padding:4px 6px; font-size:11px; border:1px solid var(--line); border-radius:4px; box-sizing:border-box; font-family:var(--sans); resize:vertical;"
+          onchange="updateCaseNote(${m.caseIdx}, this.value)">${c.note||''}</textarea>
         <button class="anno-label-btn" onclick="createLabelFromMarker(${mi})">라벨 만들기</button>
       `;
       // 박스 자체를 드래그로 옮기기 (입력창/버튼 클릭은 제외)
@@ -1192,7 +1272,7 @@ function drawMarkers(stage, photo, editable){
       box.innerHTML = `
         <div class="anno-head"><span class="case-badge case-${c.caseType}" style="font-size:11px; padding:2px 6px;">${c.caseType}</span></div>
         ${(c.items||[]).map(it=>`<div style="margin-bottom:2px;">${it.name||''}${it.qty?` <span style="color:var(--ink-soft);">${it.qty}개</span>`:''}</div>`).join('')}
-        ${c.note ? `<div style="margin-top:4px; font-size:11px; color:var(--ink-soft); font-style:italic;">${c.note}</div>` : ''}
+        ${c.note ? `<div style="margin-top:4px; font-size:11px; color:var(--ink-soft); font-style:italic; white-space:pre-wrap;">${c.note}</div>` : ''}
       `;
     }
     stage.appendChild(box);
@@ -1562,6 +1642,15 @@ function renderCropModal_(){
         <canvas id="cropCanvas"></canvas>
         <div class="crop-box" id="cropBox"><div class="crop-handle" id="cropHandle"></div></div>
       </div>
+      <div style="display:flex; align-items:center; gap:10px; margin-top:12px; padding-top:12px; border-top:1px solid var(--line);">
+        <label style="font-size:12px; color:var(--ink-soft); white-space:nowrap;">전체 축소</label>
+        <input type="range" id="cropShrinkRange" min="40" max="100" value="100" style="flex:1;">
+        <span id="cropShrinkVal" style="font-family:var(--mono); font-size:11.5px; color:var(--ink-soft); width:38px; text-align:right;">100%</span>
+      </div>
+      <div style="margin-top:14px; padding-top:14px; border-top:1px solid var(--line); text-align:center;">
+        <div style="font-size:12px; color:var(--ink-soft); margin-bottom:8px;">실제 저장될 모습 미리보기</div>
+        <canvas id="cropResultPreview" width="220" height="160" style="border:2px solid var(--ink); border-radius:8px; background:#F6F6F3; box-shadow:0 2px 10px rgba(0,0,0,.18); max-width:100%;"></canvas>
+      </div>
       <div class="modal-actions">
         <button class="btn-cancel" onclick="closeCropModal_()">취소</button>
         <button class="btn-apply" onclick="applyCropAndUpload_()">적용하고 업로드</button>
@@ -1570,6 +1659,43 @@ function renderCropModal_(){
   `;
   document.body.appendChild(backdrop);
   setupCropCanvas_();
+  document.getElementById('cropShrinkRange').addEventListener('input', (e)=>{
+    cropState_.shrinkPct = Number(e.target.value);
+    document.getElementById('cropShrinkVal').textContent = cropState_.shrinkPct + '%';
+    updateCropResultPreview_();
+  });
+}
+
+/**
+ * 점선 대신, 실제로 저장될 때의 모습(선택 영역 + 축소 비율 반영)을 그대로 그려서
+ * 보여줍니다. applyCropAndUpload_()과 동일한 계산식을 씁니다.
+ */
+function updateCropResultPreview_(){
+  const canvas = document.getElementById('cropResultPreview');
+  if (!canvas || !cropState_ || !cropState_.box) return;
+  const ctx = canvas.getContext('2d');
+  const outW = canvas.width, outH = canvas.height;
+  ctx.clearRect(0,0,outW,outH);
+  ctx.fillStyle = '#F6F6F3';
+  ctx.fillRect(0,0,outW,outH);
+
+  const wrap = document.getElementById('cropCanvasWrap');
+  if (!wrap) return;
+  const wrapRect = wrap.getBoundingClientRect();
+  const img = cropState_.img;
+  const scale = img.width / wrapRect.width;
+
+  const { x, y, w, h } = cropState_.box;
+  const sx = x*scale, sy = y*scale, sw = w*scale, sh = h*scale;
+  if (sw <= 0 || sh <= 0) return;
+
+  const fitScale = Math.min(outW/sw, outH/sh);
+  const baseW = sw*fitScale, baseH = sh*fitScale;
+  const shrink = (cropState_.shrinkPct || 100) / 100;
+  const drawW = baseW*shrink, drawH = baseH*shrink;
+  const drawX = (outW-drawW)/2, drawY = (outH-drawH)/2;
+
+  ctx.drawImage(img, sx, sy, sw, sh, drawX, drawY, drawW, drawH);
 }
 
 function setupCropCanvas_(){
@@ -1634,6 +1760,7 @@ function applyBoxStyle_(){
   const { x, y, w, h } = cropState_.box;
   box.style.left = x+'px'; box.style.top = y+'px';
   box.style.width = w+'px'; box.style.height = h+'px';
+  updateCropResultPreview_();
 }
 
 function rotateCrop_(deltaDeg){
@@ -1673,7 +1800,19 @@ async function applyCropAndUpload_(){
 
   const outCanvas = document.createElement('canvas');
   outCanvas.width = sw; outCanvas.height = sh;
-  outCanvas.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+  const ctx = outCanvas.getContext('2d');
+
+  const shrink = (cropState_.shrinkPct || 100) / 100;
+  if (shrink < 1){
+    // 선택 영역 프레임은 그대로 두고, 그 안의 내용만 축소해서 가운데 배치 (남는 자리는 여백)
+    ctx.fillStyle = '#F6F6F3';
+    ctx.fillRect(0, 0, sw, sh);
+    const drawW = sw*shrink, drawH = sh*shrink;
+    const drawX = (sw-drawW)/2, drawY = (sh-drawH)/2;
+    ctx.drawImage(img, sx, sy, sw, sh, drawX, drawY, drawW, drawH);
+  } else {
+    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+  }
 
   const blob = await new Promise(res => outCanvas.toBlob(res, 'image/jpeg', 0.9));
   closeCropModal_();
@@ -1980,7 +2119,9 @@ function renderTableTab(){
       rows += `<td style="width:80px;">${editable ? `<input type="number" value="${it.qty||0}" onchange="updateItem(${ci},${ii},'qty',this.value)">` : (it.qty||0)}</td>`;
       if (ii === 0){
         rows += `<td rowspan="${(c.items||[{}]).length}">
-          ${editable ? `<input value="${c.note||''}" placeholder="비고" onchange="updateCaseNote(${ci}, this.value)">` : (c.note||'')}
+          ${editable
+            ? `<textarea rows="2" style="width:100%; box-sizing:border-box; font-family:var(--sans); resize:vertical; padding:6px 8px; border:1px solid var(--line); border-radius:6px; font-size:13px;" placeholder="비고" onchange="updateCaseNote(${ci}, this.value)">${c.note||''}</textarea>`
+            : `<span style="white-space:pre-wrap;">${c.note||''}</span>`}
         </td>`;
       }
       if (editable) rows += `<td style="width:40px;"><button class="btn btn-ghost2" style="padding:4px 8px; width:auto;" onclick="deleteItem(${ci},${ii})">✕</button></td>`;
@@ -2047,7 +2188,8 @@ Object.assign(window, {
   openDashboard, closeDashboard, setDashboardFilter, toggleGuideDoneFor,
   openAccessManagement, approveRequest, rejectRequest, addDirectAccess, removeAccess, addStore, removeStore,
   openMigrationTool, startMigration_,
-  openPurchaseGuide, togglePurchaseGameSelect, selectAllTop50Games, deselectAllPurchaseGames
+  openPurchaseGuide, togglePurchaseGameSelect, selectAllTop50Games, deselectAllPurchaseGames,
+  openHelpModal
 });
 
 // ============================================================
