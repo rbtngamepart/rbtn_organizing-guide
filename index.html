@@ -86,8 +86,22 @@
   .case-A{--c:#C1440E;} .case-B{--c:#B08900;} .case-C{--c:#4C7A1F;} .case-D{--c:#1F7A5C;}
   .case-E{--c:#1F7A8C;} .case-F{--c:#2A5CA6;} .case-G{--c:#5B3FA6;} .case-H{--c:#9C2E8C;}
   .case-I{--c:#B32E5C;} .case-J{--c:#8C3A2E;} .case-K{--c:#5C5C1F;} .case-L{--c:#3A5C3A;}
+  .case-ZIP{--c:#3A6EA5;}
+  .case-ITEM{--c:#D98A1D;}
   .case-badge{display:inline-flex; align-items:center; gap:7px; font-family:var(--mono); font-weight:800; font-size:14px; padding:6px 12px 6px 9px; border-radius:7px; border:2.2px solid var(--c); color:var(--c); background:color-mix(in srgb, var(--c) 10%, white); line-height:1;}
   .case-badge::before{content:''; width:9px; height:9px; border-radius:50%; background:var(--c); flex-shrink:0;}
+  /* 플라스틱 케이스 없이 구성품 자체를 가리키는 마커: 원 대신 화살표(핀) 모양 */
+  .marker.marker-item{
+    width:0; height:0; background:transparent; border-radius:0; box-shadow:none;
+    border:0 solid transparent;
+    border-left:9px solid transparent; border-right:9px solid transparent;
+    border-bottom:16px solid var(--c, #D98A1D);
+    transform:translate(-50%,-100%) rotate(-45deg);
+    transform-origin:50% 100%;
+  }
+  .marker.marker-item::after{
+    content:''; position:absolute; left:-4.5px; top:16px; width:9px; height:9px; border-radius:50%; background:var(--c, #D98A1D);
+  }
 
   .tabs{display:flex; gap:4px; background:var(--bg); border:1px solid var(--line); border-radius:9px; padding:3px; margin-bottom:14px; width:fit-content;}
   .tabs button{border:none; background:transparent; padding:8px 16px; border-radius:7px; font-size:13px; font-weight:700; cursor:pointer; color:var(--ink-soft); font-family:var(--sans);}
@@ -298,9 +312,21 @@ const storage = getStorage(app);
 const provider = new GoogleAuthProvider();
 
 const POSITIONS = ['점주','점장','매니저','트레이너','버트너','본사'];
-const CASE_TYPES = ['A','B','C','D','E','F','G','H','I','J','K','L'];
+const CASE_TYPES = ['A','B','C','D','E','F','G','H','I','J','K','L','ZIP']; // 실제 구매하는 케이스 종류 (ZIP=지퍼백)
 const CASE_SIZES = {A:'65x45x20',B:'82x62x47',C:'85x55x25',D:'88x88x23',E:'95x67x26',F:'105x75x25',
-  G:'105x75x50',H:'105x105x35',I:'115x85x28',J:'145x85x35',K:'210x70x25',L:'325x240x40'};
+  G:'105x75x50',H:'105x105x35',I:'115x85x28',J:'145x85x35',K:'210x70x25',L:'325x240x40',ZIP:'-'};
+
+// 케이스 없이(플라스틱 케이스를 할당하지 않고) 구성품 자체를 화살표로 가리키는 경우에 쓰는 특수 타입
+const NON_CASE_TYPE = 'ITEM';
+// 마커/표의 "종류" 선택 드롭다운에는 실제 케이스 + 구성품(화살표)까지 모두 표시합니다.
+const SELECTABLE_TYPES = [...CASE_TYPES, NON_CASE_TYPE];
+// 구매 가이드·목록 선택 요약처럼 "필요한 수량 합계"를 낼 때는, 사이즈가 매장마다 달라 정해진 수량 집계가
+// 의미 없는 지퍼백(ZIP)과, 애초에 케이스가 필요 없는 구성품(ITEM)은 제외하고 A~L만 집계합니다.
+const PURCHASE_TYPES = CASE_TYPES.filter(t => t !== 'ZIP');
+const TYPE_LABELS = { ZIP: '지퍼백', ITEM: '구성품' }; // 드롭다운·배지 등에 표시할 이름 (없으면 타입 값 그대로 표시)
+function typeLabel_(t){ return TYPE_LABELS[t] || t; }
+// 마커(원/화살표) 안에 짧게 표시할 글자 (A~L은 그대로, 나머지는 축약)
+function markerGlyph_(t){ if (t === NON_CASE_TYPE) return ''; if (t === 'ZIP') return 'Z'; return t; }
 
 // 구매 가이드: TOP50 게임 중 플라스틱 케이스로 정리하는 게임 목록 (id → 이름, 폴백 표시용)
 const TOP50_CASE_GAMES = [
@@ -328,7 +354,8 @@ const CASE_PRODUCTS = {
   I: { url:'https://smartstore.naver.com/modeunstoa/products/9874464661', option:'J-6' },
   J: { url:'https://smartstore.naver.com/oposys/products/7559274760', option:'-' },
   K: { url:'https://www.coupang.com/vp/products/7814464766?vendorItemId=93475108031&sourceType=sdp_buybox_winner_offer', option:'Lx화이트x2개' },
-  L: { url:'https://smartstore.naver.com/soholiving/products/4772901420', option:'뉴 심플멀티케이스/대형(45mm)/투명' }
+  L: { url:'https://smartstore.naver.com/soholiving/products/4772901420', option:'뉴 심플멀티케이스/대형(45mm)/투명' },
+  ZIP: { url:'', option:'매장별 필요 사이즈로 구매' }
 };
 
 const CHO = ['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
@@ -1123,7 +1150,7 @@ function renderPurchaseCaseSummary_(){
     const g = games.find(x=>String(x.id)===String(id));
     if (g && g.cases) g.cases.forEach(c=>{ counts[c.caseType] = (counts[c.caseType]||0) + 1; });
   });
-  const neededTypes = CASE_TYPES.filter(t=>counts[t]);
+  const neededTypes = PURCHASE_TYPES.filter(t=>counts[t]);
 
   if (!neededTypes.length){
     el.innerHTML = `<p style="font-size:12.5px; color:var(--ink-soft);">왼쪽에서 게임을 선택하면 필요한 케이스가 여기 표시됩니다.</p>`;
@@ -1138,7 +1165,7 @@ function renderPurchaseCaseSummary_(){
           const p = CASE_PRODUCTS[t] || {};
           return `
           <tr>
-            <td><span class="case-badge case-${t}">${t}</span></td>
+            <td><span class="case-badge case-${t}">${typeLabel_(t)}</span></td>
             <td class="pg-size">${CASE_SIZES[t]||'-'}mm</td>
             <td class="pg-qty">${counts[t]}개</td>
             <td class="pg-option">${p.option||'-'}</td>
@@ -1201,7 +1228,7 @@ function openHelpModal(){
         <li><b>표 기준 마커 자동 생성</b> — 표에는 있지만 아직 사진에 마커가 없는 케이스들을 한 번에 격자로 배치합니다. 이후 드래그로 실제 위치에 맞게 옮겨주세요.</li>
         <li><b>마커·텍스트박스</b> — 사진의 빈 곳을 더블클릭하면 마커(알파벳 원)와 텍스트박스가 함께 생깁니다. 각각 드래그로 옮길 수 있고, 텍스트박스에서 케이스종류·구성품·수량·비고를 바로 수정할 수 있습니다. "복제"로 통째로 복제하거나, ✕로 마커+케이스를 통째로 삭제합니다.</li>
         <li><b>라벨</b> — 텍스트박스의 "라벨 만들기"로 실제 인쇄 미리보기(검정 바탕 흰 글씨)를 만듭니다. 드래그 이동, 글자 클릭 후 직접 수정, A-/A+ 글자 크기, ⟳ 90도 회전, ⧉ 복제, 손잡이로 크기 조절이 가능합니다. 다른 라벨과 가장자리·중앙이 맞으면 빨간 점선으로 자동 정렬(스냅)됩니다.</li>
-        <li><b>표 편집</b> — 표 탭에서 케이스 추가/삭제, 구성품·수량·비고를 직접 입력합니다.</li>
+        <li><b>표 편집</b> — 표 탭에서 케이스 추가/삭제, 구성품·수량·비고를 직접 입력합니다. 종류 선택에는 플라스틱 케이스(A~L)와 지퍼백 외에, 케이스를 쓰지 않는 구성품을 화살표로 가리키는 "구성품" 옵션도 있습니다.</li>
         <li><b>저장 · 이전 버전</b> — 제목 옆 "💾 저장"으로 저장하고, "🕐 이전 버전"으로 최근 5개까지 되돌릴 수 있습니다.</li>
         <li><b>동시 편집</b> — 같은 게임을 다른 편집자도 보고 있으면 노란 배너로 알려줍니다. 이미 편집 중인 게임에 들어가면 "넘겨받으시겠습니까?" 확인 후 진행됩니다.</li>
         <li><b>가이드 완료 · 게임 메모</b> — 상세 화면에서 체크박스와 메모란으로 표시합니다.</li>
@@ -1370,7 +1397,7 @@ function renderListSelectionSummary_(){
   const selected = games.filter(g => listSelectedIds_.has(String(g.id)));
   const counts = {};
   selected.forEach(g => (g.cases||[]).forEach(c => { counts[c.caseType] = (counts[c.caseType]||0) + 1; }));
-  const types = Object.keys(counts).sort();
+  const types = PURCHASE_TYPES.filter(t=>counts[t]); // 실제 정해진 케이스가 필요한 종류만 (구성품/지퍼백은 제외)
 
   return `<div class="selection-panel">
     <div class="selection-head">
@@ -1382,7 +1409,7 @@ function renderListSelectionSummary_(){
     </div>
     <div class="selection-totals">
       ${types.length
-        ? types.map(t=>`<span class="case-badge case-${t}">${t} · ${counts[t]}개</span>`).join('')
+        ? types.map(t=>`<span class="case-badge case-${t}">${typeLabel_(t)} · ${counts[t]}개</span>`).join('')
         : '<span style="color:var(--ink-soft); font-size:13px;">선택한 게임에 등록된 케이스가 없습니다.</span>'}
     </div>
   </div>`;
@@ -1605,13 +1632,14 @@ function drawMarkers(stage, photo, editable){
   (photo.markers||[]).forEach((m, mi)=>{
     const c = g.cases[m.caseIdx];
 
-    // ---- 마커(케이스 알파벳이 표시된 원) ----
+    // ---- 마커(케이스 종류가 표시된 원, 구성품인 경우 화살표) ----
     const dot = document.createElement('div');
-    dot.className = 'marker' + (c ? ` case-${c.caseType}` : '');
+    const isItem = c && c.caseType === NON_CASE_TYPE;
+    dot.className = 'marker' + (c ? ` case-${c.caseType}` : '') + (isItem ? ' marker-item' : '');
     dot.style.left = m.x+'%';
     dot.style.top = m.y+'%';
-    dot.textContent = c ? c.caseType : '';
-    dot.title = `케이스 ${mi+1}`;
+    dot.textContent = c ? markerGlyph_(c.caseType) : '';
+    dot.title = isItem ? '구성품' : `케이스 ${mi+1}`;
     if (editable){
       dot.addEventListener('pointerdown', (e)=>{
         e.stopPropagation();
@@ -1642,7 +1670,7 @@ function drawMarkers(stage, photo, editable){
     if (editable){
       box.innerHTML = `
         <div class="anno-head">
-          <select onchange="updateMarkerCaseType(${mi}, this.value)">${CASE_TYPES.map(t=>`<option value="${t}" ${t===c.caseType?'selected':''}>${t}</option>`).join('')}</select>
+          <select onchange="updateMarkerCaseType(${mi}, this.value)">${SELECTABLE_TYPES.map(t=>`<option value="${t}" ${t===c.caseType?'selected':''}>${typeLabel_(t)}</option>`).join('')}</select>
           <button class="anno-del" title="이 마커/케이스 삭제" onclick="removeMarkerCase(${mi})">✕</button>
         </div>
         <div id="annoItems${mi}">
@@ -1678,7 +1706,7 @@ function drawMarkers(stage, photo, editable){
       });
     } else {
       box.innerHTML = `
-        <div class="anno-head"><span class="case-badge case-${c.caseType}" style="font-size:11px; padding:2px 6px;">${c.caseType}</span></div>
+        <div class="anno-head"><span class="case-badge case-${c.caseType}" style="font-size:11px; padding:2px 6px;">${typeLabel_(c.caseType)}</span></div>
         ${(c.items||[]).map(it=>`<div style="margin-bottom:2px;">${it.name||''}${it.qty?` <span style="color:var(--ink-soft);">${it.qty}개</span>`:''}</div>`).join('')}
         ${c.note ? `<div style="margin-top:4px; font-size:11px; color:var(--ink-soft); font-style:italic; white-space:pre-wrap;">${c.note}</div>` : ''}
       `;
@@ -2659,8 +2687,8 @@ function renderTableTab(){
       if (ii === 0){
         rows += `<td rowspan="${items.length}">
           ${editable
-            ? `<select onchange="updateCaseType(${ci}, this.value)">${CASE_TYPES.map(t=>`<option value="${t}" ${t===c.caseType?'selected':''}>${t}</option>`).join('')}</select>`
-            : `<span class="case-badge case-${c.caseType}">${c.caseType}</span>`}
+            ? `<select onchange="updateCaseType(${ci}, this.value)">${SELECTABLE_TYPES.map(t=>`<option value="${t}" ${t===c.caseType?'selected':''}>${typeLabel_(t)}</option>`).join('')}</select>`
+            : `<span class="case-badge case-${c.caseType}">${typeLabel_(c.caseType)}</span>`}
         </td>`;
       }
       rows += `<td>${editable ? `<input value="${it.name||''}" onchange="updateItem(${ci},${ii},'name',this.value)">` : (it.name||'')}</td>`;
