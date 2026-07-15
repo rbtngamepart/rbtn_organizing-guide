@@ -1240,12 +1240,15 @@ function deselectAllPurchaseGames(){
 function exportGameCaseCountsCsv_(){
   const PLASTIC_CASE_TYPES = CASE_TYPES.filter(t => t !== 'ZIP');
   const top50Ids = new Set(TOP50_CASE_GAMES.map(g=>g.id));
-  const rows = [['게임ID', '게임이름', 'TOP50', ...PLASTIC_CASE_TYPES]];
+  // 첫 번째 열(선택)은 TOP50 게임이 미리 체크된 상태로 시작하도록 TOP50 여부와 같은 값으로 채웁니다.
+  // (엑셀 양식의 A열=선택, B열=게임ID, C열=게임이름, D열=TOP50(참고용), E열부터 A~L 순서와 그대로 맞춰뒀습니다)
+  const rows = [['선택', '게임ID', '게임이름', 'TOP50', ...PLASTIC_CASE_TYPES]];
 
   games.slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''), 'ko')).forEach(g=>{
     const counts = {};
     (g.cases||[]).forEach(c=>{ if (c.caseType !== 'ZIP' && c.caseType !== NON_CASE_TYPE) counts[c.caseType] = (counts[c.caseType]||0) + 1; });
-    rows.push([g.id, g.name || '', top50Ids.has(String(g.id)) ? 'TRUE' : 'FALSE', ...PLASTIC_CASE_TYPES.map(t => counts[t] || 0)]);
+    const isTop50 = top50Ids.has(String(g.id)) ? 'TRUE' : 'FALSE';
+    rows.push([isTop50, g.id, g.name || '', isTop50, ...PLASTIC_CASE_TYPES.map(t => counts[t] || 0)]);
   });
 
   const csvEscape = v => {
