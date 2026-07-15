@@ -2253,7 +2253,7 @@ async function renderPhotoToCanvas_(g, photo, refWidth){
     if (!box) return;
     const { x, y, w, h, c, paddingX, paddingY, badgeH, lineH } = box;
     const color = caseColor_(c.caseType);
-    const left = x, top = y - h/2;
+    const left = x, top = y;
 
     // 박스 배경 + 테두리 + 왼쪽 색 띠
     ctx.fillStyle = 'rgba(255,255,255,.98)';
