@@ -99,10 +99,10 @@
   /* 플라스틱 케이스 없이 구성품 자체를 가리키는 마커: 원 대신 화살표 모양 (연결선과 정확히 이어지도록
      회전각과 뾰족한 끝 위치는 JS에서 연결선과 같은 방식으로 계산해 매번 맞춰줍니다) */
   .marker.marker-item{
-    width:26px; height:20px; background:var(--c, #D98A1D); border-radius:0; box-shadow:none;
+    width:28px; height:22px; background:var(--c, #D98A1D); border-radius:0; box-shadow:none;
     border:none;
     clip-path: polygon(100% 50%, 0% 0%, 0% 100%);
-    filter: drop-shadow(0 1px 3px rgba(0,0,0,.4));
+    filter: drop-shadow(0 0 0.75px rgba(0,0,0,.9)) drop-shadow(0 0 0.75px rgba(0,0,0,.9)) drop-shadow(0 1.5px 2px rgba(0,0,0,.35));
     transform-origin:100% 50%;
   }
 
@@ -1910,7 +1910,7 @@ async function renderPhotoTab(){
       </div>
       <div class="toolbar-divider"></div>
       <div class="toolbar-group">
-        <button class="btn btn-ghost2" style="width:auto;" onclick="downloadGuideImage(currentPhotoIdx)" title="이 사진의 가이드 화면을 이미지로 저장합니다">🖼️ 이미지 다운로드</button>
+        <button class="btn btn-ghost2" style="width:auto;" onclick="downloadGuideImage()" title="이 사진의 가이드 화면을 이미지로 저장합니다">🖼️ 이미지 다운로드</button>
         ${photos.length>1 ? `<button class="btn btn-ghost2" style="width:auto;" onclick="downloadAllGuideImages()" title="사진 ${photos.length}장을 전부 이미지로 저장합니다">🖼️ 전체(${photos.length}장) 다운로드</button>` : ''}
       </div>
     </div>
@@ -2803,6 +2803,7 @@ function downloadCanvasAsPng_(canvas, fileName){
 }
 
 async function downloadGuideImage(idx){
+  if (idx === undefined) idx = currentPhotoIdx; // 인라인 onclick(전역 스코프)에서는 currentPhotoIdx를 직접 못 읽어서, 안 넘어오면 여기서 채웁니다.
   const g = games.find(x=>x.id===currentGameId);
   const photo = g.photos[idx];
   if (!photo) return;
