@@ -1127,7 +1127,7 @@ function openPurchaseGuide(){
       <div class="pg-actions">
         <button class="btn btn-primary2" style="width:auto;" onclick="selectAllTop50Games()">TOP50 게임 선택</button>
         <button class="btn btn-ghost2" style="width:auto;" onclick="deselectAllPurchaseGames()">전체 해제</button>
-        <button class="btn btn-ghost2" style="width:auto;" onclick="exportGameCaseCountsCsv_()" title="전체 게임의 케이스 종류별 수량과 TOP50 여부를 CSV로 내보냅니다 (엑셀 구매가이드 양식에 붙여넣기용)">📄 전체 게임 케이스 수량 CSV 내보내기</button>
+        <button class="btn btn-ghost2" style="width:auto;" onclick="exportGameCaseCountsCsv_()" title="전체 게임의 케이스 종류별 수량, 게임 메모(특이사항), TOP50 여부를 CSV로 내보냅니다 (엑셀 구매가이드 양식에 붙여넣기용)">📄 전체 게임 케이스 수량 CSV 내보내기</button>
       </div>
     </div>
     <div class="pg-body">
@@ -1240,15 +1240,15 @@ function deselectAllPurchaseGames(){
 function exportGameCaseCountsCsv_(){
   const PLASTIC_CASE_TYPES = CASE_TYPES.filter(t => t !== 'ZIP');
   const top50Ids = new Set(TOP50_CASE_GAMES.map(g=>g.id));
-  // 엑셀 양식의 C열(게임ID)부터 붙여넣는 형식과 그대로 맞췄습니다: 게임ID, 게임이름, TOP50(1/0), A~L.
+  // 엑셀 양식의 C열(게임ID)부터 붙여넣는 형식과 그대로 맞췄습니다: 게임ID, 게임이름, 특이사항(게임 메모), TOP50(1/0), A~L.
   // "선택"은 엑셀 쪽에서 TOP50 스위치 + 개별설정으로 정하므로 CSV에는 포함하지 않습니다.
-  const rows = [['게임ID', '게임이름', 'TOP50', ...PLASTIC_CASE_TYPES]];
+  const rows = [['게임ID', '게임이름', '특이사항', 'TOP50', ...PLASTIC_CASE_TYPES]];
 
   games.slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''), 'ko')).forEach(g=>{
     const counts = {};
     (g.cases||[]).forEach(c=>{ if (c.caseType !== 'ZIP' && c.caseType !== NON_CASE_TYPE) counts[c.caseType] = (counts[c.caseType]||0) + 1; });
     const isTop50 = top50Ids.has(String(g.id));
-    rows.push([g.id, g.name || '', isTop50 ? 1 : 0, ...PLASTIC_CASE_TYPES.map(t => counts[t] || 0)]);
+    rows.push([g.id, g.name || '', g.note || '', isTop50 ? 1 : 0, ...PLASTIC_CASE_TYPES.map(t => counts[t] || 0)]);
   });
 
   const csvEscape = v => {
