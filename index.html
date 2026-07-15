@@ -274,6 +274,7 @@
     <button class="btn btn-ghost2" id="dashboardBtn" style="display:none;" onclick="openDashboard()">📊 진행현황</button>
     <button class="btn btn-ghost2" id="accessBtn" style="display:none;" onclick="openAccessManagement()">🔑 권한 관리</button>
     <button class="btn btn-ghost2" id="migrateBtn" style="display:none;" onclick="openMigrationTool()">📥 데이터 가져오기</button>
+    <button class="btn btn-ghost2" id="bulkDownloadBtn" style="display:none;" onclick="openBulkDownloadTool()">🖼️ 사진 일괄 다운로드</button>
     <button class="btn btn-ghost2" onclick="openPurchaseGuide()">🛒 구매 가이드</button>
     <button class="btn btn-ghost2" onclick="doLogout()">로그아웃</button>
   </div>
@@ -486,6 +487,8 @@ function updateRoleToggleUI_(){
   if (accBtn) accBtn.style.display = currentRole==='editor' ? 'inline-flex' : 'none';
   const migBtn = document.getElementById('migrateBtn');
   if (migBtn) migBtn.style.display = currentRole==='editor' ? 'inline-flex' : 'none';
+  const bulkBtn = document.getElementById('bulkDownloadBtn');
+  if (bulkBtn) bulkBtn.style.display = currentRole==='editor' ? 'inline-flex' : 'none';
 }
 
 /** 뷰어 ↔ 편집자 전환 버튼. 편집자로 전환하면서 지금 보고 있는 게임의 편집 잠금도 함께 확인합니다. */
@@ -1080,6 +1083,8 @@ async function startMigration_(){
  */
 let purchaseGuideSelected_ = new Set();
 let purchaseGuideSearch_ = '';
+let bulkDownloadSelected_ = new Set();
+let bulkDownloadSearch_ = '';
 
 function openPurchaseGuide(){
   leavePresence_();
@@ -1204,6 +1209,199 @@ function deselectAllPurchaseGames(){
 
 /**
  * ============================================================
+ * 사진 일괄 다운로드 (가이드 완료된 게임 전체, 또는 선택한 게임들만)
+ * ============================================================
+ */
+function openBulkDownloadTool(){
+  leavePresence_();
+  currentGameId = null;
+  showDashboard_ = false;
+
+  const doneCount = games.filter(g=>g.guideDone).length;
+
+  appEl.innerHTML = `
+    <button class="back" onclick="renderList()">← 목록으로</button>
+    <div class="pg-head">
+      <h2>🖼️ 사진 일괄 다운로드</h2>
+      <p class="pg-desc">
+        아래에서 게임을 선택한 뒤 다운로드하면, 선택한 게임들의 모든 사진을 뷰어 화면 그대로(마커·화살표·텍스트박스·라벨 포함)
+        이미지로 만들어 zip 파일 하나로 묶어 다운로드합니다. "가이드 완료된 게임만 선택"을 누르면
+        가이드 제작이 완료된 ${doneCount}개 게임이 한 번에 선택됩니다. 사진이 없는 게임은 자동으로 건너뜁니다.
+      </p>
+      <div class="pg-actions">
+        <button class="btn btn-primary2" style="width:auto;" onclick="selectAllGuideDoneGames_()">가이드 완료된 게임만 선택 (${doneCount}개)</button>
+        <button class="btn btn-ghost2" style="width:auto;" onclick="selectAllBulkDownloadGames_()">전체 선택</button>
+        <button class="btn btn-ghost2" style="width:auto;" onclick="deselectAllBulkDownloadGames_()">전체 해제</button>
+      </div>
+    </div>
+    <div class="pg-body">
+      <div class="pg-panel">
+        <h3 id="bulkSelectedCount">게임 선택</h3>
+        <input type="text" id="bulkSearchInput" class="pg-search" placeholder="게임 이름 검색">
+        <div class="pg-game-list" id="bulkGameList"></div>
+      </div>
+      <div class="pg-panel">
+        <h3>다운로드</h3>
+        <p style="font-size:12.5px; color:var(--ink-soft); margin:0 0 12px;">
+          사진 수가 많으면 zip 파일을 만드는 데 시간이 좀 걸릴 수 있습니다. 창을 닫지 말고 기다려주세요.
+        </p>
+        <button class="btn btn-primary2" style="width:auto;" onclick="startBulkDownload_()">선택한 게임 사진 다운로드 시작</button>
+        <div id="bulkDownloadLog" style="margin-top:16px; font-size:12.5px; font-family:var(--mono); white-space:pre-wrap; background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:14px; max-height:340px; overflow-y:auto;"></div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('bulkSearchInput').addEventListener('input', (e)=>{
+    bulkDownloadSearch_ = e.target.value;
+    renderBulkDownloadGameList_();
+  });
+
+  renderBulkDownloadGameList_();
+}
+
+function renderBulkDownloadGameList_(){
+  const listEl = document.getElementById('bulkGameList');
+  const countEl = document.getElementById('bulkSelectedCount');
+  if (!listEl) return;
+
+  const q = bulkDownloadSearch_.trim();
+  const visibleGames = games
+    .filter(g => !q || (g.name||'').includes(q) || getChosung(g.name||'').includes(getChosung(q)))
+    .slice()
+    .sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''), 'ko'));
+
+  listEl.innerHTML = visibleGames.map(g=>{
+    const checked = bulkDownloadSelected_.has(String(g.id));
+    const photoCount = (g.photos||[]).length;
+    return `
+      <label class="pg-game-row">
+        <input type="checkbox" ${checked?'checked':''} ${photoCount?'':'disabled'} onchange="toggleBulkDownloadGameSelect_('${g.id}', this.checked)">
+        <span class="pg-game-name">${g.name}${g.guideDone?'':' <span style=\"color:var(--ink-soft); font-weight:400;\">(가이드 준비중)</span>'}</span>
+        <span class="pg-game-id">${photoCount ? `사진 ${photoCount}장` : '사진 없음'}</span>
+      </label>`;
+  }).join('') || '<p style="font-size:12.5px; color:var(--ink-soft);">검색 결과가 없습니다.</p>';
+
+  if (countEl) countEl.textContent = `게임 선택 (${bulkDownloadSelected_.size}개 선택됨)`;
+}
+
+function toggleBulkDownloadGameSelect_(id, checked){
+  if (checked) bulkDownloadSelected_.add(id); else bulkDownloadSelected_.delete(id);
+  renderBulkDownloadGameList_();
+}
+function selectAllGuideDoneGames_(){
+  bulkDownloadSelected_.clear();
+  games.filter(g=>g.guideDone && (g.photos||[]).length).forEach(g=>bulkDownloadSelected_.add(String(g.id)));
+  renderBulkDownloadGameList_();
+}
+function selectAllBulkDownloadGames_(){
+  games.filter(g=>(g.photos||[]).length).forEach(g=>bulkDownloadSelected_.add(String(g.id)));
+  renderBulkDownloadGameList_();
+}
+function deselectAllBulkDownloadGames_(){
+  bulkDownloadSelected_.clear();
+  renderBulkDownloadGameList_();
+}
+
+function bulkLog_(msg){
+  const el = document.getElementById('bulkDownloadLog');
+  if (el){ el.textContent += msg + '\n'; el.scrollTop = el.scrollHeight; }
+}
+
+/** JSZip을 처음 쓸 때만 CDN에서 불러옵니다 (여러 이미지를 zip 하나로 묶기 위함). */
+let jszipLoadPromise_ = null;
+function loadJSZip_(){
+  if (window.JSZip) return Promise.resolve(window.JSZip);
+  if (jszipLoadPromise_) return jszipLoadPromise_;
+  jszipLoadPromise_ = new Promise((resolve, reject)=>{
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+    s.onload = ()=>resolve(window.JSZip);
+    s.onerror = ()=>reject(new Error('JSZip 라이브러리를 불러오지 못했습니다 (네트워크 문제일 수 있습니다)'));
+    document.head.appendChild(s);
+  });
+  return jszipLoadPromise_;
+}
+
+async function startBulkDownload_(){
+  const selected = games.filter(g => bulkDownloadSelected_.has(String(g.id)) && (g.photos||[]).length);
+  if (!selected.length){ alert('사진이 있는 게임을 하나 이상 선택해주세요.'); return; }
+
+  document.getElementById('bulkDownloadLog').textContent = '';
+  bulkLog_('준비 중...');
+
+  let JSZip;
+  try{
+    JSZip = await loadJSZip_();
+  }catch(e){
+    bulkLog_('⚠ zip 압축 도구를 불러오지 못해, 파일을 하나씩 개별 다운로드합니다.\n');
+    await startBulkDownloadIndividually_(selected);
+    return;
+  }
+
+  const zip = new JSZip();
+  const totalPhotos = selected.reduce((sum,g)=>sum + (g.photos||[]).length, 0);
+  let done = 0;
+  bulkLog_(`게임 ${selected.length}개, 사진 ${totalPhotos}장을 이미지로 만드는 중...\n`);
+
+  for (const g of selected){
+    const usedNames = {};
+    for (let i=0; i<g.photos.length; i++){
+      try{
+        const canvas = await renderPhotoToCanvas_(g, g.photos[i], GUIDE_EXPORT_DEFAULT_REF_WIDTH);
+        const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+        let baseName = (g.name || `game_${g.id}`).replace(/[\\/:*?"<>|]/g, '_');
+        let fileName = g.photos.length > 1 ? `${baseName}_사진${i+1}.png` : `${baseName}.png`;
+        if (usedNames[fileName]){ fileName = `${baseName}_사진${i+1}_${g.id}.png`; }
+        usedNames[fileName] = true;
+        zip.file(fileName, blob);
+        done++;
+        bulkLog_(`  (${done}/${totalPhotos}) ${g.name} - 사진 ${i+1} 완료`);
+      }catch(e){
+        bulkLog_(`  ❌ ${g.name} - 사진 ${i+1} 실패: ${e.message}`);
+      }
+    }
+  }
+
+  bulkLog_('\nzip 파일 압축 중...');
+  try{
+    const zipBlob = await zip.generateAsync({ type:'blob' });
+    const url = URL.createObjectURL(zipBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `가이드_이미지_${new Date().toISOString().slice(0,10)}.zip`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 10000);
+    bulkLog_('✅ 완료! zip 파일 다운로드를 시작합니다.');
+  }catch(e){
+    bulkLog_('❌ zip 파일 생성 중 문제가 발생했습니다: ' + e.message);
+  }
+}
+
+/** zip 압축 도구를 못 쓸 때의 대체 방법: 파일을 하나씩 순서대로 개별 다운로드합니다. */
+async function startBulkDownloadIndividually_(selected){
+  const totalPhotos = selected.reduce((sum,g)=>sum + (g.photos||[]).length, 0);
+  let done = 0;
+  for (const g of selected){
+    for (let i=0; i<g.photos.length; i++){
+      try{
+        const canvas = await renderPhotoToCanvas_(g, g.photos[i], GUIDE_EXPORT_DEFAULT_REF_WIDTH);
+        const suffix = g.photos.length > 1 ? `_사진${i+1}` : '';
+        downloadCanvasAsPng_(canvas, `${g.name || 'game'}${suffix}.png`);
+        done++;
+        bulkLog_(`  (${done}/${totalPhotos}) ${g.name} - 사진 ${i+1} 다운로드`);
+      }catch(e){
+        bulkLog_(`  ❌ ${g.name} - 사진 ${i+1} 실패: ${e.message}`);
+      }
+      await new Promise(r=>setTimeout(r, 350));
+    }
+  }
+  bulkLog_('✅ 완료!');
+}
+
+/**
+ * ============================================================
  * 이용 방법 (도움말)
  * ============================================================
  */
@@ -1243,6 +1441,7 @@ function openHelpModal(){
         <li><b>📊 진행현황</b> — 전체 완료율과 게임별 상태를 한눈에 보고 필터링할 수 있습니다.</li>
         <li><b>🔑 권한 관리</b> — 승인 대기 요청 처리, 편집자/뷰어 등록·제거, 매장 관리를 할 수 있습니다.</li>
         <li><b>📥 데이터 가져오기</b> — 기존 시스템에서 내보낸 파일을 업로드해 전체 또는 특정 게임 하나만 다시 가져올 수 있습니다.</li>
+        <li><b>🖼️ 사진 일괄 다운로드</b> — 게임을 여러 개 선택해서 사진들을 뷰어 화면 그대로 이미지로 만들어 zip 파일로 한 번에 받을 수 있습니다. "가이드 완료된 게임만 선택"으로 완료된 게임을 한 번에 고를 수 있습니다.</li>
       </ul>
       ` : ''}
 
@@ -3082,6 +3281,7 @@ Object.assign(window, {
   openMigrationTool, startMigration_,
   previewGameReplaceFiles_, updateGameReplaceId_, startGameReplace_,
   openPurchaseGuide, togglePurchaseGameSelect, selectAllTop50Games, deselectAllPurchaseGames,
+  openBulkDownloadTool, toggleBulkDownloadGameSelect_, selectAllGuideDoneGames_, selectAllBulkDownloadGames_, deselectAllBulkDownloadGames_, startBulkDownload_,
   openHelpModal
 });
 
