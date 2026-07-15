@@ -327,7 +327,14 @@ const PURCHASE_TYPES = CASE_TYPES.filter(t => t !== 'ZIP');
 const TYPE_LABELS = { ZIP: '지퍼백', ITEM: '구성품' }; // 드롭다운·배지 등에 표시할 이름 (없으면 타입 값 그대로 표시)
 function typeLabel_(t){ return TYPE_LABELS[t] || t; }
 // 마커(원/화살표) 안에 짧게 표시할 글자 (A~L은 그대로, 나머지는 축약)
-function markerGlyph_(t){ if (t === NON_CASE_TYPE) return ''; if (t === 'ZIP') return 'Z'; return t; }
+function markerGlyph_(t){ if (t === NON_CASE_TYPE) return ''; if (t === 'ITEM') return ''; if (t === 'ZIP') return 'Z'; return t; }
+// 이미지로 내보낼 때는 CSS 변수를 쓸 수 없어서, 화면의 .case-X{--c:...} 색상과 동일하게 맞춰둔 표입니다.
+const CASE_COLORS = {
+  A:'#C1440E', B:'#B08900', C:'#4C7A1F', D:'#1F7A5C', E:'#1F7A8C', F:'#2A5CA6',
+  G:'#5B3FA6', H:'#9C2E8C', I:'#B32E5C', J:'#8C3A2E', K:'#5C5C1F', L:'#3A5C3A',
+  ZIP:'#3A6EA5', ITEM:'#D98A1D'
+};
+function caseColor_(t){ return CASE_COLORS[t] || '#E4141B'; }
 
 // 구매 가이드: TOP50 게임 중 플라스틱 케이스로 정리하는 게임 목록 (id → 이름, 폴백 표시용)
 const TOP50_CASE_GAMES = [
@@ -1551,6 +1558,8 @@ async function renderPhotoTab(){
       <button class="btn btn-ghost2" style="width:auto;" onclick="prevPhoto()" ${photos.length<2?'disabled':''}>◀</button>
       <span style="font-size:12.5px; color:var(--ink-soft);">${currentPhotoIdx+1} / ${photos.length}</span>
       <button class="btn btn-ghost2" style="width:auto;" onclick="nextPhoto()" ${photos.length<2?'disabled':''}>▶</button>
+      <button class="btn btn-ghost2" style="width:auto;" onclick="downloadGuideImage(currentPhotoIdx)" title="이 사진의 가이드 화면을 이미지로 저장합니다">🖼️ 이미지 다운로드</button>
+      ${photos.length>1 ? `<button class="btn btn-ghost2" style="width:auto;" onclick="downloadAllGuideImages()" title="사진 ${photos.length}장을 전부 이미지로 저장합니다">🖼️ 전체(${photos.length}장) 다운로드</button>` : ''}
       ${editable ? `
         ${photos.length>1 ? `
           <button class="btn btn-ghost2" style="width:auto; padding:6px 9px; font-size:12px;" onclick="movePhoto(-1)" ${currentPhotoIdx===0?'disabled':''} title="사진 순서를 앞으로">◀ 순서</button>
@@ -2089,6 +2098,285 @@ async function resolvePhotoUrl_(storagePath){
   const url = await getDownloadURL(ref(storage, storagePath));
   photoUrlCache[storagePath] = url;
   return url;
+}
+
+/**
+ * ============================================================
+ * 가이드 화면 이미지로 다운로드 (뷰어가 보는 모습 그대로)
+ * ------------------------------------------------------------
+ * 실제 화면(DOM)을 그대로 캡처하는 대신, 사진 위에 마커·화살표·연결선·
+ * 텍스트박스·라벨을 캔버스에 직접 그려서 이미지를 만듭니다. 편집자가
+ * 눌러도 항상 "뷰어 화면" 스타일(입력창이 아닌 텍스트, 안내 배지)로 그립니다.
+ * ============================================================
+ */
+const GUIDE_EXPORT_W = 1600, GUIDE_EXPORT_H = 1200; // 4:3, 사진 스테이지와 동일한 비율
+const GUIDE_EXPORT_SCALE = GUIDE_EXPORT_W / 700; // 화면상 대략적인 스테이지 폭(700px) 기준 배율
+
+function wrapCanvasText_(ctx, text, maxWidth){
+  const words = String(text||'').split(/\s+/).filter(Boolean);
+  const lines = [];
+  let cur = '';
+  words.forEach(w=>{
+    const test = cur ? cur+' '+w : w;
+    if (ctx.measureText(test).width > maxWidth && cur){
+      lines.push(cur);
+      cur = w;
+    } else {
+      cur = test;
+    }
+  });
+  if (cur) lines.push(cur);
+  return lines.length ? lines : [''];
+}
+
+async function renderPhotoToCanvas_(g, photo){
+  const k = GUIDE_EXPORT_SCALE;
+  const canvas = document.createElement('canvas');
+  canvas.width = GUIDE_EXPORT_W;
+  canvas.height = GUIDE_EXPORT_H;
+  const ctx = canvas.getContext('2d');
+
+  // 배경 (사진이 4:3을 정확히 채우지 못할 때 보이는 여백 색, 화면과 동일)
+  ctx.fillStyle = '#EDEDE8';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // 사진 (화면의 background-size:contain과 동일한 방식으로 배치)
+  if (photo.storagePath){
+    try{
+      const url = await resolvePhotoUrl_(photo.storagePath);
+      const img = await new Promise((resolve, reject)=>{
+        const im = new Image();
+        im.crossOrigin = 'anonymous';
+        im.onload = ()=>resolve(im);
+        im.onerror = reject;
+        im.src = url;
+      });
+      const scale = Math.min(canvas.width/img.width, canvas.height/img.height);
+      const dw = img.width*scale, dh = img.height*scale;
+      const dx = (canvas.width-dw)/2, dy = (canvas.height-dh)/2;
+      ctx.drawImage(img, dx, dy, dw, dh);
+    }catch(e){
+      ctx.fillStyle = '#999';
+      ctx.font = `${14*k}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.fillText('사진을 불러오지 못했습니다', canvas.width/2, canvas.height/2);
+    }
+  }
+
+  // 마커·연결선·텍스트박스를 그리기 전에, 먼저 각 텍스트박스의 크기/위치를 계산해둡니다.
+  // (연결선이 박스의 왼쪽 가장자리를 향해야 하고, 화살표는 그 반대 방향을 향해야 하므로)
+  const boxLayout = (photo.markers||[]).map(m=>{
+    const c = g.cases[m.caseIdx];
+    if (!m.box || !c) return null;
+    const boxW = 185*k;
+    const paddingX = 10*k, paddingY = 8*k;
+    ctx.font = `${11.5*k}px sans-serif`;
+    const lines = [];
+    (c.items||[]).forEach(it=>{
+      const t = `${it.name||''}${it.qty?` ${it.qty}개`:''}`;
+      wrapCanvasText_(ctx, t, boxW-paddingX*2).forEach(l=>lines.push({text:l, style:'item'}));
+    });
+    if (c.note){
+      ctx.font = `italic ${10.5*k}px sans-serif`;
+      wrapCanvasText_(ctx, c.note, boxW-paddingX*2).forEach(l=>lines.push({text:l, style:'note'}));
+    }
+    const lineH = 15*k;
+    const badgeH = 22*k;
+    const boxH = paddingY*2 + badgeH + 4*k + Math.max(1,lines.length)*lineH;
+    const bx = (m.box.x/100)*canvas.width;
+    const by = (m.box.y/100)*canvas.height;
+    return { x:bx, y:by, w:boxW, h:boxH, lines, c, paddingX, paddingY, badgeH, lineH };
+  });
+
+  // ---- 연결선 ----
+  (photo.markers||[]).forEach((m, mi)=>{
+    const box = boxLayout[mi];
+    if (!box) return;
+    const x1 = (m.x/100)*canvas.width, y1 = (m.y/100)*canvas.height;
+    const x2 = box.x, y2 = box.y + box.h/2;
+    ctx.strokeStyle = 'rgba(80,80,75,.85)';
+    ctx.lineWidth = 2.2*k;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+  });
+
+  // ---- 마커 (원 또는 화살표) ----
+  (photo.markers||[]).forEach((m, mi)=>{
+    const c = g.cases[m.caseIdx];
+    const x = (m.x/100)*canvas.width, y = (m.y/100)*canvas.height;
+    const color = c ? caseColor_(c.caseType) : '#E4141B';
+    const isItem = c && c.caseType === NON_CASE_TYPE;
+
+    if (isItem){
+      const box = boxLayout[mi];
+      const tx = box ? box.x : x, ty = box ? box.y + box.h/2 : y;
+      const angle = Math.atan2(ty-y, tx-x); // 텍스트박스 반대 방향(화살표가 향하는 방향)
+      const len = 16*k, halfW = 9*k;
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(angle + Math.PI); // 선의 각도 + 180도 = 화살표가 가리키는 방향
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(-len, -halfW);
+      ctx.lineTo(-len, halfW);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    } else {
+      const r = ((g.markerSize||24)/2) * k;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI*2);
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.lineWidth = 2.5*k;
+      ctx.strokeStyle = '#fff';
+      ctx.stroke();
+      if (c){
+        ctx.fillStyle = '#fff';
+        ctx.font = `700 ${r*0.92}px monospace`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(markerGlyph_(c.caseType), x, y+1);
+      }
+    }
+  });
+
+  // ---- 텍스트박스 ----
+  (photo.markers||[]).forEach((m, mi)=>{
+    const box = boxLayout[mi];
+    if (!box) return;
+    const { x, y, w, h, c, paddingX, paddingY, badgeH, lineH } = box;
+    const color = caseColor_(c.caseType);
+    const left = x, top = y - h/2;
+
+    // 박스 배경 + 테두리 + 왼쪽 색 띠
+    ctx.fillStyle = 'rgba(255,255,255,.98)';
+    roundRectPath_(ctx, left, top, w, h, 8*k);
+    ctx.fill();
+    ctx.lineWidth = 1*k;
+    ctx.strokeStyle = '#E3E3DE';
+    ctx.stroke();
+    ctx.fillStyle = color;
+    ctx.fillRect(left, top, 4*k, h);
+
+    // 종류 배지 (색 점 + 이름)
+    let cx = left + paddingX + 4*k;
+    const badgeY = top + paddingY;
+    ctx.font = `800 ${11*k}px monospace`;
+    const label = typeLabel_(c.caseType);
+    const labelW = ctx.measureText(label).width;
+    const dotR = 4.5*k;
+    const chipW = dotR*2 + 6*k + labelW + 14*k;
+    ctx.fillStyle = `${color}1A`;
+    roundRectPath_(ctx, cx, badgeY, chipW, badgeH, 6*k);
+    ctx.fill();
+    ctx.lineWidth = 1.8*k;
+    ctx.strokeStyle = color;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(cx+7*k, badgeY+badgeH/2, dotR, 0, Math.PI*2);
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.fillStyle = color;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, cx+7*k+dotR+6*k, badgeY+badgeH/2+1);
+
+    // 구성품 목록 · 비고
+    let ly = top + paddingY + badgeH + 4*k + lineH*0.75;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+    box.lines.forEach(l=>{
+      ctx.font = l.style === 'note' ? `italic ${10.5*k}px sans-serif` : `${11.5*k}px sans-serif`;
+      ctx.fillStyle = l.style === 'note' ? '#63645F' : '#1B1C1A';
+      ctx.fillText(l.text, left+paddingX, ly);
+      ly += lineH;
+    });
+  });
+
+  // ---- 라벨(실제 인쇄 미리보기) ----
+  (photo.labels||[]).forEach(lbl=>{
+    const x = (lbl.x/100)*canvas.width, y = (lbl.y/100)*canvas.height;
+    const fontSize = (lbl.fontSize||14)*k;
+    ctx.font = `600 ${fontSize}px sans-serif`;
+    const linesRaw = String(lbl.text||'').split('\n');
+    const padX = 0.7*fontSize, padY = 0.5*fontSize;
+    let w, h;
+    if (lbl.widthPct != null && lbl.heightPct != null){
+      w = canvas.width * lbl.widthPct/100;
+      h = canvas.height * lbl.heightPct/100;
+    } else {
+      const maxLineW = Math.max(...linesRaw.map(l=>ctx.measureText(l).width), 1);
+      w = maxLineW + padX*2;
+      h = linesRaw.length*fontSize*1.35 + padY*2;
+    }
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate((lbl.rotation||0) * Math.PI/180);
+    roundRectPath_(ctx, -w/2, -h/2, w, h, 0.25*fontSize);
+    ctx.fillStyle = '#000';
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const lineH = fontSize*1.35;
+    const startY = -((linesRaw.length-1)*lineH)/2;
+    linesRaw.forEach((l, i)=> ctx.fillText(l, 0, startY + i*lineH));
+    ctx.restore();
+  });
+
+  return canvas;
+}
+
+function roundRectPath_(ctx, x, y, w, h, r){
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.arcTo(x+w, y, x+w, y+h, r);
+  ctx.arcTo(x+w, y+h, x, y+h, r);
+  ctx.arcTo(x, y+h, x, y, r);
+  ctx.arcTo(x, y, x+w, y, r);
+  ctx.closePath();
+}
+
+function downloadCanvasAsPng_(canvas, fileName){
+  const a = document.createElement('a');
+  a.href = canvas.toDataURL('image/png');
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+async function downloadGuideImage(idx){
+  const g = games.find(x=>x.id===currentGameId);
+  const photo = g.photos[idx];
+  if (!photo) return;
+  try{
+    const canvas = await renderPhotoToCanvas_(g, photo);
+    const suffix = (g.photos.length > 1) ? `_사진${idx+1}` : '';
+    downloadCanvasAsPng_(canvas, `${g.name || 'game'}${suffix}.png`);
+  }catch(e){
+    alert('이미지를 만드는 중 문제가 발생했습니다: ' + e.message);
+  }
+}
+
+async function downloadAllGuideImages(){
+  const g = games.find(x=>x.id===currentGameId);
+  if (!g.photos || !g.photos.length) return;
+  for (let i=0; i<g.photos.length; i++){
+    try{
+      const canvas = await renderPhotoToCanvas_(g, g.photos[i]);
+      downloadCanvasAsPng_(canvas, `${g.name || 'game'}_사진${i+1}.png`);
+    }catch(e){
+      alert(`${i+1}번째 사진을 만드는 중 문제가 발생했습니다: ` + e.message);
+      return;
+    }
+    // 브라우저가 다운로드를 팝업 차단 없이 순서대로 처리할 수 있도록 약간 간격을 둡니다.
+    await new Promise(r=>setTimeout(r, 350));
+  }
 }
 
 function prevPhoto(){ currentPhotoIdx = Math.max(0, currentPhotoIdx-1); renderPhotoTab(); }
@@ -2770,6 +3058,7 @@ async function saveGame(){
 Object.assign(window, {
   renderList, openGame, createNewGame, switchMode, setRole,
   prevPhoto, nextPhoto, uploadPhoto, deletePhoto, movePhoto, autoGenerateMarkers,
+  downloadGuideImage, downloadAllGuideImages,
   addCase, updateCaseType, updateCaseNote, updateItem, deleteItem, saveGame, doLogout,
   updateMarkerCaseType, updateMarkerItem, addMarkerItem, deleteMarkerItem, removeMarkerCase, duplicateMarkerCase,
   previewMarkerSize, updateMarkerSize,
