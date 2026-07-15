@@ -115,7 +115,12 @@
   .nav-zone-left{left:0; justify-content:flex-start; padding-left:12px; background:linear-gradient(to right, rgba(0,0,0,.16), transparent);}
   .nav-zone-right{right:0; justify-content:flex-end; padding-right:12px; background:linear-gradient(to left, rgba(0,0,0,.16), transparent);}
   .photo-nav{display:flex; align-items:center; gap:10px; margin-bottom:10px; flex-wrap:wrap;}
+  .toolbar-row{display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:8px;}
+  .toolbar-group{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+  .toolbar-divider{width:1px; align-self:stretch; min-height:24px; background:var(--line);}
+  @media (max-width:640px){ .toolbar-divider{display:none; width:100%; height:1px; min-height:0;} }
   .marker-size-control{display:flex; align-items:center; gap:8px; font-size:12px; color:var(--ink-soft);}
+  .marker-size-control label{min-width:60px;}
   .marker-size-control input[type=range]{width:110px;}
   .marker{position:absolute; width:var(--marker-size,24px); height:var(--marker-size,24px); border-radius:50%; background:var(--c,var(--accent)); border:2.5px solid #fff; box-shadow:0 1px 4px rgba(0,0,0,.35); transform:translate(-50%,-50%); cursor:grab; display:flex; align-items:center; justify-content:center; color:#fff; font-family:var(--mono); font-weight:700; font-size:calc(var(--marker-size,24px) * 0.46); z-index:5;}
   .line-layer{position:absolute; inset:0; pointer-events:none; z-index:1; overflow:visible;}
@@ -1753,19 +1758,31 @@ async function renderPhotoTab(){
 
   body.innerHTML = `
     ${uploadRowHtml}
-    <div class="photo-nav">
-      <button class="btn btn-ghost2" style="width:auto;" onclick="prevPhoto()" ${photos.length<2?'disabled':''}>◀</button>
-      <span style="font-size:12.5px; color:var(--ink-soft);">${currentPhotoIdx+1} / ${photos.length}</span>
-      <button class="btn btn-ghost2" style="width:auto;" onclick="nextPhoto()" ${photos.length<2?'disabled':''}>▶</button>
-      <button class="btn btn-ghost2" style="width:auto;" onclick="downloadGuideImage(currentPhotoIdx)" title="이 사진의 가이드 화면을 이미지로 저장합니다">🖼️ 이미지 다운로드</button>
-      ${photos.length>1 ? `<button class="btn btn-ghost2" style="width:auto;" onclick="downloadAllGuideImages()" title="사진 ${photos.length}장을 전부 이미지로 저장합니다">🖼️ 전체(${photos.length}장) 다운로드</button>` : ''}
-      ${editable ? `
+    <div class="toolbar-row">
+      <div class="toolbar-group">
+        <button class="btn btn-ghost2" style="width:auto;" onclick="prevPhoto()" ${photos.length<2?'disabled':''}>◀</button>
+        <span style="font-size:12.5px; color:var(--ink-soft); min-width:34px; text-align:center;">${currentPhotoIdx+1} / ${photos.length}</span>
+        <button class="btn btn-ghost2" style="width:auto;" onclick="nextPhoto()" ${photos.length<2?'disabled':''}>▶</button>
+      </div>
+      <div class="toolbar-divider"></div>
+      <div class="toolbar-group">
+        <button class="btn btn-ghost2" style="width:auto;" onclick="downloadGuideImage(currentPhotoIdx)" title="이 사진의 가이드 화면을 이미지로 저장합니다">🖼️ 이미지 다운로드</button>
+        ${photos.length>1 ? `<button class="btn btn-ghost2" style="width:auto;" onclick="downloadAllGuideImages()" title="사진 ${photos.length}장을 전부 이미지로 저장합니다">🖼️ 전체(${photos.length}장) 다운로드</button>` : ''}
+      </div>
+    </div>
+    ${editable ? `
+    <div class="toolbar-row">
+      <div class="toolbar-group">
         ${photos.length>1 ? `
           <button class="btn btn-ghost2" style="width:auto; padding:6px 9px; font-size:12px;" onclick="movePhoto(-1)" ${currentPhotoIdx===0?'disabled':''} title="사진 순서를 앞으로">◀ 순서</button>
           <button class="btn btn-ghost2" style="width:auto; padding:6px 9px; font-size:12px;" onclick="movePhoto(1)" ${currentPhotoIdx===photos.length-1?'disabled':''} title="사진 순서를 뒤로">순서 ▶</button>
         ` : ''}
         <button class="btn btn-ghost2" style="width:auto;" onclick="autoGenerateMarkers()" title="표에 있지만 사진에 마커가 없는 케이스를 자동으로 배치합니다">📍 표 기준 마커 자동 생성</button>
-        <div class="marker-size-control" style="margin-left:auto;">
+        <button class="btn btn-ghost2" style="width:auto;" onclick="deletePhoto()">🗑️ 사진 삭제</button>
+      </div>
+      <div class="toolbar-divider"></div>
+      <div class="toolbar-group slider-group-wrap">
+        <div class="marker-size-control">
           <label>마커 크기</label>
           <input type="range" min="16" max="44" value="${g.markerSize||24}" oninput="previewMarkerSize(this.value)" onchange="updateMarkerSize(this.value)">
         </div>
@@ -1773,9 +1790,9 @@ async function renderPhotoTab(){
           <label>연결선 굵기</label>
           <input type="range" min="1" max="6" step="0.5" value="${g.lineWidth||2.2}" oninput="previewLineWidth(this.value)" onchange="updateLineWidth(this.value)">
         </div>
-        <button class="btn btn-ghost2" style="width:auto;" onclick="deletePhoto()">사진 삭제</button>
-      ` : ''}
+      </div>
     </div>
+    ` : ''}
     <div class="photo-stage" id="photoStage" style="--marker-size:${g.markerSize||24}px; --conn-line-width:${g.lineWidth||2.2}px;">
       <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#999; font-size:12px;">불러오는 중...</div>
     </div>
