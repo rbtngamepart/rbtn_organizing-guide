@@ -1969,6 +1969,7 @@ function drawMarkers(stage, photo, editable){
           m.box.y = Math.max(0, Math.min(100, (ev.clientY-rect.top)/rect.height*100 - grabDy));
           box.style.left = m.box.x+'%';
           box.style.top = m.box.y+'%';
+          clampBoxToStage_(stage, box, m); // 드래그하는 동안에도 사진 밖으로 나가지 않게 붙잡아둡니다
           drawConnLine_(stage, lineLayer, mi, dot, box);
         };
         const up = ()=>{ window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
@@ -1983,6 +1984,7 @@ function drawMarkers(stage, photo, editable){
       `;
     }
     stage.appendChild(box);
+    clampBoxToStage_(stage, box, m); // 텍스트박스가 사진 오른쪽/아래쪽 밖으로 삐져나가지 않도록 보정
 
     // ---- 마커 ↔ 텍스트박스 연결선 ----
     // 둘 다 화면에 실제로 그려진 뒤, 두 요소를 똑같은 방식(getBoundingClientRect)으로
@@ -1997,6 +1999,28 @@ function drawMarkers(stage, photo, editable){
  * 잇는 점선을 순수 CSS(회전된 div)로 그립니다. (SVG 좌표계 관련 문제를 피하기 위해
  * 일부러 SVG를 쓰지 않습니다)
  */
+/** 텍스트박스가 사진 영역의 오른쪽/아래쪽(또는 왼쪽/위쪽) 밖으로 삐져나가지 않도록,
+ *  실제 렌더링된 박스 크기를 기준으로 위치를 안쪽으로 당겨줍니다. */
+function clampBoxToStage_(stage, box, m){
+  if (!m.box) return false;
+  const stageRect = stage.getBoundingClientRect();
+  const boxRect = box.getBoundingClientRect();
+  if (!stageRect.width || !stageRect.height) return false;
+  const boxWPct = (boxRect.width / stageRect.width) * 100;
+  const boxHPct = (boxRect.height / stageRect.height) * 100;
+  const maxX = Math.max(0, 100 - boxWPct);
+  const maxY = Math.max(0, 100 - boxHPct);
+  let x = Math.min(Math.max(m.box.x, 0), maxX);
+  let y = Math.min(Math.max(m.box.y, 0), maxY);
+  if (x !== m.box.x || y !== m.box.y){
+    m.box.x = x; m.box.y = y;
+    box.style.left = x+'%';
+    box.style.top = y+'%';
+    return true;
+  }
+  return false;
+}
+
 function drawConnLine_(stage, lineLayer, mi, dot, box){
   if (!lineLayer || !dot || !box) return;
   const stageRect = stage.getBoundingClientRect();
