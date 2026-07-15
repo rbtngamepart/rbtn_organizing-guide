@@ -44,8 +44,8 @@
   .topbar .btn-ghost2:hover{color:var(--ink); border-color:var(--ink-soft);}
   .topbar .btn-primary2{background:var(--accent); color:#fff; border:none;}
   .topbar .btn-primary2:hover{background:#B80F15;}
-  #roleToggle{display:flex; align-items:center; gap:6px; background:var(--bg); border:1px solid var(--line); border-radius:999px; padding:3px;}
-  #roleToggle button{border:none; background:transparent; padding:6px 12px; border-radius:999px; font-size:13px; font-weight:600; cursor:pointer; color:var(--ink-soft); font-family:var(--sans);}
+  #roleToggle{display:flex; align-items:center; gap:4px; background:var(--bg); border:1px solid var(--line); border-radius:999px; padding:3px;}
+  #roleToggle button{border:none; background:transparent; padding:6px 14px; border-radius:999px; font-size:12.5px; font-weight:700; cursor:pointer; color:var(--ink-soft); font-family:var(--sans);}
   #roleToggle button.active{background:var(--ink); color:#fff;}
 
   .app{max-width:1080px; margin:0 auto; padding:28px 24px 80px;}
@@ -56,6 +56,18 @@
   .game-card:hover{border-color:var(--accent); transform:translateY(-2px);}
   .game-card .name{font-weight:800; font-size:16px; letter-spacing:-0.01em; margin:0 0 6px;}
   .game-card .meta{font-size:11.5px; color:var(--ink-soft); font-family:var(--mono);}
+  .game-card.no-guide{opacity:.6;}
+  .game-card.no-guide:hover{opacity:.85;}
+  .game-card.no-guide .name{color:var(--ink-soft); font-weight:700;}
+  .card-select{width:15px; height:15px; accent-color:var(--accent); cursor:pointer; flex-shrink:0;}
+
+  .selection-panel{background:var(--surface); border:1px solid var(--accent); border-radius:12px; padding:14px 16px; margin-bottom:16px;}
+  .selection-head{display:flex; align-items:center; justify-content:space-between; font-size:13px; font-weight:700; margin-bottom:10px; flex-wrap:wrap; gap:8px;}
+  .selection-games{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px;}
+  .sel-chip{display:inline-flex; align-items:center; gap:5px; font-size:12px; padding:4px 6px 4px 9px; border-radius:999px; background:var(--bg); border:1px solid var(--line); color:var(--ink-soft);}
+  .sel-chip button{border:none; background:none; color:var(--ink-soft); cursor:pointer; font-size:11px; padding:0;}
+  .sel-chip button:hover{color:var(--danger);}
+  .selection-totals{display:flex; flex-wrap:wrap; gap:8px; padding-top:12px; border-top:1px solid var(--line);}
   .empty{text-align:center; padding:60px 20px; color:var(--ink-soft); border:1px dashed var(--line); border-radius:12px; font-size:14px;}
 
   .back{background:none; border:none; color:var(--ink-soft); font-size:13px; cursor:pointer; padding:0; margin-bottom:14px; font-family:var(--sans);}
@@ -81,7 +93,8 @@
   .tabs button{border:none; background:transparent; padding:8px 16px; border-radius:7px; font-size:13px; font-weight:700; cursor:pointer; color:var(--ink-soft); font-family:var(--sans);}
   .tabs button.active{background:var(--surface); color:var(--ink); box-shadow:0 1px 3px rgba(0,0,0,.08);}
 
-  .photo-stage{position:relative; width:100%; aspect-ratio:4/3; background-color:#EDEDE8; background-size:contain; background-position:center; background-repeat:no-repeat; border-radius:10px; overflow:hidden; border:1px solid var(--line);}
+  .photo-stage{position:relative; width:100%; aspect-ratio:4/3; background-color:#EDEDE8; background-size:contain; background-position:center; background-repeat:no-repeat; border-radius:10px; overflow:hidden; border:1px solid var(--line); transition:outline .1s;}
+  .photo-stage.dragover{outline:3px dashed var(--accent); outline-offset:-3px;}
   .nav-zone{position:absolute; top:0; bottom:0; width:40%; z-index:2; cursor:pointer; display:flex; align-items:center; font-size:30px; font-weight:700; color:#fff; text-shadow:0 1px 5px rgba(0,0,0,.6); opacity:0; transition:opacity .15s, background .15s;}
   .nav-zone:hover{opacity:1;}
   .nav-zone-left{left:0; justify-content:flex-start; padding-left:12px; background:linear-gradient(to right, rgba(0,0,0,.16), transparent);}
@@ -93,7 +106,7 @@
   .line-layer{position:absolute; inset:0; pointer-events:none; z-index:1; overflow:visible;}
   .conn-line{position:absolute; height:0; border-top:2.2px solid rgba(80,80,75,.85); transform-origin:0 0; pointer-events:none;}
   .marker:active{cursor:grabbing;}
-  .anno-box{position:absolute; background:rgba(255,255,255,.98); border:1px solid var(--line); border-left:4px solid var(--c, var(--line)); border-radius:8px; padding:8px 10px; min-width:150px; max-width:220px; box-shadow:0 3px 12px rgba(0,0,0,.2); font-size:11.5px; cursor:grab;}
+  .anno-box{position:absolute; z-index:4; background:rgba(255,255,255,.98); border:1px solid var(--line); border-left:4px solid var(--c, var(--line)); border-radius:8px; padding:8px 10px; min-width:150px; max-width:220px; box-shadow:0 3px 12px rgba(0,0,0,.2); font-size:11.5px; cursor:grab;}
   .anno-box.readonly{cursor:default;}
   .anno-box:active{cursor:grabbing;}
   .anno-head{display:flex; align-items:center; gap:6px; margin-bottom:6px; flex-wrap:wrap;}
@@ -236,9 +249,9 @@
     <div class="brand" style="margin:0;">RED BUTTON<span class="r-mark">®</span></div>
     <div style="flex:1;"></div>
     <span id="roleLabel" style="font-size:12px; color:var(--ink-soft);"></span>
-    <div id="roleToggle" style="display:none; gap:4px; border:1px solid var(--line); border-radius:7px; padding:2px;">
-      <button id="roleViewerBtn" onclick="setRole('viewer')" style="border:none; background:none; padding:5px 10px; font-size:12px; border-radius:5px; cursor:pointer;">뷰어</button>
-      <button id="roleEditorBtn" onclick="setRole('editor')" style="border:none; background:none; padding:5px 10px; font-size:12px; border-radius:5px; cursor:pointer;">편집자</button>
+    <div id="roleToggle" style="display:none;">
+      <button id="roleViewerBtn" onclick="setRole('viewer')">뷰어</button>
+      <button id="roleEditorBtn" onclick="setRole('editor')">편집자</button>
     </div>
     <button class="btn btn-ghost2" onclick="renderList()">← 목록</button>
     <button class="btn btn-primary2" id="newGameBtn" style="display:none;" onclick="createNewGame()">+ 새 게임</button>
@@ -1173,7 +1186,7 @@ function openHelpModal(){
       <h4 style="font-size:13px; margin:16px 0 8px;">🙋 뷰어(매장) 안내</h4>
       <ul class="help-list">
         <li><b>게임 찾기</b> — 목록 상단 검색창에 이름(초성도 가능)을 입력하면 바로 필터링됩니다.</li>
-        <li><b>사진 탭</b> — 실제 사진 위에 케이스종류(알파벳)와 위치가 표시됩니다. 점선으로 표시된 라벨은 실제 라벨기 인쇄 모습입니다.</li>
+        <li><b>사진 탭</b> — 실제 사진 위에 케이스종류(알파벳)와 위치가 표시됩니다. 점선으로 표시된 라벨은 실제 라벨기 인쇄 모습입니다. 사진이 여러 장이면 좌우를 클릭하거나 화면을 좌우로 밀어서 넘길 수 있습니다.</li>
         <li><b>표 탭</b> — 케이스종류·구성품·수량·비고를 표로 확인할 수 있습니다.</li>
         <li><b>작업 완료 체크</b> — 목록 카드에서 체크하면 내 계정 기준으로 완료 여부가 저장됩니다.</li>
         <li><b>구매 가이드</b> — 상단 "🛒 구매 가이드"에서 필요한 케이스 수량과 구매 링크를 확인할 수 있습니다.</li>
@@ -1183,9 +1196,11 @@ function openHelpModal(){
       <h4 style="font-size:13px; margin:16px 0 8px;">✏️ 편집자 안내</h4>
       <ul class="help-list">
         <li><b>새 게임 추가</b> — 상단 "+ 새 게임"으로 이름을 입력해 생성합니다.</li>
-        <li><b>사진 업로드</b> — 사진 탭에서 파일 선택 후 자르기·회전(90도씩)·전체 축소(여백 포함) 편집창이 뜹니다. 실제 저장될 모습을 미리 볼 수 있습니다.</li>
-        <li><b>마커·텍스트박스</b> — 사진의 빈 곳을 더블클릭하면 마커(알파벳 원)와 텍스트박스가 함께 생깁니다. 각각 드래그로 옮길 수 있고, 텍스트박스에서 케이스종류·구성품·수량·비고를 바로 수정할 수 있습니다. ✕로 마커+케이스를 통째로 삭제합니다.</li>
-        <li><b>라벨</b> — 텍스트박스의 "라벨 만들기"로 실제 인쇄 미리보기(검정 바탕 흰 글씨)를 만듭니다. 드래그 이동, 글자 클릭 후 직접 수정, A-/A+ 글자 크기, ⟳ 90도 회전, 손잡이로 크기 조절이 가능합니다. 다른 라벨과 가장자리·중앙이 맞으면 빨간 점선으로 자동 정렬(스냅)됩니다.</li>
+        <li><b>사진 업로드</b> — 사진 탭에서 파일 선택 후 자르기·회전(90도씩)·전체 축소(여백 포함) 편집창이 뜹니다. 실제 저장될 모습을 미리 볼 수 있습니다. 사진 영역에 파일을 끌어다 놓아도 업로드됩니다.</li>
+        <li><b>여러 장의 사진</b> — 사진을 여러 장 올린 경우 "◀ 순서"/"순서 ▶"로 순서를 바꿀 수 있습니다.</li>
+        <li><b>표 기준 마커 자동 생성</b> — 표에는 있지만 아직 사진에 마커가 없는 케이스들을 한 번에 격자로 배치합니다. 이후 드래그로 실제 위치에 맞게 옮겨주세요.</li>
+        <li><b>마커·텍스트박스</b> — 사진의 빈 곳을 더블클릭하면 마커(알파벳 원)와 텍스트박스가 함께 생깁니다. 각각 드래그로 옮길 수 있고, 텍스트박스에서 케이스종류·구성품·수량·비고를 바로 수정할 수 있습니다. "복제"로 통째로 복제하거나, ✕로 마커+케이스를 통째로 삭제합니다.</li>
+        <li><b>라벨</b> — 텍스트박스의 "라벨 만들기"로 실제 인쇄 미리보기(검정 바탕 흰 글씨)를 만듭니다. 드래그 이동, 글자 클릭 후 직접 수정, A-/A+ 글자 크기, ⟳ 90도 회전, ⧉ 복제, 손잡이로 크기 조절이 가능합니다. 다른 라벨과 가장자리·중앙이 맞으면 빨간 점선으로 자동 정렬(스냅)됩니다.</li>
         <li><b>표 편집</b> — 표 탭에서 케이스 추가/삭제, 구성품·수량·비고를 직접 입력합니다.</li>
         <li><b>저장 · 이전 버전</b> — 제목 옆 "💾 저장"으로 저장하고, "🕐 이전 버전"으로 최근 5개까지 되돌릴 수 있습니다.</li>
         <li><b>동시 편집</b> — 같은 게임을 다른 편집자도 보고 있으면 노란 배너로 알려줍니다. 이미 편집 중인 게임에 들어가면 "넘겨받으시겠습니까?" 확인 후 진행됩니다.</li>
@@ -1269,6 +1284,7 @@ async function toggleGuideDoneFor(checkbox, gameId){
 
 let listSearch_ = '';
 let listSort_ = 'name'; // 'name' | 'updated'
+let listSelectedIds_ = new Set(); // 목록에서 체크한 게임들 (필요 케이스 합계 확인용)
 
 function renderList(){
   leavePresence_();
@@ -1283,6 +1299,7 @@ function renderList(){
         <option value="updated" ${listSort_==='updated'?'selected':''}>최근 수정순</option>
       </select>
     </div>
+    <div id="listSelectionSlot"></div>
     <div class="game-list" id="gameListResults"></div>
   `;
 
@@ -1302,6 +1319,7 @@ function renderList(){
 
 function renderGameListResults_(){
   const container = document.getElementById('gameListResults');
+  const selectionSlot = document.getElementById('listSelectionSlot');
   if (!container) return;
   const editable = currentRole === 'editor';
   const myEmail = auth.currentUser?.email?.toLowerCase();
@@ -1312,13 +1330,20 @@ function renderGameListResults_(){
     return String(a.name||'').localeCompare(String(b.name||''), 'ko');
   });
 
+  if (selectionSlot) selectionSlot.innerHTML = listSelectedIds_.size > 0 ? renderListSelectionSummary_() : '';
+
   container.innerHTML = filtered.length ? filtered.map(g=>{
     const done = myEmail && (g.completedBy||[]).includes(myEmail);
+    const checked = listSelectedIds_.has(String(g.id));
     return `
-    <div class="game-card" style="position:relative;">
+    <div class="game-card ${g.guideDone ? '' : 'no-guide'}" style="position:relative;">
+      <div style="display:flex; align-items:center; gap:7px; margin-bottom:2px;">
+        <input type="checkbox" class="card-select" ${checked?'checked':''} onclick="event.stopPropagation();" onchange="toggleGameSelect_('${g.id}')" title="선택해서 필요 케이스 모아보기">
+        <div class="meta" style="flex:1;">ID ${g.id}</div>
+      </div>
       <div onclick="openGame('${g.id}')" style="cursor:pointer;">
-        <div class="name">${g.name || '(이름 없음)'} ${g.guideDone ? '<span style="color:var(--accent); font-size:11px;">● 가이드완료</span>' : ''}</div>
-        <div class="meta">케이스 ${(g.cases||[]).length}개</div>
+        <div class="name">${g.name || '(이름 없음)'}</div>
+        <div class="meta">케이스 ${(g.cases||[]).length}개${g.guideDone ? '' : ' · 가이드 준비중'}</div>
       </div>
       <label style="display:flex; align-items:center; gap:5px; margin-top:8px; font-size:11.5px; color:var(--ink-soft); cursor:pointer;">
         <input type="checkbox" ${done?'checked':''} onclick="event.stopPropagation(); toggleWorkComplete('${g.id}', this.checked)"> 작업 완료
@@ -1326,6 +1351,41 @@ function renderGameListResults_(){
       ${editable ? `<button onclick="event.stopPropagation(); deleteGame('${g.id}')" style="position:absolute; top:12px; right:12px; border:none; background:none; color:var(--ink-soft); cursor:pointer; font-size:13px;">✕</button>` : ''}
     </div>
   `;}).join('') : '<div class="empty">검색 결과가 없습니다.</div>';
+}
+
+/** 목록 카드의 체크박스로 게임을 선택/해제하고, 선택된 게임들의 필요 케이스 합계를 갱신합니다. */
+function toggleGameSelect_(id){
+  id = String(id);
+  if (listSelectedIds_.has(id)) listSelectedIds_.delete(id);
+  else listSelectedIds_.add(id);
+  renderGameListResults_();
+}
+
+function clearListSelection_(){
+  listSelectedIds_.clear();
+  renderGameListResults_();
+}
+
+function renderListSelectionSummary_(){
+  const selected = games.filter(g => listSelectedIds_.has(String(g.id)));
+  const counts = {};
+  selected.forEach(g => (g.cases||[]).forEach(c => { counts[c.caseType] = (counts[c.caseType]||0) + 1; }));
+  const types = Object.keys(counts).sort();
+
+  return `<div class="selection-panel">
+    <div class="selection-head">
+      <span>${selected.length}개 게임 선택됨 · 필요한 케이스 합계</span>
+      <button class="btn btn-ghost2" style="width:auto; padding:4px 10px; font-size:12px;" onclick="clearListSelection_()">선택 해제</button>
+    </div>
+    <div class="selection-games">
+      ${selected.map(g=>`<span class="sel-chip">${g.name}<button onclick="toggleGameSelect_('${g.id}')">✕</button></span>`).join('')}
+    </div>
+    <div class="selection-totals">
+      ${types.length
+        ? types.map(t=>`<span class="case-badge case-${t}">${t} · ${counts[t]}개</span>`).join('')
+        : '<span style="color:var(--ink-soft); font-size:13px;">선택한 게임에 등록된 케이스가 없습니다.</span>'}
+    </div>
+  </div>`;
 }
 
 async function toggleWorkComplete(gameId, checked){
@@ -1464,6 +1524,11 @@ async function renderPhotoTab(){
       <span style="font-size:12.5px; color:var(--ink-soft);">${currentPhotoIdx+1} / ${photos.length}</span>
       <button class="btn btn-ghost2" style="width:auto;" onclick="nextPhoto()" ${photos.length<2?'disabled':''}>▶</button>
       ${editable ? `
+        ${photos.length>1 ? `
+          <button class="btn btn-ghost2" style="width:auto; padding:6px 9px; font-size:12px;" onclick="movePhoto(-1)" ${currentPhotoIdx===0?'disabled':''} title="사진 순서를 앞으로">◀ 순서</button>
+          <button class="btn btn-ghost2" style="width:auto; padding:6px 9px; font-size:12px;" onclick="movePhoto(1)" ${currentPhotoIdx===photos.length-1?'disabled':''} title="사진 순서를 뒤로">순서 ▶</button>
+        ` : ''}
+        <button class="btn btn-ghost2" style="width:auto;" onclick="autoGenerateMarkers()" title="표에 있지만 사진에 마커가 없는 케이스를 자동으로 배치합니다">📍 표 기준 마커 자동 생성</button>
         <div class="marker-size-control" style="margin-left:auto;">
           <label>마커 크기</label>
           <input type="range" min="16" max="44" value="${g.markerSize||24}" oninput="previewMarkerSize(this.value)" onchange="updateMarkerSize(this.value)">
@@ -1474,8 +1539,8 @@ async function renderPhotoTab(){
     <div class="photo-stage" id="photoStage" style="--marker-size:${g.markerSize||24}px;">
       <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#999; font-size:12px;">불러오는 중...</div>
     </div>
-    ${editable ? `<p style="margin-top:8px; font-size:11.5px;">사진의 빈 곳을 더블클릭하면 새 마커와 텍스트박스가 추가됩니다. 마커와 텍스트박스는 각각 드래그로 옮길 수 있고, 텍스트박스 안에서 케이스종류·구성품·수량을 바로 수정할 수 있습니다.</p>` : ''}
-    ${!editable && photos.length>1 ? `<p style="margin-top:8px; font-size:11.5px; color:var(--ink-soft);">사진 좌우를 클릭하면 이전/다음 사진으로 넘길 수 있습니다.</p>` : ''}
+    ${editable ? `<p style="margin-top:8px; font-size:11.5px;">사진의 빈 곳을 더블클릭하면 새 마커와 텍스트박스가 추가됩니다. 마커와 텍스트박스는 각각 드래그로 옮길 수 있고, 텍스트박스 안에서 케이스종류·구성품·수량을 바로 수정할 수 있습니다. 사진 영역에 파일을 끌어다 놓아도 업로드됩니다.</p>` : ''}
+    ${!editable && photos.length>1 ? `<p style="margin-top:8px; font-size:11.5px; color:var(--ink-soft);">사진 좌우를 클릭하거나 화면을 좌우로 밀면 이전/다음 사진으로 넘어갑니다.</p>` : ''}
   `;
 
   const url = await resolvePhotoUrl_(photo.storagePath);
@@ -1505,6 +1570,29 @@ async function renderPhotoTab(){
       drawMarkers(stage, photo, editable);
       drawLabels(stage, photo, editable);
     };
+
+    // 사진 영역에 파일을 끌어다 놓아도 업로드할 수 있습니다.
+    stage.addEventListener('dragover', e=>{ e.preventDefault(); stage.classList.add('dragover'); });
+    stage.addEventListener('dragleave', ()=> stage.classList.remove('dragover'));
+    stage.addEventListener('drop', e=>{
+      e.preventDefault();
+      stage.classList.remove('dragover');
+      const file = e.dataTransfer.files && e.dataTransfer.files[0];
+      if (file && file.type.startsWith('image/')) openCropModal_(file);
+      else alert('이미지 파일만 업로드할 수 있습니다.');
+    });
+  } else if (photos.length > 1) {
+    // 뷰어: 좌우로 밀어서(스와이프) 사진 넘기기 (모바일 터치 대응). 클릭 영역(nav-zone)과 함께 동작합니다.
+    let swipeStartX = null, swipeStartY = null;
+    stage.addEventListener('pointerdown', e=>{ swipeStartX = e.clientX; swipeStartY = e.clientY; });
+    stage.addEventListener('pointerup', e=>{
+      if (swipeStartX === null) return;
+      const dx = e.clientX - swipeStartX;
+      const dy = e.clientY - swipeStartY;
+      swipeStartX = null; swipeStartY = null;
+      if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy) * 1.5) return; // 가로 스와이프가 아니면 무시
+      if (dx < 0) nextPhoto(); else prevPhoto();
+    });
   }
 }
 
@@ -1570,6 +1658,7 @@ function drawMarkers(stage, photo, editable){
         <textarea placeholder="비고 (선택)" rows="2" style="width:100%; margin-top:6px; padding:4px 6px; font-size:11px; border:1px solid var(--line); border-radius:4px; box-sizing:border-box; font-family:var(--sans); resize:vertical;"
           onchange="updateCaseNote(${m.caseIdx}, this.value)">${c.note||''}</textarea>
         <button class="anno-label-btn" onclick="createLabelFromMarker(${mi})">라벨 만들기</button>
+        <button class="anno-label-btn" onclick="duplicateMarkerCase(${mi})" title="이 텍스트박스(케이스) 복제">복제</button>
       `;
       // 박스 자체를 드래그로 옮기기 (입력창/버튼 클릭은 제외)
       box.addEventListener('pointerdown', (e)=>{
@@ -1727,6 +1816,24 @@ function redrawCurrentPhoto_(){
   drawLabels(stage, photo, editable);
 }
 
+/** 마커+텍스트박스(케이스)를 통째로 복제합니다. 새 케이스는 조금 옆으로 어긋난 위치에 생깁니다. */
+function duplicateMarkerCase(mi){
+  const g = games.find(x=>x.id===currentGameId);
+  const photo = g.photos[currentPhotoIdx];
+  const m = photo.markers[mi];
+  const c = g.cases[m.caseIdx];
+  if (!c) return;
+
+  const newCase = JSON.parse(JSON.stringify(c));
+  g.cases.push(newCase);
+
+  const newMarker = { x: Math.min(97, m.x + 5), y: Math.min(95, m.y + 5), caseIdx: g.cases.length - 1 };
+  if (m.box) newMarker.box = { x: Math.min(97, m.box.x + 5), y: Math.min(95, m.box.y + 4) };
+  photo.markers.push(newMarker);
+
+  redrawCurrentPhoto_();
+}
+
 // ---- 라벨 (실제 라벨기 인쇄 미리보기: 검정 바탕 흰 글씨) ----
 function createLabelFromMarker(mi){
   const g = games.find(x=>x.id===currentGameId);
@@ -1806,6 +1913,7 @@ function drawLabels(stage, photo, editable){
         <button onclick="changeLabelFontSize(${li},-1)">A-</button>
         <button onclick="changeLabelFontSize(${li},1)">A+</button>
         <button onclick="rotateLabel(${li})">⟳</button>
+        <button title="라벨 복제" onclick="duplicateLabel(${li})">⧉</button>
         <button onclick="deleteLabel(${li})">✕</button>
       `;
       toolbar.querySelector('.label-drag').addEventListener('pointerdown', (e)=>{
@@ -1916,6 +2024,19 @@ function deleteLabel(li){
   const g = games.find(x=>x.id===currentGameId);
   const photo = g.photos[currentPhotoIdx];
   photo.labels.splice(li, 1);
+  redrawCurrentPhoto_();
+}
+
+/** 라벨을 복제합니다. 새 라벨은 원본에서 살짝 어긋난 위치에 생깁니다. */
+function duplicateLabel(li){
+  const g = games.find(x=>x.id===currentGameId);
+  const photo = g.photos[currentPhotoIdx];
+  const lbl = photo.labels[li];
+  if (!lbl) return;
+  const newLbl = JSON.parse(JSON.stringify(lbl));
+  newLbl.x = Math.min(94, (lbl.x||0) + 5);
+  newLbl.y = Math.min(94, (lbl.y||0) + 5);
+  photo.labels.push(newLbl);
   redrawCurrentPhoto_();
 }
 
@@ -2208,6 +2329,63 @@ async function deletePhoto(){
   currentPhotoIdx = 0;
   await persistGame_(g);
   renderPhotoTab();
+}
+
+/** 사진 순서를 앞/뒤로 바꿉니다. 마커·라벨은 사진 객체 안에 함께 들어있어서 자동으로 같이 이동합니다.
+ *  (다른 사진 편집사항과 마찬가지로, 화면에는 바로 반영되고 "저장" 버튼을 눌러야 실제로 저장됩니다) */
+function movePhoto(direction){
+  const g = games.find(x=>x.id===currentGameId);
+  const newIdx = currentPhotoIdx + direction;
+  if (!g.photos || newIdx < 0 || newIdx >= g.photos.length) return;
+  const tmp = g.photos[currentPhotoIdx];
+  g.photos[currentPhotoIdx] = g.photos[newIdx];
+  g.photos[newIdx] = tmp;
+  currentPhotoIdx = newIdx;
+  renderPhotoTab();
+}
+
+/** 표에는 있지만 아직 사진에 마커가 없는 케이스들을, 격자 형태로 자동 배치합니다.
+ *  위치는 대략적인 시작점일 뿐이니, 실제 배치에 맞게 드래그로 옮겨주는 걸 전제로 합니다. */
+function autoGenerateMarkers(){
+  const g = games.find(x=>x.id===currentGameId);
+  const photo = g.photos[currentPhotoIdx];
+  if (!photo) return;
+
+  const placedCaseIdx = new Set();
+  (g.photos||[]).forEach(p => (p.markers||[]).forEach(m => placedCaseIdx.add(m.caseIdx)));
+
+  const missing = [];
+  (g.cases||[]).forEach((c, ci) => { if (!placedCaseIdx.has(ci)) missing.push(ci); });
+
+  if (missing.length === 0){
+    alert('이미 모든 케이스에 마커가 있습니다.');
+    return;
+  }
+
+  const positions = computeGridPositions_(missing.length);
+  photo.markers = photo.markers || [];
+  missing.forEach((ci, i) => {
+    const x = positions[i].x, y = positions[i].y;
+    const boxX = x < 60 ? Math.min(97, x+8) : Math.max(3, x-8);
+    const boxY = Math.max(5, Math.min(90, y-4));
+    photo.markers.push({ x, y, caseIdx: ci, box:{x:boxX, y:boxY} });
+  });
+
+  renderPhotoTab();
+  alert(missing.length + '개 마커를 자동 생성했습니다. 위치를 드래그해서 실제 배치에 맞게 옮겨주세요.');
+}
+
+function computeGridPositions_(count){
+  const cols = Math.max(1, Math.ceil(Math.sqrt(count)));
+  const rows = Math.max(1, Math.ceil(count / cols));
+  const positions = [];
+  for (let i = 0; i < count; i++){
+    const col = i % cols, row = Math.floor(i / cols);
+    const x = cols === 1 ? 50 : 12 + col * (76 / (cols - 1));
+    const y = rows === 1 ? 50 : 12 + row * (76 / (rows - 1));
+    positions.push({ x, y });
+  }
+  return positions;
 }
 
 /**
@@ -2547,14 +2725,14 @@ async function saveGame(){
 // 전역에 노출 (onclick에서 호출하기 위함 - type="module"은 기본적으로 전역 스코프가 아니라서 필요)
 Object.assign(window, {
   renderList, openGame, createNewGame, switchMode, setRole,
-  prevPhoto, nextPhoto, uploadPhoto, deletePhoto,
+  prevPhoto, nextPhoto, uploadPhoto, deletePhoto, movePhoto, autoGenerateMarkers,
   addCase, updateCaseType, updateCaseNote, updateItem, deleteItem, saveGame, doLogout,
-  updateMarkerCaseType, updateMarkerItem, addMarkerItem, deleteMarkerItem, removeMarkerCase,
+  updateMarkerCaseType, updateMarkerItem, addMarkerItem, deleteMarkerItem, removeMarkerCase, duplicateMarkerCase,
   previewMarkerSize, updateMarkerSize,
-  createLabelFromMarker, changeLabelFontSize, rotateLabel, deleteLabel,
+  createLabelFromMarker, changeLabelFontSize, rotateLabel, deleteLabel, duplicateLabel,
   rotateCrop_, closeCropModal_, applyCropAndUpload_,
   showHistoryModal_, restoreHistory_,
-  toggleWorkComplete, deleteGame,
+  toggleWorkComplete, deleteGame, toggleGameSelect_, clearListSelection_,
   toggleGuideDone, updateGameNote,
   openDashboard, closeDashboard, setDashboardFilter, toggleGuideDoneFor,
   openAccessManagement, approveRequest, rejectRequest, addDirectAccess, removeAccess, addStore, removeStore,
