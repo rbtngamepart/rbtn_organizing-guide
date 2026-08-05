@@ -273,6 +273,8 @@
 <div id="appRoot" style="display:none;">
   <div class="topbar">
     <div class="brand" style="margin:0;">RED BUTTON<span class="r-mark">®</span></div>
+    <input type="text" id="topSearchInput" placeholder="게임 이름 검색 (초성 가능)" oninput="onTopSearchInput(this.value)"
+      style="width:220px; padding:8px 12px; border:1px solid var(--line); border-radius:8px; font-size:13px; font-family:var(--sans);">
     <div style="flex:1;"></div>
     <span id="roleLabel" style="font-size:12px; color:var(--ink-soft);"></span>
     <div id="roleToggle" style="display:none;">
@@ -1587,8 +1589,6 @@ function renderList(){
 
   appEl.innerHTML = `
     <div style="display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;">
-      <input type="text" id="listSearchInput" placeholder="게임 이름 검색 (초성 가능)" value="${listSearch_}"
-        style="flex:1; min-width:200px; padding:9px 12px; border:1px solid var(--line); border-radius:8px; font-size:13px;">
       <select id="listSortSelect" style="padding:9px 10px; border:1px solid var(--line); border-radius:8px; font-size:13px;">
         <option value="name" ${listSort_==='name'?'selected':''}>이름순</option>
         <option value="updated" ${listSort_==='updated'?'selected':''}>최근 수정순</option>
@@ -1603,12 +1603,8 @@ function renderList(){
     <div class="game-list" id="gameListResults"></div>
   `;
 
-  // 검색창은 매 입력마다 다시 만들지 않고(oninput으로 전체를 다시 그리면 한글 조합이
-  // 깨집니다), 결과 목록만 갱신합니다.
-  document.getElementById('listSearchInput').addEventListener('input', (e)=>{
-    listSearch_ = e.target.value;
-    renderGameListResults_();
-  });
+  // 검색창은 상단바에 고정으로 있는 걸 그대로 씁니다 (게임 상세 화면 등 어디에 있든
+  // 계속 보이고, 입력하는 즉시 이 목록 화면으로 돌아와 이어서 검색됩니다).
   document.getElementById('listSortSelect').addEventListener('change', (e)=>{
     listSort_ = e.target.value;
     renderGameListResults_();
@@ -1621,6 +1617,17 @@ function setListWorkFilter_(v){
   listWorkFilter_ = v;
   document.querySelectorAll('#listWorkFilterTabs button').forEach(b=>b.classList.toggle('active', b.dataset.v===v));
   renderGameListResults_();
+}
+
+/** 상단바 검색창(어느 화면에 있든 항상 보임)에 입력하면, 목록 화면이 아니면 목록으로
+ *  전환하면서 바로 그 검색어로 이어서 필터링합니다. */
+function onTopSearchInput(v){
+  listSearch_ = v;
+  if (document.getElementById('gameListResults')){
+    renderGameListResults_(); // 이미 목록 화면이면 결과만 가볍게 갱신
+  } else {
+    renderList(); // 다른 화면(게임 상세 등)이면 목록으로 전환
+  }
 }
 
 function renderGameListResults_(){
@@ -1784,9 +1791,9 @@ function renderDetail(){
       <div>
         ${editable ? `
           <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:4px;">
-            <input type="text" value="${g.name || ''}" oninput="updateGameName(this.value)"
-              style="font-size:19px; font-weight:800; font-family:var(--sans); border:1px solid var(--line); border-radius:6px; padding:3px 8px; min-width:160px;">
+            <h2 style="margin:0;">${g.name || '(이름 없음)'}</h2>
             <span style="font-size:12px; font-weight:600; font-family:var(--sans); color:var(--ink-mid);">ID ${g.id}</span>
+            <button class="btn btn-ghost2" style="width:auto; padding:3px 8px; font-size:11px;" onclick="changeGameName_()">이름 변경</button>
             <button class="btn btn-ghost2" style="width:auto; padding:3px 8px; font-size:11px;" onclick="changeGameId_()">ID 변경</button>
           </div>
         ` : `<h2 style="margin:0 0 4px;">${g.name} <span style="font-size:12px; font-weight:600; font-family:var(--sans); color:var(--ink-mid);">ID ${g.id}</span></h2>`}
@@ -1827,9 +1834,23 @@ function updateGameNote(v){
   g.note = v; // 저장 버튼 누를 때 같이 반영됩니다.
 }
 
-function updateGameName(v){
+/** 게임 이름을 바꿉니다. 실수로 바뀌지 않도록, ID 변경처럼 별도 버튼 → 입력창 → 확인 절차를 거칩니다. */
+async function changeGameName_(){
   const g = games.find(x=>x.id===currentGameId);
-  g.name = v; // 저장 버튼 누를 때 같이 반영됩니다.
+  if (!g) return;
+  const newName = prompt(`새 게임 이름을 입력하세요 (현재: ${g.name || ''}):`, g.name || '');
+  if (newName === null) return; // 취소
+  const trimmed = newName.trim();
+  if (!trimmed || trimmed === g.name) return;
+  if (!confirm(`게임 이름을 "${g.name || '(이름 없음)'}" → "${trimmed}"로 변경하시겠습니까?`)) return;
+
+  try{
+    g.name = trimmed;
+    await updateDoc(doc(db, 'games', g.id), { name: trimmed, updatedAt: Date.now() });
+    renderDetail();
+  }catch(e){
+    alert('이름 변경 중 문제가 발생했습니다: ' + e.message);
+  }
 }
 
 /**
@@ -3565,8 +3586,8 @@ Object.assign(window, {
   createLabelFromMarker, changeLabelFontSize, rotateLabel, deleteLabel, duplicateLabel,
   rotateCrop_, closeCropModal_, applyCropAndUpload_,
   showHistoryModal_, restoreHistory_,
-  toggleWorkComplete, deleteGame, toggleGameSelect_, clearListSelection_, setListWorkFilter_,
-  toggleGuideDone, updateGameNote, updateGameName, changeGameId_,
+  toggleWorkComplete, deleteGame, toggleGameSelect_, clearListSelection_, setListWorkFilter_, onTopSearchInput,
+  toggleGuideDone, updateGameNote, changeGameName_, changeGameId_,
   openDashboard, closeDashboard, setDashboardFilter, toggleGuideDoneFor,
   openAccessManagement, approveRequest, rejectRequest, addDirectAccess, removeAccess, addStore, removeStore,
   openMigrationTool, startMigration_,
