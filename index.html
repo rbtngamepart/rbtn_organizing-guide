@@ -2010,6 +2010,9 @@ async function renderPhotoTab(){
 
 function drawMarkers(stage, photo, editable){
   const g = games.find(x=>x.id===currentGameId);
+  // 표 탭 등에서 케이스가 삭제됐는데도 마커만 남아있는 경우(더 이상 존재하지 않는 케이스를
+  // 가리키는 마커)는, 화면에 빈 빨간 원으로 나오지 않도록 여기서 걸러냅니다.
+  photo.markers = (photo.markers||[]).filter(m => g.cases[m.caseIdx] !== undefined);
   stage.querySelectorAll('.marker, .anno-box').forEach(el=>el.remove());
   const lineLayer = stage.querySelector('#lineLayer');
   if (lineLayer) lineLayer.innerHTML = '';
@@ -2293,17 +2296,25 @@ function deleteMarkerItem(mi, ii){
   if (items.length === 0) items.push({name:'', qty:1}); // 최소 한 줄은 유지 (완전히 비면 편집이 어려움)
   redrawCurrentPhoto_();
 }
+/** 케이스 하나를 통째로 삭제하고, 모든 사진의 마커 참조(caseIdx)를 같이 정리합니다.
+ *  (그 케이스를 가리키던 마커는 함께 지우고, 뒤에 있던 케이스들의 인덱스는 하나씩 당깁니다) */
+function removeCaseAndFixMarkers_(g, caseIdx){
+  g.cases.splice(caseIdx, 1);
+  g.photos.forEach(p=>{
+    p.markers = (p.markers||[]).filter(m=>{
+      if (m.caseIdx === caseIdx) return false; // 이 케이스를 가리키던 마커는 함께 삭제
+      if (m.caseIdx > caseIdx) m.caseIdx--; // 뒤 인덱스는 하나씩 당김
+      return true;
+    });
+  });
+}
+
 function removeMarkerCase(mi){
   if (!confirm('이 마커와 케이스를 삭제할까요?')) return;
   const g = games.find(x=>x.id===currentGameId);
   const photo = g.photos[currentPhotoIdx];
   const caseIdx = photo.markers[mi].caseIdx;
-  photo.markers.splice(mi, 1);
-  g.cases.splice(caseIdx, 1);
-  // 뒤에 있던 케이스들의 인덱스가 하나씩 당겨지므로, 모든 사진의 마커 참조를 보정합니다.
-  g.photos.forEach(p=>{
-    (p.markers||[]).forEach(m=>{ if (m.caseIdx > caseIdx) m.caseIdx--; });
-  });
+  removeCaseAndFixMarkers_(g, caseIdx);
   redrawCurrentPhoto_();
 }
 function redrawCurrentPhoto_(){
@@ -3532,7 +3543,7 @@ function updateItem(ci, ii, field, val){
 function deleteItem(ci, ii){
   const g = games.find(x=>x.id===currentGameId);
   g.cases[ci].items.splice(ii, 1);
-  if (g.cases[ci].items.length === 0) g.cases.splice(ci, 1);
+  if (g.cases[ci].items.length === 0) removeCaseAndFixMarkers_(g, ci);
   renderTableTab();
 }
 
