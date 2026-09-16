@@ -166,7 +166,9 @@
   .rg-view-row:last-child{border-bottom:none;}
   .rg-notice{margin-top:18px; padding:14px; background:var(--bg); border-radius:10px; font-size:12.5px; color:var(--ink-soft); border:1px solid var(--line);}
   .rg-notice ul{margin:6px 0 0; padding-left:18px;}
-  .rg-photo-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(150px,1fr)); gap:10px; margin-bottom:20px;}
+  .rg-photo-grid{display:grid; gap:10px; margin-bottom:20px;}
+  .rg-photo-grid.rg-photo-large{grid-template-columns:repeat(auto-fit, minmax(280px,1fr));}
+  .rg-photo-grid.rg-photo-compact{grid-template-columns:repeat(auto-fill, minmax(150px,1fr));}
   .rg-photo-cell{position:relative; aspect-ratio:4/3; border-radius:8px; overflow:hidden; border:1px solid var(--line); background:#EDEDE8; display:flex; align-items:center; justify-content:center; cursor:zoom-in;}
   .rg-photo-cell img{width:100%; height:100%; object-fit:contain; display:block;}
   .rg-photo-cell .rg-photo-loading{font-size:11px; color:var(--ink-soft);}
@@ -3905,13 +3907,15 @@ function rgPhotoControl_(section, idx, photo){
   ` : `<button class="anno-item-photo-btn" onclick="triggerReturnPhotoUpload_('${section}',${idx})">📷 사진</button>`;
 }
 
-/** "사진" 탭에 이미 정리된 자료(마커·텍스트박스·라벨 포함)를, 작은 격자로 한눈에 볼 수 있게
- *  보여줍니다. 하나씩 탭하면 그 사진만 원래 크기로 확대해서 봅니다 (라이트박스). */
+/** "사진" 탭에 이미 정리된 자료(마커·텍스트박스·라벨 포함)를 보여줍니다. 사진이 1~2장이면
+ *  크게 나란히, 3장 이상이면 촘촘한 격자로 자동 전환됩니다. 어느 쪽이든 탭하면 원래
+ *  크기로 확대해서 봅니다 (라이트박스). */
 function renderReturnGuidePhotoGridHtml_(g){
   if (!g.photos || !g.photos.length) return '';
+  const sizeClass = g.photos.length <= 2 ? 'rg-photo-large' : 'rg-photo-compact';
   return `
     <h3 style="font-size:14px; margin:0 0 10px;">📷 정리된 사진 (탭하면 크게 볼 수 있습니다)</h3>
-    <div class="rg-photo-grid">
+    <div class="rg-photo-grid ${sizeClass}">
       ${g.photos.map((p,i)=>`<div class="rg-photo-cell" id="rgPhotoCell${i}"><span class="rg-photo-loading">불러오는 중...</span></div>`).join('')}
     </div>
   `;
