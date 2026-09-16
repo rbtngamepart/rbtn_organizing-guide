@@ -172,6 +172,11 @@
   .rg-photo-cell{position:relative; aspect-ratio:4/3; border-radius:8px; overflow:hidden; border:1px solid var(--line); background:#EDEDE8; display:flex; align-items:center; justify-content:center; cursor:zoom-in;}
   .rg-photo-cell img{width:100%; height:100%; object-fit:contain; display:block;}
   .rg-photo-cell .rg-photo-loading{font-size:11px; color:var(--ink-soft);}
+  .rg-tag{font-size:11px; padding:3px 9px; border-radius:999px; border:1px solid var(--line); background:var(--surface); color:var(--ink-soft); cursor:pointer; font-family:var(--sans);}
+  .rg-tag.active{background:var(--ink); color:#fff; border-color:var(--ink);}
+  .rg-item-clickable{cursor:pointer;}
+  .rg-item-clickable:hover .rg-item-name{text-decoration:underline;}
+  .rg-standard-badge{display:inline-flex; align-items:center; gap:3px; font-size:10.5px; color:var(--accent); font-weight:700; margin-left:4px;}
 
   /* ---- 사진 자르기/회전 모달 ---- */
   .modal-backdrop{position:fixed; inset:0; background:rgba(20,20,18,.45); z-index:300; display:flex; align-items:center; justify-content:center; padding:20px;}
@@ -316,6 +321,7 @@
     <button class="btn btn-ghost2" id="accessBtn" style="display:none;" onclick="openAccessManagement()">🔑 권한 관리</button>
     <button class="btn btn-ghost2" id="migrateBtn" style="display:none;" onclick="openMigrationTool()">📥 데이터 가져오기</button>
     <button class="btn btn-ghost2" id="bulkDownloadBtn" style="display:none;" onclick="openBulkDownloadTool()">🖼️ 사진 일괄 다운로드</button>
+    <button class="btn btn-ghost2" id="conditionStandardsBtn" style="display:none;" onclick="openConditionStandardsAdmin_()">📋 상태 기준 관리</button>
     <button class="btn btn-ghost2" onclick="openPurchaseGuide()">🛒 구매 가이드</button>
     <button class="btn btn-ghost2" onclick="doLogout()">로그아웃</button>
   </div>
@@ -427,6 +433,7 @@ const appEl = document.getElementById('app');
 
 let currentRole = 'viewer';
 let games = [];
+let conditionStandards = []; // 구성품 상태(A/B/C) 판정 기준 — 게임과 무관한 공통 데이터 (예: 프로텍터, 카드, 코팅...)
 let currentGameId = null;
 let currentMode = 'photo'; // 'photo' | 'table'
 let currentPhotoIdx = 0;
@@ -530,7 +537,7 @@ async function enterApp(email, role){
     document.getElementById('roleToggle').style.display = 'flex';
   }
   updateRoleToggleUI_();
-  await loadGames();
+  await Promise.all([loadGames(), loadConditionStandards_()]);
   renderList();
 }
 
@@ -548,6 +555,8 @@ function updateRoleToggleUI_(){
   if (migBtn) migBtn.style.display = currentRole==='editor' ? 'inline-flex' : 'none';
   const bulkBtn = document.getElementById('bulkDownloadBtn');
   if (bulkBtn) bulkBtn.style.display = currentRole==='editor' ? 'inline-flex' : 'none';
+  const condBtn = document.getElementById('conditionStandardsBtn');
+  if (condBtn) condBtn.style.display = currentRole==='editor' ? 'inline-flex' : 'none';
 }
 
 /** 뷰어 ↔ 편집자 전환 버튼. 편집자로 전환하면서 지금 보고 있는 게임의 편집 잠금도 함께 확인합니다. */
@@ -636,6 +645,15 @@ async function loadGames(){
   games = [];
   snap.forEach(d => games.push({ id: d.id, ...d.data() }));
   games.sort((a,b)=> String(a.name||'').localeCompare(String(b.name||''), 'ko'));
+}
+
+/** 구성품 상태(A/B/C) 판정 기준 목록을 불러옵니다. 게임과 무관하게 공통으로 관리되는
+ *  데이터라, 여기서 하나만 고치면 그 기준을 쓰는 모든 게임의 반납대 가이드에 바로 반영됩니다. */
+async function loadConditionStandards_(){
+  const snap = await getDocs(collection(db, 'conditionStandards'));
+  conditionStandards = [];
+  snap.forEach(d => conditionStandards.push({ id: d.id, ...d.data() }));
+  conditionStandards.sort((a,b)=> String(a.name||'').localeCompare(String(b.name||''), 'ko'));
 }
 
 /**
@@ -1307,6 +1325,178 @@ function exportGameCaseCountsCsv_(){
  * 사진 일괄 다운로드 (가이드 완료된 게임 전체, 또는 선택한 게임들만)
  * ============================================================
  */
+/**
+ * ============================================================
+ * 구성품 상태(A/B/C) 판정 기준 관리 (게임과 무관한 공통 데이터)
+ * ------------------------------------------------------------
+ * 여기서 관리하는 기준(예: 프로텍터, 카드, 코팅...)은 어떤 게임에도 속하지 않는
+ * 공통 데이터입니다. 반납대 가이드의 구성품에 "적용"만 시키면 되고, 기준 내용을
+ * 고치면 그 기준을 쓰는 모든 게임에 자동으로 반영됩니다.
+ * ============================================================
+ */
+const CONDITION_GRADE_COLORS = { A:'#1F7A5C', B:'#B08900', C:'#C1440E' };
+
+function openConditionStandardsAdmin_(){
+  leavePresence_();
+  currentGameId = null;
+  showDashboard_ = false;
+  appEl.innerHTML = `
+    <button class="back" onclick="renderList()">← 목록으로</button>
+    <div class="pg-head">
+      <h2>📋 구성품 상태 기준 관리</h2>
+      <p class="pg-desc">
+        여기서 관리하는 기준은 게임과 무관한 공통 데이터입니다. 하나를 고치면 그 기준을 쓰는
+        모든 게임의 반납대 가이드에 자동으로 반영됩니다. (예: 카드, 프로텍터, 코팅, 토큰·타일,
+        게임 보드, 박싱, 진열위치 라벨, 식별 스티커, 틴케이스 스티커, 수납함 스티커)
+      </p>
+      <div class="pg-actions">
+        <button class="btn btn-primary2" style="width:auto;" onclick="addConditionStandard_()">+ 새 기준 추가</button>
+      </div>
+    </div>
+    <div id="csList"></div>
+  `;
+  renderConditionStandardsList_();
+}
+
+function renderConditionStandardsList_(){
+  const el = document.getElementById('csList');
+  if (!el) return;
+  el.innerHTML = conditionStandards.map(cs => renderConditionStandardCard_(cs)).join('')
+    || '<p style="color:var(--ink-soft); font-size:13px;">등록된 기준이 없습니다. "+ 새 기준 추가"로 만들어보세요.</p>';
+  el.querySelectorAll('.case-photo-wrap[data-photo]').forEach(wrap=>{
+    const path = wrap.dataset.photo;
+    resolvePhotoUrl_(path).then(url=>{
+      const imgEl = wrap.querySelector('.case-photo-thumb');
+      if (imgEl) imgEl.src = url;
+    }).catch(()=>{});
+  });
+}
+
+function renderConditionStandardCard_(cs){
+  const grades = cs.grades || {};
+  return `
+    <div style="background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:14px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <h3 style="margin:0; font-size:15px;">${cs.name}</h3>
+        <button class="btn btn-ghost2" style="width:auto; padding:5px 10px; font-size:12px;" onclick="deleteConditionStandard_('${cs.id}')">이 기준 삭제</button>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:12px;">
+        ${['A','B','C'].map(grade=>{
+          const gd = grades[grade] || {};
+          return `
+            <div style="border:1px solid var(--line); border-radius:8px; padding:10px;">
+              <div style="font-weight:800; font-family:var(--mono); color:${CONDITION_GRADE_COLORS[grade]}; margin-bottom:6px;">${grade}등급</div>
+              ${gd.photo ? `
+                <div class="case-photo-wrap checkerboard-bg" data-photo="${gd.photo}" style="width:100%; height:8em;">
+                  <img class="case-photo-thumb" alt="" onclick="event.stopPropagation(); openPhotoLightbox_(this.src)">
+                  <button class="case-photo-remove" title="사진 삭제" onclick="removeStandardPhoto_('${cs.id}','${grade}')">✕</button>
+                </div>
+              ` : `<button class="anno-item-photo-btn" onclick="triggerStandardPhotoUpload_('${cs.id}','${grade}')">📷 대표 사진</button>`}
+              <textarea placeholder="핵심 판정 기준" rows="3" style="width:100%; margin-top:6px; box-sizing:border-box; padding:6px 8px; border:1px solid var(--line); border-radius:6px; font-size:12.5px; font-family:var(--sans); resize:vertical;"
+                onchange="updateStandardGrade_('${cs.id}','${grade}','criteria',this.value)">${gd.criteria||''}</textarea>
+            </div>
+          `;
+        }).join('')}
+      </div>
+      <textarea placeholder="상세 기준 (선택 — 추가 사례나 자세한 설명, '상세 기준 보기'에서 노출됩니다)" rows="2"
+        style="width:100%; margin-top:10px; box-sizing:border-box; padding:6px 8px; border:1px solid var(--line); border-radius:6px; font-size:12.5px; font-family:var(--sans); resize:vertical;"
+        onchange="updateStandardDetail_('${cs.id}', this.value)">${cs.detail||''}</textarea>
+    </div>
+  `;
+}
+
+async function addConditionStandard_(){
+  const name = prompt('새 기준 이름을 입력하세요 (예: 프로텍터, 카드, 코팅, 토큰·타일, 게임 보드, 박싱, 식별 스티커 등):');
+  if (!name || !name.trim()) return;
+  const trimmed = name.trim();
+  if (conditionStandards.some(cs => cs.name === trimmed)){
+    alert('이미 같은 이름의 기준이 있습니다.');
+    return;
+  }
+  await addDoc(collection(db, 'conditionStandards'), {
+    name: trimmed,
+    grades: { A:{criteria:'',photo:null}, B:{criteria:'',photo:null}, C:{criteria:'',photo:null} },
+    detail: '',
+    updatedAt: Date.now()
+  });
+  await loadConditionStandards_();
+  renderConditionStandardsList_();
+}
+
+async function deleteConditionStandard_(id){
+  if (!confirm('이 기준을 삭제할까요? 이 기준을 사용 중인 게임의 반납대 가이드에서도 연결이 함께 사라집니다.')) return;
+  const cs = conditionStandards.find(x=>x.id===id);
+  await deleteDoc(doc(db, 'conditionStandards', id));
+  if (cs && cs.grades){
+    Object.values(cs.grades).forEach(gd=>{ if (gd && gd.photo) deleteObject(ref(storage, gd.photo)).catch(()=>{}); });
+  }
+  await loadConditionStandards_();
+  renderConditionStandardsList_();
+}
+
+async function updateStandardGrade_(id, grade, field, val){
+  const cs = conditionStandards.find(x=>x.id===id);
+  if (!cs) return;
+  if (!cs.grades) cs.grades = {};
+  if (!cs.grades[grade]) cs.grades[grade] = {};
+  cs.grades[grade][field] = val;
+  await updateDoc(doc(db, 'conditionStandards', id), { grades: cs.grades, updatedAt: Date.now() });
+}
+
+async function updateStandardDetail_(id, val){
+  const cs = conditionStandards.find(x=>x.id===id);
+  if (!cs) return;
+  cs.detail = val;
+  await updateDoc(doc(db, 'conditionStandards', id), { detail: val, updatedAt: Date.now() });
+}
+
+let standardPhotoFileInput_ = null;
+function triggerStandardPhotoUpload_(standardId, grade){
+  if (!standardPhotoFileInput_){
+    standardPhotoFileInput_ = document.createElement('input');
+    standardPhotoFileInput_.type = 'file';
+    standardPhotoFileInput_.accept = 'image/*';
+    document.body.appendChild(standardPhotoFileInput_);
+  }
+  standardPhotoFileInput_.onchange = async ()=>{
+    const file = standardPhotoFileInput_.files[0];
+    standardPhotoFileInput_.value = '';
+    if (file) await uploadStandardPhoto_(standardId, grade, file);
+  };
+  standardPhotoFileInput_.click();
+}
+
+async function uploadStandardPhoto_(standardId, grade, file){
+  const cs = conditionStandards.find(x=>x.id===standardId);
+  if (!cs) return;
+  const oldPath = cs.grades?.[grade]?.photo;
+  try{
+    // 저장 위치는 기존 games/{id}/... 규칙을 그대로 재사용하도록, 게임과 무관한
+    // 공통 데이터도 games/_standards/ 아래에 저장합니다 (Storage 보안 규칙 추가 수정 불필요).
+    const storagePath = `games/_standards/${standardId}/${grade}_${Date.now()}.jpg`;
+    await uploadBytes(ref(storage, storagePath), file);
+    if (!cs.grades) cs.grades = {};
+    if (!cs.grades[grade]) cs.grades[grade] = {};
+    cs.grades[grade].photo = storagePath;
+    await updateDoc(doc(db, 'conditionStandards', standardId), { grades: cs.grades, updatedAt: Date.now() });
+    if (oldPath && oldPath !== storagePath) deleteObject(ref(storage, oldPath)).catch(()=>{});
+    renderConditionStandardsList_();
+  }catch(e){
+    alert('사진 업로드 중 문제가 발생했습니다: ' + e.message);
+  }
+}
+
+async function removeStandardPhoto_(standardId, grade){
+  if (!confirm('이 대표 사진을 삭제할까요?')) return;
+  const cs = conditionStandards.find(x=>x.id===standardId);
+  if (!cs) return;
+  const oldPath = cs.grades?.[grade]?.photo;
+  if (cs.grades && cs.grades[grade]) cs.grades[grade].photo = null;
+  await updateDoc(doc(db, 'conditionStandards', standardId), { grades: cs.grades, updatedAt: Date.now() });
+  if (oldPath) deleteObject(ref(storage, oldPath)).catch(()=>{});
+  renderConditionStandardsList_();
+}
+
 function openBulkDownloadTool(){
   leavePresence_();
   currentGameId = null;
@@ -3907,6 +4097,109 @@ function rgPhotoControl_(section, idx, photo){
   ` : `<button class="anno-item-photo-btn" onclick="triggerReturnPhotoUpload_('${section}',${idx})">📷 사진</button>`;
 }
 
+/** 이 구성품에 어떤 상태(A/B/C) 판정 기준을 적용할지 고르는 태그 버튼들입니다.
+ *  하나의 구성품에 여러 기준을 동시에 연결할 수 있습니다 (예: 카드 + 프로텍터 + 식별스티커). */
+function rgStandardsControl_(section, idx, standardIds){
+  if (!conditionStandards.length) return '';
+  const selected = new Set(standardIds || []);
+  return `
+    <div style="flex-basis:100%; display:flex; flex-wrap:wrap; align-items:center; gap:5px; margin-top:2px;">
+      <span style="font-size:11px; color:var(--ink-soft);">적용 기준:</span>
+      ${conditionStandards.map(cs=>`
+        <button type="button" class="rg-tag ${selected.has(cs.id)?'active':''}" onclick="toggleGuideItemStandard_('${section}',${idx},'${cs.id}')">${cs.name}</button>
+      `).join('')}
+    </div>
+  `;
+}
+function toggleGuideItemStandard_(section, idx, standardId){
+  const g = games.find(x=>x.id===currentGameId);
+  const rg = ensureReturnGuide_(g);
+  const item = rg[section][idx];
+  if (!item) return;
+  if (!item.standardIds) item.standardIds = [];
+  const pos = item.standardIds.indexOf(standardId);
+  if (pos === -1) item.standardIds.push(standardId); else item.standardIds.splice(pos, 1);
+  renderReturnGuideTab();
+}
+
+/** 뷰어 화면에서, 구성품에 연결된 상태 기준이 있으면 이름을 클릭 가능하게 만들고
+ *  "📋 상태기준" 표시를 붙입니다. 없으면 그냥 평범한 이름만 보여줍니다. */
+function rgClickableName_(name, standardIds){
+  const ids = (standardIds || []).filter(id => conditionStandards.some(cs => cs.id === id));
+  if (!ids.length) return `<div style="font-weight:700;">${name||''}</div>`;
+  const idsLiteral = `[${ids.map(id=>`'${id}'`).join(',')}]`;
+  const safeName = String(name||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+  return `
+    <div class="rg-item-clickable" onclick="openConditionPopup_('${safeName}', ${idsLiteral})">
+      <span class="rg-item-name" style="font-weight:700;">${name||''}</span><span class="rg-standard-badge">📋 상태기준</span>
+    </div>
+  `;
+}
+
+/** 구성품에 연결된 모든 상태 기준을, 관리요소별 요약표 + 등급(A/B/C)별 대표 사진과
+ *  핵심 기준을 한 팝업 안에 함께 보여줍니다 (스크롤/터치를 최소화하기 위한 "요약형" 구성). */
+function openConditionPopup_(itemName, standardIds){
+  const standards = (standardIds||[]).map(id=>conditionStandards.find(cs=>cs.id===id)).filter(Boolean);
+  if (!standards.length) return;
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.id = 'conditionPopupBackdrop';
+  backdrop.innerHTML = `
+    <div class="modal" style="max-width:480px; max-height:85vh; overflow-y:auto;">
+      <h3>${itemName} 상태 확인</h3>
+      <table style="width:100%; border-collapse:collapse; font-size:12.5px; margin-bottom:16px;">
+        <thead><tr style="text-align:left; border-bottom:1px solid var(--line);">
+          <th style="padding:4px 6px;">관리 요소</th><th style="padding:4px 6px;">현재 확인할 기준</th>
+        </tr></thead>
+        <tbody>
+          ${standards.map(cs=>`
+            <tr style="border-bottom:1px solid var(--line);">
+              <td style="padding:6px; font-weight:700; vertical-align:top; white-space:nowrap;">${cs.name}</td>
+              <td style="padding:6px; color:var(--ink-soft);">${['A','B','C'].map(gr=>cs.grades?.[gr]?.criteria).filter(Boolean).join(' / ') || '-'}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+      ${standards.map(cs=>`
+        <div style="margin-bottom:18px;">
+          <div style="font-weight:700; font-size:13px; margin-bottom:8px;">${cs.name}</div>
+          <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:8px;">
+            ${['A','B','C'].map(grade=>{
+              const gd = cs.grades?.[grade] || {};
+              return `
+                <div style="text-align:center;">
+                  <div style="font-weight:800; font-family:var(--mono); color:${CONDITION_GRADE_COLORS[grade]}; margin-bottom:4px;">${grade}</div>
+                  ${gd.photo
+                    ? `<div class="case-photo-wrap checkerboard-bg" data-photo="${gd.photo}" style="width:100%; height:5.5em;"><img class="case-photo-thumb" alt="" onclick="event.stopPropagation(); openPhotoLightbox_(this.src)"></div>`
+                    : `<div style="width:100%; aspect-ratio:1; background:var(--bg); border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:10px; color:var(--ink-soft);">사진 없음</div>`}
+                  <div style="font-size:10.5px; color:var(--ink-soft); margin-top:4px; line-height:1.4;">${gd.criteria||'-'}</div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+          ${cs.detail ? `
+            <details style="margin-top:8px;">
+              <summary style="font-size:11.5px; color:var(--ink-soft); cursor:pointer;">상세 기준 보기</summary>
+              <p style="font-size:11.5px; color:var(--ink-soft); white-space:pre-wrap; margin-top:6px;">${cs.detail}</p>
+            </details>
+          ` : ''}
+        </div>
+      `).join('')}
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="document.getElementById('conditionPopupBackdrop').remove()">닫기</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+  backdrop.querySelectorAll('.case-photo-wrap[data-photo]').forEach(wrap=>{
+    const path = wrap.dataset.photo;
+    resolvePhotoUrl_(path).then(url=>{
+      const imgEl = wrap.querySelector('.case-photo-thumb');
+      if (imgEl) imgEl.src = url;
+    }).catch(()=>{});
+  });
+}
+
 /** "사진" 탭에 이미 정리된 자료(마커·텍스트박스·라벨 포함)를 보여줍니다. 사진이 1~2장이면
  *  크게 나란히, 3장 이상이면 촘촘한 격자로 자동 전환됩니다. 어느 쪽이든 탭하면 원래
  *  크기로 확대해서 봅니다 (라이트박스). */
@@ -3967,9 +4260,10 @@ function renderReturnGuideEditor_(g, rg){
         <input type="number" placeholder="필수 수량" value="${it.qty||0}" onchange="updateGuideItem_('requiredItems',${idx},'qty',this.value,true)" style="width:80px;">
         <input type="text" placeholder="확인 방법 (선택)" value="${it.note||''}" onchange="updateGuideItem_('requiredItems',${idx},'note',this.value)" style="flex:1; min-width:100px;">
         <button class="btn btn-ghost2" style="width:auto; padding:5px 10px; font-size:12px;" onclick="deleteGuideItem_('requiredItems',${idx})">✕</button>
+        ${rgStandardsControl_('requiredItems', idx, it.standardIds)}
       </div>
     `).join('') || '<p style="color:var(--ink-soft); font-size:12.5px;">등록된 필수 구성품이 없습니다.</p>'}
-    <button class="anno-additem" onclick="addGuideItem_('requiredItems',{name:'',qty:1,note:'',photo:null})">+ 필수 구성품 추가</button>
+    <button class="anno-additem" onclick="addGuideItem_('requiredItems',{name:'',qty:1,note:'',photo:null,standardIds:[]})">+ 필수 구성품 추가</button>
 
     <h3 style="font-size:14px; margin:22px 0 8px;">② 정리 방법 <span style="font-weight:400; color:var(--ink-soft);">— 반드시 지켜야 하는 분류·수납 방법</span></h3>
     ${rg.sortingSteps.map((it,idx)=>`
@@ -3989,9 +4283,10 @@ function renderReturnGuideEditor_(g, rg){
         <input type="text" placeholder="구성품명" value="${it.name||''}" onchange="updateGuideItem_('noCountItems',${idx},'name',this.value)" style="flex:1; min-width:100px;">
         <textarea placeholder="설명 (선택)" rows="2" style="flex:2; min-width:140px;" onchange="updateGuideItem_('noCountItems',${idx},'desc',this.value)">${it.desc||''}</textarea>
         <button class="btn btn-ghost2" style="width:auto; padding:5px 10px; font-size:12px;" onclick="deleteGuideItem_('noCountItems',${idx})">✕</button>
+        ${rgStandardsControl_('noCountItems', idx, it.standardIds)}
       </div>
     `).join('') || '<p style="color:var(--ink-soft); font-size:12.5px;">등록된 항목이 없습니다.</p>'}
-    <button class="anno-additem" onclick="addGuideItem_('noCountItems',{name:'',desc:'',photo:null})">+ 항목 추가</button>
+    <button class="anno-additem" onclick="addGuideItem_('noCountItems',{name:'',desc:'',photo:null,standardIds:[]})">+ 항목 추가</button>
 
     <h3 style="font-size:14px; margin:22px 0 8px;">④ 게임별 기타사항 <span style="font-weight:400; color:var(--ink-soft);">— 이 게임에만 해당하는 특수한 작업</span></h3>
     ${rg.otherNotes.map((it,idx)=>`
@@ -4027,7 +4322,7 @@ function renderReturnGuideViewer_(g, rg){
           <div class="rg-view-row">
             ${it.photo ? `<div class="case-photo-wrap mini checkerboard-bg" data-photo="${it.photo}"><img class="case-photo-thumb" alt="" onclick="event.stopPropagation(); openPhotoLightbox_(this.src)"></div>` : ''}
             <div style="flex:1;">
-              <div style="font-weight:700;">${it.name||''}</div>
+              ${rgClickableName_(it.name, it.standardIds)}
               ${it.note ? `<div style="font-size:11.5px; color:var(--ink-soft);">${it.note}</div>` : ''}
             </div>
             <div style="font-weight:800; color:var(--accent); font-family:var(--mono);">${it.qty||0}개</div>
@@ -4052,7 +4347,7 @@ function renderReturnGuideViewer_(g, rg){
           <div class="rg-view-row" style="align-items:flex-start;">
             ${it.photo ? `<div class="case-photo-wrap mini checkerboard-bg" data-photo="${it.photo}"><img class="case-photo-thumb" alt="" onclick="event.stopPropagation(); openPhotoLightbox_(this.src)"></div>` : ''}
             <div>
-              <div style="font-weight:700;">${it.name||''}</div>
+              ${rgClickableName_(it.name, it.standardIds)}
               ${it.desc ? `<div style="font-size:12px; color:var(--ink-soft); white-space:pre-wrap;">${it.desc}</div>` : ''}
             </div>
           </div>
@@ -4115,7 +4410,7 @@ Object.assign(window, {
   downloadGuideImage, downloadAllGuideImages,
   addCase, updateCaseType, updateCaseNote, updateItem, deleteItem, saveGame, doLogout,
   addGuideItem_, updateGuideItem_, deleteGuideItem_, updateProtectorInfo_, toggleGuidePublished_,
-  triggerReturnPhotoUpload_, removeReturnPhoto_,
+  triggerReturnPhotoUpload_, removeReturnPhoto_, toggleGuideItemStandard_, openConditionPopup_,
   updateMarkerCaseType, updateMarkerItem, addMarkerItem, deleteMarkerItem, removeMarkerCase, duplicateMarkerCase,
   triggerCasePhotoUpload_, previewCasePhotoThreshold_, applyCasePhoto_, closeCasePhotoModal_, removeCasePhoto_, openPhotoLightbox_,
   previewMarkerSize, updateMarkerSize, previewLineWidth, updateLineWidth, previewAnnoScale, updateAnnoScale,
@@ -4130,6 +4425,8 @@ Object.assign(window, {
   previewGameReplaceFiles_, updateGameReplaceId_, startGameReplace_,
   openPurchaseGuide, togglePurchaseGameSelect, selectAllTop50Games, deselectAllPurchaseGames, exportGameCaseCountsCsv_,
   openBulkDownloadTool, toggleBulkDownloadGameSelect_, selectAllGuideDoneGames_, selectAllBulkDownloadGames_, deselectAllBulkDownloadGames_, startBulkDownload_,
+  openConditionStandardsAdmin_, addConditionStandard_, deleteConditionStandard_, updateStandardGrade_, updateStandardDetail_,
+  triggerStandardPhotoUpload_, removeStandardPhoto_,
   openHelpModal
 });
 
