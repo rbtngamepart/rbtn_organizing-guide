@@ -146,13 +146,26 @@
   .anno-label-btn:hover{background:#2a2a2a;}
   .checkerboard-bg{background-image:linear-gradient(45deg,#ddd 25%,transparent 25%),linear-gradient(-45deg,#ddd 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#ddd 75%),linear-gradient(-45deg,transparent 75%,#ddd 75%); background-size:12px 12px; background-position:0 0,0 6px,6px -6px,-6px 0px; background-color:#fff;}
   .case-photo-wrap{position:relative; display:inline-block; width:4.5em; height:4.5em; border-radius:0.5em; overflow:hidden; border:1px solid var(--line); margin-bottom:0.4em;}
-  .case-photo-wrap.mini{width:1.8em; height:1.8em; border-radius:0.3em; margin-bottom:0; flex-shrink:0;}
-  .case-photo-thumb{width:100%; height:100%; object-fit:contain; display:block;}
-  .case-photo-remove{position:absolute; top:1px; right:1px; width:16px; height:16px; border-radius:50%; background:rgba(0,0,0,.6); color:#fff; border:none; font-size:10px; line-height:16px; cursor:pointer; padding:0;}
+  .case-photo-wrap.mini{width:3.4em; height:3.4em; border-radius:0.4em; margin-bottom:0; flex-shrink:0;}
+  .case-photo-thumb{width:100%; height:100%; object-fit:contain; display:block; cursor:zoom-in;}
+  .case-photo-remove{position:absolute; top:1px; right:1px; width:16px; height:16px; border-radius:50%; background:rgba(0,0,0,.6); color:#fff; border:none; font-size:10px; line-height:16px; cursor:pointer; padding:0; z-index:2;}
   .anno-item-row{margin-bottom:0.35em;}
   .anno-item-photo-row{display:flex; align-items:center; margin:0.17em 0 0.26em;}
   .anno-item-photo-btn{font-size:0.83em; color:var(--ink-soft); background:none; border:1px dashed var(--line); border-radius:0.35em; padding:0.17em 0.52em; cursor:pointer; font-family:var(--sans);}
   .anno-item-photo-btn:hover{color:var(--ink); border-color:var(--ink-soft);}
+  .photo-lightbox{position:fixed; inset:0; background:rgba(0,0,0,.82); z-index:400; display:flex; align-items:center; justify-content:center; padding:30px; cursor:zoom-out;}
+  .photo-lightbox img{max-width:100%; max-height:100%; border-radius:8px; box-shadow:0 10px 40px rgba(0,0,0,.5);}
+  .rg-row{display:flex; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap; padding-bottom:8px; border-bottom:1px solid var(--line);}
+  .rg-row input[type=text], .rg-row textarea{padding:6px 8px; border:1px solid var(--line); border-radius:6px; font-size:13px; font-family:var(--sans);}
+  .rg-row textarea{resize:vertical; min-height:2.4em;}
+  .rg-grid{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
+  @media (max-width:720px){ .rg-grid{grid-template-columns:1fr;} }
+  .rg-card{background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:14px;}
+  .rg-card h3{margin:0 0 10px; font-size:13.5px;}
+  .rg-view-row{display:flex; align-items:center; gap:10px; padding:7px 0; border-bottom:1px solid var(--line);}
+  .rg-view-row:last-child{border-bottom:none;}
+  .rg-notice{margin-top:18px; padding:14px; background:var(--bg); border-radius:10px; font-size:12.5px; color:var(--ink-soft); border:1px solid var(--line);}
+  .rg-notice ul{margin:6px 0 0; padding-left:18px;}
 
   /* ---- 사진 자르기/회전 모달 ---- */
   .modal-backdrop{position:fixed; inset:0; background:rgba(20,20,18,.45); z-index:300; display:flex; align-items:center; justify-content:center; padding:20px;}
@@ -1831,10 +1844,13 @@ function renderDetail(){
     <div class="tabs">
       <button class="${currentMode==='photo'?'active':''}" onclick="switchMode('photo')">사진</button>
       <button class="${currentMode==='table'?'active':''}" onclick="switchMode('table')">표</button>
+      <button class="${currentMode==='return'?'active':''}" onclick="switchMode('return')">반납대 가이드</button>
     </div>
     <div id="tabBody"></div>
   `;
-  if (currentMode === 'photo') renderPhotoTab(); else renderTableTab();
+  if (currentMode === 'photo') renderPhotoTab();
+  else if (currentMode === 'table') renderTableTab();
+  else renderReturnGuideTab();
   updatePresenceBanner_(lastPresenceOthers_);
 }
 
@@ -2122,7 +2138,7 @@ function drawMarkers(stage, photo, editable){
               <div class="anno-item-photo-row">
                 ${it.photo ? `
                   <div class="case-photo-wrap mini checkerboard-bg" data-photo="${it.photo}">
-                    <img class="case-photo-thumb" alt="">
+                    <img class="case-photo-thumb" alt="" onclick="event.stopPropagation(); openPhotoLightbox_(this.src)">
                     <button class="case-photo-remove" title="사진 삭제" onclick="removeCasePhoto_(${mi},${ii})">✕</button>
                   </div>
                 ` : `<button class="anno-item-photo-btn" onclick="triggerCasePhotoUpload_(${mi},${ii})">📷 사진 추가</button>`}
@@ -2164,7 +2180,7 @@ function drawMarkers(stage, photo, editable){
         <div class="anno-head"><span class="case-badge case-${c.caseType}" style="font-size:0.96em; padding:0.17em 0.52em;">${typeLabel_(c.caseType)}</span></div>
         ${(c.items||[]).map(it=>`
           <div style="display:flex; align-items:center; gap:0.35em; margin-bottom:0.17em;">
-            ${it.photo ? `<span class="case-photo-wrap mini checkerboard-bg" data-photo="${it.photo}"><img class="case-photo-thumb" alt=""></span>` : ''}
+            ${it.photo ? `<span class="case-photo-wrap mini checkerboard-bg" data-photo="${it.photo}"><img class="case-photo-thumb" alt="" onclick="event.stopPropagation(); openPhotoLightbox_(this.src)"></span>` : ''}
             <span>${it.name||''}${it.qty?` <span style="color:var(--ink-soft);">${it.qty}개</span>`:''}</span>
           </div>
         `).join('')}
@@ -2176,7 +2192,7 @@ function drawMarkers(stage, photo, editable){
         <div class="anno-head"><span class="case-badge case-${c.caseType}" style="font-size:0.96em; padding:0.17em 0.52em;">${typeLabel_(c.caseType)}</span></div>
         ${(c.items||[]).map(it=>`
           <div style="display:flex; align-items:center; gap:0.35em; margin-bottom:0.17em;">
-            ${it.photo ? `<span class="case-photo-wrap mini checkerboard-bg" data-photo="${it.photo}"><img class="case-photo-thumb" alt=""></span>` : ''}
+            ${it.photo ? `<span class="case-photo-wrap mini checkerboard-bg" data-photo="${it.photo}"><img class="case-photo-thumb" alt="" onclick="event.stopPropagation(); openPhotoLightbox_(this.src)"></span>` : ''}
             <span>${it.name||''}${it.qty?` <span style="color:var(--ink-soft);">${it.qty}개</span>`:''}</span>
           </div>
         `).join('')}
@@ -2418,10 +2434,29 @@ function duplicateMarkerCase(mi){
  * "배경 유지"를 선택할 수 있습니다.
  * ============================================================
  */
-let casePhotoState_ = null; // { mi, ii, img, srcImageData }
+let casePhotoState_ = null; // { target, img, srcImageData }
 let casePhotoFileInput_ = null;
 
+/** target을 실제 데이터의 item 객체로 바꿔줍니다. 케이스 항목({type:'case',mi,ii})과
+ *  반납대 가이드 항목({type:'return',section,idx}) 둘 다 지원합니다. */
+function resolvePhotoTargetItem_(target){
+  const g = games.find(x=>x.id===currentGameId);
+  if (target.type === 'case'){
+    const photo = g.photos[currentPhotoIdx];
+    const caseIdx = photo.markers[target.mi].caseIdx;
+    return g.cases[caseIdx].items[target.ii];
+  }
+  const rg = ensureReturnGuide_(g);
+  return rg[target.section][target.idx];
+}
+
 function triggerCasePhotoUpload_(mi, ii){
+  triggerPhotoUploadFor_({ type:'case', mi, ii });
+}
+function triggerReturnPhotoUpload_(section, idx){
+  triggerPhotoUploadFor_({ type:'return', section, idx });
+}
+function triggerPhotoUploadFor_(target){
   if (!casePhotoFileInput_){
     casePhotoFileInput_ = document.createElement('input');
     casePhotoFileInput_.type = 'file';
@@ -2431,16 +2466,16 @@ function triggerCasePhotoUpload_(mi, ii){
   casePhotoFileInput_.onchange = ()=>{
     const file = casePhotoFileInput_.files[0];
     casePhotoFileInput_.value = '';
-    if (file) openCasePhotoModal_(mi, ii, file);
+    if (file) openCasePhotoModal_(target, file);
   };
   casePhotoFileInput_.click();
 }
 
-function openCasePhotoModal_(mi, ii, file){
+function openCasePhotoModal_(target, file){
   const url = URL.createObjectURL(file);
   const img = new Image();
   img.onload = ()=>{
-    casePhotoState_ = { mi, ii, img, srcImageData: null };
+    casePhotoState_ = { target, img, srcImageData: null };
     renderCasePhotoModal_();
   };
   img.src = url;
@@ -2492,6 +2527,16 @@ function closeCasePhotoModal_(){
   casePhotoState_ = null;
 }
 
+/** 작은 썸네일을 클릭하면 화면 전체 크기로 크게 볼 수 있게 합니다 (다시 클릭하면 닫힘). */
+function openPhotoLightbox_(url){
+  if (!url) return;
+  const overlay = document.createElement('div');
+  overlay.className = 'photo-lightbox';
+  overlay.innerHTML = `<img src="${url}" alt="">`;
+  overlay.onclick = ()=> overlay.remove();
+  document.body.appendChild(overlay);
+}
+
 /** 원본 픽셀 데이터를 기준으로, 네 귀퉁이 평균색과의 색 거리(threshold)에 따라
  *  배경을 투명하게 만든 새 ImageData를 계산합니다 (원본은 건드리지 않습니다). */
 function computeBgRemovedImageData_(srcData, threshold){
@@ -2526,38 +2571,41 @@ async function applyCasePhoto_(keepBackground){
   const ctx = canvas.getContext('2d');
   if (keepBackground) ctx.putImageData(casePhotoState_.srcImageData, 0, 0);
 
-  const { mi, ii } = casePhotoState_;
+  const { target } = casePhotoState_;
   const g = games.find(x=>x.id===currentGameId);
-  const photo = g.photos[currentPhotoIdx];
-  const caseIdx = photo.markers[mi].caseIdx;
-  const item = g.cases[caseIdx].items[ii];
+  const item = resolvePhotoTargetItem_(target);
   const oldPath = item.photo;
 
   try{
     const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
-    const storagePath = `games/${g.id}/case-photos/${Date.now()}_${Math.random().toString(36).slice(2)}.png`;
+    const folder = target.type === 'case' ? 'case-photos' : 'return-guide-photos';
+    const storagePath = `games/${g.id}/${folder}/${Date.now()}_${Math.random().toString(36).slice(2)}.png`;
     await uploadBytes(ref(storage, storagePath), blob);
     item.photo = storagePath;
     await persistGame_(g);
     if (oldPath && oldPath !== storagePath) deleteObject(ref(storage, oldPath)).catch(()=>{});
     closeCasePhotoModal_();
-    redrawCurrentPhoto_();
+    if (target.type === 'case') redrawCurrentPhoto_(); else renderReturnGuideTab();
   }catch(e){
     alert('사진을 저장하는 중 문제가 발생했습니다: ' + e.message);
   }
 }
 
 async function removeCasePhoto_(mi, ii){
-  if (!confirm('이 구성품 사진을 삭제할까요?')) return;
+  await removePhotoFrom_({ type:'case', mi, ii });
+}
+async function removeReturnPhoto_(section, idx){
+  await removePhotoFrom_({ type:'return', section, idx });
+}
+async function removePhotoFrom_(target){
+  if (!confirm('이 사진을 삭제할까요?')) return;
   const g = games.find(x=>x.id===currentGameId);
-  const photo = g.photos[currentPhotoIdx];
-  const caseIdx = photo.markers[mi].caseIdx;
-  const item = g.cases[caseIdx].items[ii];
+  const item = resolvePhotoTargetItem_(target);
   const oldPath = item.photo;
   item.photo = null;
   await persistGame_(g);
   if (oldPath) deleteObject(ref(storage, oldPath)).catch(()=>{});
-  redrawCurrentPhoto_();
+  if (target.type === 'case') redrawCurrentPhoto_(); else renderReturnGuideTab();
 }
 
 // ---- 라벨 (실제 라벨기 인쇄 미리보기: 검정 바탕 흰 글씨) ----
@@ -3796,6 +3844,212 @@ function deleteItem(ci, ii){
   renderTableTab();
 }
 
+/**
+ * ============================================================
+ * 반납대 가이드 (QR 스캔 후 바로 보이는, 반납 시 정리 안내 화면)
+ * ============================================================
+ */
+const RETURN_GUIDE_COMMON_NOTICE = [
+  '박스 안팎의 손상 확인',
+  '구성품을 박스 안에 정돈',
+  '누락·오염·파손 발견 시 게임을 분리하여 관리자에게 전달',
+];
+
+function ensureReturnGuide_(g){
+  if (!g.returnGuide) g.returnGuide = {};
+  const rg = g.returnGuide;
+  if (rg.published === undefined) rg.published = false;
+  if (!rg.requiredItems) rg.requiredItems = [];
+  if (!rg.sortingSteps) rg.sortingSteps = [];
+  if (!rg.noCountItems) rg.noCountItems = [];
+  if (!rg.otherNotes) rg.otherNotes = [];
+  if (rg.protectorInfo === undefined) rg.protectorInfo = '';
+  return rg;
+}
+
+function renderReturnGuideTab(){
+  const g = games.find(x=>x.id===currentGameId);
+  const editable = currentRole === 'editor';
+  const rg = ensureReturnGuide_(g);
+  const body = document.getElementById('tabBody');
+
+  if (editable){
+    body.innerHTML = renderReturnGuideEditor_(g, rg);
+  } else if (!rg.published){
+    body.innerHTML = `<div class="empty">이 게임은 아직 반납대 가이드가 준비되지 않았습니다.</div>`;
+    return;
+  } else {
+    body.innerHTML = renderReturnGuideViewer_(g, rg);
+  }
+
+  body.querySelectorAll('.case-photo-wrap[data-photo]').forEach(wrap=>{
+    const path = wrap.dataset.photo;
+    resolvePhotoUrl_(path).then(url=>{
+      const imgEl = wrap.querySelector('.case-photo-thumb');
+      if (imgEl) imgEl.src = url;
+    }).catch(()=>{});
+  });
+}
+
+function rgPhotoControl_(section, idx, photo){
+  return photo ? `
+    <div class="case-photo-wrap mini checkerboard-bg" data-photo="${photo}">
+      <img class="case-photo-thumb" alt="" onclick="event.stopPropagation(); openPhotoLightbox_(this.src)">
+      <button class="case-photo-remove" title="사진 삭제" onclick="removeReturnPhoto_('${section}',${idx})">✕</button>
+    </div>
+  ` : `<button class="anno-item-photo-btn" onclick="triggerReturnPhotoUpload_('${section}',${idx})">📷 사진</button>`;
+}
+
+function renderReturnGuideEditor_(g, rg){
+  return `
+    <div style="margin-bottom:18px; padding:12px 14px; background:var(--surface); border:1px solid var(--line); border-radius:10px;">
+      <label style="display:flex; align-items:center; gap:8px; font-size:13px; font-weight:700; cursor:pointer;">
+        <input type="checkbox" ${rg.published?'checked':''} onchange="toggleGuidePublished_(this.checked)"> 반납대 가이드 게시 (체크해야 뷰어에게 보입니다)
+      </label>
+      <p style="margin-top:6px;">필수 구성품 ${rg.requiredItems.length}종</p>
+    </div>
+
+    <h3 style="font-size:14px; margin:0 0 8px;">① 필수 구성품 확인 <span style="font-weight:400; color:var(--ink-soft);">— 반납될 때마다 정확한 수량을 확인해야 하는 구성품</span></h3>
+    ${rg.requiredItems.map((it,idx)=>`
+      <div class="rg-row">
+        ${rgPhotoControl_('requiredItems', idx, it.photo)}
+        <input type="text" placeholder="구성품명" value="${it.name||''}" onchange="updateGuideItem_('requiredItems',${idx},'name',this.value)" style="flex:1; min-width:100px;">
+        <input type="number" placeholder="필수 수량" value="${it.qty||0}" onchange="updateGuideItem_('requiredItems',${idx},'qty',this.value,true)" style="width:80px;">
+        <input type="text" placeholder="확인 방법 (선택)" value="${it.note||''}" onchange="updateGuideItem_('requiredItems',${idx},'note',this.value)" style="flex:1; min-width:100px;">
+        <button class="btn btn-ghost2" style="width:auto; padding:5px 10px; font-size:12px;" onclick="deleteGuideItem_('requiredItems',${idx})">✕</button>
+      </div>
+    `).join('') || '<p style="color:var(--ink-soft); font-size:12.5px;">등록된 필수 구성품이 없습니다.</p>'}
+    <button class="anno-additem" onclick="addGuideItem_('requiredItems',{name:'',qty:1,note:'',photo:null})">+ 필수 구성품 추가</button>
+
+    <h3 style="font-size:14px; margin:22px 0 8px;">② 정리 방법 <span style="font-weight:400; color:var(--ink-soft);">— 반드시 지켜야 하는 분류·수납 방법</span></h3>
+    ${rg.sortingSteps.map((it,idx)=>`
+      <div class="rg-row" style="align-items:flex-start;">
+        ${rgPhotoControl_('sortingSteps', idx, it.photo)}
+        <input type="text" placeholder="제목" value="${it.title||''}" onchange="updateGuideItem_('sortingSteps',${idx},'title',this.value)" style="flex:1; min-width:100px;">
+        <textarea placeholder="설명" rows="2" style="flex:2; min-width:140px;" onchange="updateGuideItem_('sortingSteps',${idx},'desc',this.value)">${it.desc||''}</textarea>
+        <button class="btn btn-ghost2" style="width:auto; padding:5px 10px; font-size:12px;" onclick="deleteGuideItem_('sortingSteps',${idx})">✕</button>
+      </div>
+    `).join('') || '<p style="color:var(--ink-soft); font-size:12.5px;">등록된 정리 방법이 없습니다.</p>'}
+    <button class="anno-additem" onclick="addGuideItem_('sortingSteps',{title:'',desc:'',photo:null})">+ 정리 방법 추가</button>
+
+    <h3 style="font-size:14px; margin:22px 0 8px;">③ 수량 확인 없이 정리 <span style="font-weight:400; color:var(--ink-soft);">— 수량을 세지 않고 종류에 맞게 정리만 하면 되는 구성품</span></h3>
+    ${rg.noCountItems.map((it,idx)=>`
+      <div class="rg-row" style="align-items:flex-start;">
+        ${rgPhotoControl_('noCountItems', idx, it.photo)}
+        <input type="text" placeholder="구성품명" value="${it.name||''}" onchange="updateGuideItem_('noCountItems',${idx},'name',this.value)" style="flex:1; min-width:100px;">
+        <textarea placeholder="설명 (선택)" rows="2" style="flex:2; min-width:140px;" onchange="updateGuideItem_('noCountItems',${idx},'desc',this.value)">${it.desc||''}</textarea>
+        <button class="btn btn-ghost2" style="width:auto; padding:5px 10px; font-size:12px;" onclick="deleteGuideItem_('noCountItems',${idx})">✕</button>
+      </div>
+    `).join('') || '<p style="color:var(--ink-soft); font-size:12.5px;">등록된 항목이 없습니다.</p>'}
+    <button class="anno-additem" onclick="addGuideItem_('noCountItems',{name:'',desc:'',photo:null})">+ 항목 추가</button>
+
+    <h3 style="font-size:14px; margin:22px 0 8px;">④ 게임별 기타사항 <span style="font-weight:400; color:var(--ink-soft);">— 이 게임에만 해당하는 특수한 작업</span></h3>
+    ${rg.otherNotes.map((it,idx)=>`
+      <div class="rg-row">
+        <textarea placeholder="예: 단어 타일의 보드마카 흔적 지우기" rows="1" style="flex:1;" onchange="updateGuideItem_('otherNotes',${idx},'text',this.value)">${it.text||''}</textarea>
+        <button class="btn btn-ghost2" style="width:auto; padding:5px 10px; font-size:12px;" onclick="deleteGuideItem_('otherNotes',${idx})">✕</button>
+      </div>
+    `).join('') || '<p style="color:var(--ink-soft); font-size:12.5px;">등록된 기타사항이 없습니다.</p>'}
+    <button class="anno-additem" onclick="addGuideItem_('otherNotes',{text:''})">+ 기타사항 추가</button>
+
+    <h3 style="font-size:14px; margin:22px 0 8px;">⑤ 관리 정보 <span style="font-weight:400; color:var(--ink-soft);">— 프로텍터 규격 등 참고정보</span></h3>
+    <textarea placeholder="예: 프로텍터 63.5×88 / 77×112" rows="2" style="width:100%; box-sizing:border-box; padding:6px 8px; border:1px solid var(--line); border-radius:6px; font-size:13px; font-family:var(--sans); resize:vertical;"
+      onchange="updateProtectorInfo_(this.value)">${rg.protectorInfo||''}</textarea>
+
+    <div class="rg-notice">
+      <b>⑥ 공통 안내</b> — 모든 게임에 공통으로 고정 표시되는 문구입니다 (여기서는 수정할 수 없습니다).
+      <ul>${RETURN_GUIDE_COMMON_NOTICE.map(t=>`<li>${t}</li>`).join('')}</ul>
+    </div>
+  `;
+}
+
+function renderReturnGuideViewer_(g, rg){
+  return `
+    <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:14px; flex-wrap:wrap; gap:8px;">
+      <h2 style="margin:0; font-size:19px;">${g.name}</h2>
+      <span class="case-badge case-ITEM">필수 ${rg.requiredItems.length}종</span>
+    </div>
+    <div class="rg-grid">
+      <div class="rg-card">
+        <h3>① 필수 구성품 확인</h3>
+        ${rg.requiredItems.length ? rg.requiredItems.map(it=>`
+          <div class="rg-view-row">
+            ${it.photo ? `<div class="case-photo-wrap mini checkerboard-bg" data-photo="${it.photo}"><img class="case-photo-thumb" alt="" onclick="event.stopPropagation(); openPhotoLightbox_(this.src)"></div>` : ''}
+            <div style="flex:1;">
+              <div style="font-weight:700;">${it.name||''}</div>
+              ${it.note ? `<div style="font-size:11.5px; color:var(--ink-soft);">${it.note}</div>` : ''}
+            </div>
+            <div style="font-weight:800; color:var(--accent); font-family:var(--mono);">${it.qty||0}개</div>
+          </div>
+        `).join('') : `<p style="color:var(--ink-soft); font-size:12.5px;">필수 수량 확인 없음</p>`}
+      </div>
+      <div class="rg-card">
+        <h3>② 정리 방법</h3>
+        ${rg.sortingSteps.length ? rg.sortingSteps.map(it=>`
+          <div class="rg-view-row" style="align-items:flex-start;">
+            ${it.photo ? `<div class="case-photo-wrap mini checkerboard-bg" data-photo="${it.photo}"><img class="case-photo-thumb" alt="" onclick="event.stopPropagation(); openPhotoLightbox_(this.src)"></div>` : ''}
+            <div>
+              <div style="font-weight:700;">${it.title||''}</div>
+              <div style="font-size:12px; color:var(--ink-soft); white-space:pre-wrap;">${it.desc||''}</div>
+            </div>
+          </div>
+        `).join('') : `<p style="color:var(--ink-soft); font-size:12.5px;">등록된 정리 방법이 없습니다.</p>`}
+      </div>
+      <div class="rg-card">
+        <h3>③ 수량 확인 없이 정리</h3>
+        ${rg.noCountItems.length ? rg.noCountItems.map(it=>`
+          <div class="rg-view-row" style="align-items:flex-start;">
+            ${it.photo ? `<div class="case-photo-wrap mini checkerboard-bg" data-photo="${it.photo}"><img class="case-photo-thumb" alt="" onclick="event.stopPropagation(); openPhotoLightbox_(this.src)"></div>` : ''}
+            <div>
+              <div style="font-weight:700;">${it.name||''}</div>
+              ${it.desc ? `<div style="font-size:12px; color:var(--ink-soft); white-space:pre-wrap;">${it.desc}</div>` : ''}
+            </div>
+          </div>
+        `).join('') : `<p style="color:var(--ink-soft); font-size:12.5px;">해당 없음</p>`}
+      </div>
+      <div class="rg-card">
+        <h3>④ 게임별 기타사항</h3>
+        ${rg.otherNotes.length ? rg.otherNotes.map(it=>`<div class="rg-view-row">${it.text||''}</div>`).join('') : `<p style="color:var(--ink-soft); font-size:12.5px;">없음</p>`}
+      </div>
+    </div>
+    ${rg.protectorInfo ? `<p style="margin-top:14px; font-size:12px; color:var(--ink-soft);"><b>관리 정보</b> — ${rg.protectorInfo}</p>` : ''}
+    <div class="rg-notice">
+      <b>⑤ 공통 안내</b>
+      <ul>${RETURN_GUIDE_COMMON_NOTICE.map(t=>`<li>${t}</li>`).join('')}</ul>
+    </div>
+  `;
+}
+
+function addGuideItem_(section, defaults){
+  const g = games.find(x=>x.id===currentGameId);
+  ensureReturnGuide_(g)[section].push(defaults);
+  renderReturnGuideTab();
+}
+function updateGuideItem_(section, idx, field, val, isNumber){
+  const g = games.find(x=>x.id===currentGameId);
+  ensureReturnGuide_(g)[section][idx][field] = isNumber ? Number(val) : val;
+  if (section === 'requiredItems' && field === 'qty'){
+    // 필수 구성품 종류 수 표시를 위해 숫자만 바꿀 땐 전체를 다시 그릴 필요는 없습니다.
+  }
+}
+async function deleteGuideItem_(section, idx){
+  const g = games.find(x=>x.id===currentGameId);
+  const rg = ensureReturnGuide_(g);
+  const item = rg[section][idx];
+  if (item && item.photo) deleteObject(ref(storage, item.photo)).catch(()=>{});
+  rg[section].splice(idx, 1);
+  renderReturnGuideTab();
+}
+function updateProtectorInfo_(v){
+  const g = games.find(x=>x.id===currentGameId);
+  ensureReturnGuide_(g).protectorInfo = v;
+}
+async function toggleGuidePublished_(checked){
+  const g = games.find(x=>x.id===currentGameId);
+  ensureReturnGuide_(g).published = checked;
+  await persistGame_(g); // 게시 여부는 중요한 토글이라 바로 저장합니다.
+}
+
 async function saveGame(){
   const g = games.find(x=>x.id===currentGameId);
   // 사진 탭에서 마커를 옮겼을 수도 있으니, 표 저장 시에도 전체를 같이 저장합니다.
@@ -3809,8 +4063,10 @@ Object.assign(window, {
   prevPhoto, nextPhoto, uploadPhoto, deletePhoto, movePhoto, autoGenerateMarkers,
   downloadGuideImage, downloadAllGuideImages,
   addCase, updateCaseType, updateCaseNote, updateItem, deleteItem, saveGame, doLogout,
+  addGuideItem_, updateGuideItem_, deleteGuideItem_, updateProtectorInfo_, toggleGuidePublished_,
+  triggerReturnPhotoUpload_, removeReturnPhoto_,
   updateMarkerCaseType, updateMarkerItem, addMarkerItem, deleteMarkerItem, removeMarkerCase, duplicateMarkerCase,
-  triggerCasePhotoUpload_, previewCasePhotoThreshold_, applyCasePhoto_, closeCasePhotoModal_, removeCasePhoto_,
+  triggerCasePhotoUpload_, previewCasePhotoThreshold_, applyCasePhoto_, closeCasePhotoModal_, removeCasePhoto_, openPhotoLightbox_,
   previewMarkerSize, updateMarkerSize, previewLineWidth, updateLineWidth, previewAnnoScale, updateAnnoScale,
   createLabelFromMarker, changeLabelFontSize, rotateLabel, deleteLabel, duplicateLabel,
   rotateCrop_, closeCropModal_, applyCropAndUpload_,
