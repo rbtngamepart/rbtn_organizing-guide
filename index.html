@@ -166,6 +166,10 @@
   .rg-view-row:last-child{border-bottom:none;}
   .rg-notice{margin-top:18px; padding:14px; background:var(--bg); border-radius:10px; font-size:12.5px; color:var(--ink-soft); border:1px solid var(--line);}
   .rg-notice ul{margin:6px 0 0; padding-left:18px;}
+  .rg-photo-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(150px,1fr)); gap:10px; margin-bottom:20px;}
+  .rg-photo-cell{position:relative; aspect-ratio:4/3; border-radius:8px; overflow:hidden; border:1px solid var(--line); background:#EDEDE8; display:flex; align-items:center; justify-content:center; cursor:zoom-in;}
+  .rg-photo-cell img{width:100%; height:100%; object-fit:contain; display:block;}
+  .rg-photo-cell .rg-photo-loading{font-size:11px; color:var(--ink-soft);}
 
   /* ---- 사진 자르기/회전 모달 ---- */
   .modal-backdrop{position:fixed; inset:0; background:rgba(20,20,18,.45); z-index:300; display:flex; align-items:center; justify-content:center; padding:20px;}
@@ -3889,6 +3893,7 @@ function renderReturnGuideTab(){
       if (imgEl) imgEl.src = url;
     }).catch(()=>{});
   });
+  if (document.getElementById('rgPhotoCell0')) populateReturnGuidePhotoGrid_(g);
 }
 
 function rgPhotoControl_(section, idx, photo){
@@ -3900,6 +3905,42 @@ function rgPhotoControl_(section, idx, photo){
   ` : `<button class="anno-item-photo-btn" onclick="triggerReturnPhotoUpload_('${section}',${idx})">📷 사진</button>`;
 }
 
+/** "사진" 탭에 이미 정리된 자료(마커·텍스트박스·라벨 포함)를, 작은 격자로 한눈에 볼 수 있게
+ *  보여줍니다. 하나씩 탭하면 그 사진만 원래 크기로 확대해서 봅니다 (라이트박스). */
+function renderReturnGuidePhotoGridHtml_(g){
+  if (!g.photos || !g.photos.length) return '';
+  return `
+    <h3 style="font-size:14px; margin:0 0 10px;">📷 정리된 사진 (탭하면 크게 볼 수 있습니다)</h3>
+    <div class="rg-photo-grid">
+      ${g.photos.map((p,i)=>`<div class="rg-photo-cell" id="rgPhotoCell${i}"><span class="rg-photo-loading">불러오는 중...</span></div>`).join('')}
+    </div>
+  `;
+}
+
+/** 사진 탭의 이미지 다운로드 기능과 동일한 방식(캔버스에 마커·텍스트박스·라벨을 함께 그려서)으로
+ *  각 사진의 축소 미리보기를 만들어 격자 칸에 채워 넣습니다. */
+async function populateReturnGuidePhotoGrid_(g){
+  if (!g.photos) return;
+  for (let i=0; i<g.photos.length; i++){
+    if (!document.getElementById(`rgPhotoCell${i}`)) continue; // 그 사이 다른 탭으로 이동했으면 중단
+    try{
+      const canvas = await renderPhotoToCanvas_(g, g.photos[i], GUIDE_EXPORT_DEFAULT_REF_WIDTH);
+      const url = canvas.toDataURL('image/png');
+      const cell = document.getElementById(`rgPhotoCell${i}`);
+      if (!cell) continue;
+      cell.innerHTML = '';
+      const imgEl = document.createElement('img');
+      imgEl.alt = '';
+      imgEl.src = url;
+      imgEl.addEventListener('click', ()=> openPhotoLightbox_(url));
+      cell.appendChild(imgEl);
+    }catch(e){
+      const cell = document.getElementById(`rgPhotoCell${i}`);
+      if (cell) cell.innerHTML = '<span class="rg-photo-loading">불러오지 못했습니다</span>';
+    }
+  }
+}
+
 function renderReturnGuideEditor_(g, rg){
   return `
     <div style="margin-bottom:18px; padding:12px 14px; background:var(--surface); border:1px solid var(--line); border-radius:10px;">
@@ -3908,6 +3949,11 @@ function renderReturnGuideEditor_(g, rg){
       </label>
       <p style="margin-top:6px;">필수 구성품 ${rg.requiredItems.length}종</p>
     </div>
+
+    ${g.photos && g.photos.length ? `
+      <p style="font-size:11.5px; color:var(--ink-soft); margin:0 0 10px;">아래는 "사진" 탭에 정리된 자료를 그대로 가져온 미리보기입니다 (읽기 전용 — 고치려면 사진 탭에서 수정하세요).</p>
+      ${renderReturnGuidePhotoGridHtml_(g)}
+    ` : ''}
 
     <h3 style="font-size:14px; margin:0 0 8px;">① 필수 구성품 확인 <span style="font-weight:400; color:var(--ink-soft);">— 반납될 때마다 정확한 수량을 확인해야 하는 구성품</span></h3>
     ${rg.requiredItems.map((it,idx)=>`
@@ -3969,6 +4015,7 @@ function renderReturnGuideViewer_(g, rg){
       <h2 style="margin:0; font-size:19px;">${g.name}</h2>
       <span class="case-badge case-ITEM">필수 ${rg.requiredItems.length}종</span>
     </div>
+    ${g.photos && g.photos.length ? renderReturnGuidePhotoGridHtml_(g) : ''}
     <div class="rg-grid">
       <div class="rg-card">
         <h3>① 필수 구성품 확인</h3>
