@@ -540,7 +540,18 @@ async function enterApp(email, role){
   }
   updateRoleToggleUI_();
   await Promise.all([loadGames(), loadConditionStandards_()]);
-  renderList();
+
+  // QR코드를 스캔해서 들어온 경우(주소에 ?game=아이디 가 붙어 있는 경우), 목록을 거치지 않고
+  // 바로 그 게임의 화면(기본은 반납대 가이드)으로 이동합니다.
+  const qParams = new URLSearchParams(location.search);
+  const qGame = qParams.get('game');
+  const qMode = qParams.get('mode');
+  const target = qGame ? games.find(x=>String(x.id)===String(qGame)) : null;
+  if (target){
+    openGame(target.id, qMode === 'photo' || qMode === 'table' ? qMode : 'return');
+  } else {
+    renderList();
+  }
 }
 
 function updateRoleToggleUI_(){
@@ -1609,6 +1620,102 @@ function loadJSZip_(){
   return jszipLoadPromise_;
 }
 
+/** QR코드 생성 라이브러리를 처음 쓸 때만 CDN에서 불러옵니다. */
+let qrLibLoadPromise_ = null;
+function loadQRCodeLib_(){
+  if (window.QRCode) return Promise.resolve(window.QRCode);
+  if (qrLibLoadPromise_) return qrLibLoadPromise_;
+  qrLibLoadPromise_ = new Promise((resolve, reject)=>{
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+    s.onload = ()=>resolve(window.QRCode);
+    s.onerror = ()=>reject(new Error('QR코드 라이브러리를 불러오지 못했습니다 (네트워크 문제일 수 있습니다)'));
+    document.head.appendChild(s);
+  });
+  return qrLibLoadPromise_;
+}
+
+/** 이 게임을 스캔 즉시 열기 위한 링크를 만듭니다. mode를 지정하지 않으면 반납대 가이드로
+ *  바로 열립니다 (매장에서 QR코드로 가장 많이 쓸 화면이기 때문입니다). */
+function buildGameDeepLink_(gameId, mode){
+  const url = new URL(location.href);
+  url.hash = '';
+  url.search = '';
+  url.searchParams.set('game', gameId);
+  if (mode && mode !== 'return') url.searchParams.set('mode', mode);
+  return url.toString();
+}
+
+/** 게임 상세 화면에서 QR코드 버튼을 누르면, 이 게임으로 바로 이동하는 QR코드를 보여줍니다.
+ *  QR코드를 인쇄해서 게임 상자에 붙여두면, 스캔 즉시 반납대 가이드가 열립니다. */
+async function openGameQrModal_(gameId){
+  const g = games.find(x=>String(x.id)===String(gameId));
+  if (!g) return;
+  const link = buildGameDeepLink_(g.id, 'return');
+  const old = document.getElementById('qrBackdrop');
+  if (old) old.remove();
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.id = 'qrBackdrop';
+  backdrop.innerHTML = `
+    <div class="modal" style="max-width:340px; text-align:center;">
+      <h3 style="margin-top:0;">${g.name || '(이름 없음)'} QR코드</h3>
+      <p style="font-size:11.5px; color:var(--ink-soft); margin-bottom:12px;">이 QR코드를 스캔하면 로그인 후 바로 이 게임의 반납대 가이드로 이동합니다. 인쇄해서 게임 상자에 붙여두세요.</p>
+      <div id="qrCodeBox" style="display:flex; justify-content:center; align-items:center; min-height:200px; margin-bottom:12px;"><span style="font-size:12px; color:var(--ink-soft);">QR코드를 만드는 중...</span></div>
+      <input type="text" readonly value="${link}" style="width:100%; box-sizing:border-box; padding:6px 8px; border:1px solid var(--line); border-radius:6px; font-size:11px; margin-bottom:10px;" onclick="this.select()">
+      <div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
+        <button class="btn btn-ghost2" style="width:auto;" onclick="downloadGameQr_('${g.id}')">🖼️ QR 이미지 저장</button>
+        <button class="btn btn-ghost2" style="width:auto;" onclick="copyGameQrLink_('${g.id}')">🔗 링크 복사</button>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="document.getElementById('qrBackdrop').remove()">닫기</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+  try{
+    const QRCode = await loadQRCodeLib_();
+    const box = document.getElementById('qrCodeBox');
+    if (!box) return; // 그 사이 팝업을 닫았으면 중단
+    box.innerHTML = '';
+    new QRCode(box, { text: link, width: 200, height: 200, correctLevel: QRCode.CorrectLevel.M });
+  }catch(e){
+    const box = document.getElementById('qrCodeBox');
+    if (box) box.innerHTML = `<span style="font-size:12px; color:#C1440E;">QR코드를 만들지 못했습니다: ${e.message}</span>`;
+  }
+}
+
+function downloadGameQr_(gameId){
+  const box = document.getElementById('qrCodeBox');
+  if (!box) return;
+  const canvas = box.querySelector('canvas');
+  const img = box.querySelector('img');
+  const dataUrl = canvas ? canvas.toDataURL('image/png') : (img ? img.src : null);
+  if (!dataUrl){ alert('QR코드가 아직 준비되지 않았습니다. 잠시 후 다시 시도해주세요.'); return; }
+  const g = games.find(x=>String(x.id)===String(gameId));
+  const a = document.createElement('a');
+  a.href = dataUrl;
+  a.download = `${(g && g.name) || 'game'}_QR.png`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+function copyGameQrLink_(gameId){
+  const g = games.find(x=>String(x.id)===String(gameId));
+  if (!g) return;
+  const link = buildGameDeepLink_(g.id, 'return');
+  if (navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(link).then(()=>{
+      alert('링크가 복사되었습니다.');
+    }).catch(()=>{
+      prompt('아래 링크를 복사해주세요:', link);
+    });
+  } else {
+    prompt('아래 링크를 복사해주세요:', link);
+  }
+}
+
 async function startBulkDownload_(){
   const selected = games.filter(g => bulkDownloadSelected_.has(String(g.id)) && (g.photos||[]).length);
   if (!selected.length){ alert('사진이 있는 게임을 하나 이상 선택해주세요.'); return; }
@@ -1812,6 +1919,11 @@ let listSelectedIds_ = new Set(); // 목록에서 체크한 게임들 (필요 �
 function renderList(){
   leavePresence_();
   currentGameId = null;
+  // QR코드로 특정 게임에 바로 들어왔다가 목록으로 돌아오면, 주소창의 ?game=... 을 지워서
+  // 다음에 새로고침해도 다시 그 게임으로 끌려가지 않도록 합니다.
+  if (location.search){
+    history.replaceState(null, '', location.pathname + location.hash);
+  }
 
   appEl.innerHTML = `
     <div style="display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;">
@@ -1986,10 +2098,10 @@ async function createNewGame(){
   openGame(trimmedId);
 }
 
-async function openGame(id){
+async function openGame(id, mode){
   leavePresence_(); // 이전 게임에 있던 접속/잠금 정리
   currentGameId = id;
-  currentMode = 'photo';
+  currentMode = mode || 'photo';
   currentPhotoIdx = 0;
   renderDetail();
 
@@ -2021,6 +2133,7 @@ function renderDetail(){
             <span style="font-size:12px; font-weight:600; font-family:var(--sans); color:var(--ink-mid);">ID ${g.id}</span>
             <button class="btn btn-ghost2" style="width:auto; padding:3px 8px; font-size:11px;" onclick="changeGameName_()">이름 변경</button>
             <button class="btn btn-ghost2" style="width:auto; padding:3px 8px; font-size:11px;" onclick="changeGameId_()">ID 변경</button>
+            <button class="btn btn-ghost2" style="width:auto; padding:3px 8px; font-size:11px;" onclick="openGameQrModal_('${g.id}')" title="스캔하면 바로 이 게임의 반납대 가이드로 이동하는 QR코드">📱 QR코드</button>
           </div>
         ` : `<h2 style="margin:0 0 4px;">${g.name} <span style="font-size:12px; font-weight:600; font-family:var(--sans); color:var(--ink-mid);">ID ${g.id}</span></h2>`}
         ${editable ? `
@@ -4513,6 +4626,7 @@ Object.assign(window, {
   openBulkDownloadTool, toggleBulkDownloadGameSelect_, selectAllGuideDoneGames_, selectAllBulkDownloadGames_, deselectAllBulkDownloadGames_, startBulkDownload_,
   openConditionStandardsAdmin_, addConditionStandard_, deleteConditionStandard_, updateStandardGrade_, updateStandardDetail_,
   triggerStandardPhotoUpload_, removeStandardPhoto_,
+  openGameQrModal_, downloadGameQr_, copyGameQrLink_,
   openHelpModal
 });
 
