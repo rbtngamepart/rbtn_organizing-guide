@@ -172,6 +172,8 @@
   .rg-photo-cell{position:relative; aspect-ratio:4/3; border-radius:8px; overflow:hidden; border:1px solid var(--line); background:#EDEDE8; display:flex; align-items:center; justify-content:center; cursor:zoom-in;}
   .rg-photo-cell img{width:100%; height:100%; object-fit:contain; display:block;}
   .rg-photo-cell .rg-photo-loading{font-size:11px; color:var(--ink-soft);}
+  .rg-photo-hotspot{position:absolute; cursor:pointer; border-radius:6px; transition:background .1s;}
+  .rg-photo-hotspot:hover{background:rgba(59,130,246,.18); outline:2px solid rgba(59,130,246,.55); outline-offset:-2px;}
   .rg-tag{font-size:11px; padding:3px 9px; border-radius:999px; border:1px solid var(--line); background:var(--surface); color:var(--ink-soft); cursor:pointer; font-family:var(--sans);}
   .rg-tag.active{background:var(--ink); color:#fff; border-color:var(--ink);}
   .rg-item-clickable{cursor:pointer;}
@@ -1632,7 +1634,7 @@ async function startBulkDownload_(){
     const usedNames = {};
     for (let i=0; i<g.photos.length; i++){
       try{
-        const canvas = await renderPhotoToCanvas_(g, g.photos[i], GUIDE_EXPORT_DEFAULT_REF_WIDTH);
+        const { canvas } = await renderPhotoToCanvas_(g, g.photos[i], GUIDE_EXPORT_DEFAULT_REF_WIDTH);
         const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
         let baseName = (g.name || `game_${g.id}`).replace(/[\\/:*?"<>|]/g, '_');
         let fileName = g.photos.length > 1 ? `${baseName}_사진${i+1}.png` : `${baseName}.png`;
@@ -1671,7 +1673,7 @@ async function startBulkDownloadIndividually_(selected){
   for (const g of selected){
     for (let i=0; i<g.photos.length; i++){
       try{
-        const canvas = await renderPhotoToCanvas_(g, g.photos[i], GUIDE_EXPORT_DEFAULT_REF_WIDTH);
+        const { canvas } = await renderPhotoToCanvas_(g, g.photos[i], GUIDE_EXPORT_DEFAULT_REF_WIDTH);
         const suffix = g.photos.length > 1 ? `_사진${i+1}` : '';
         downloadCanvasAsPng_(canvas, `${g.name || 'game'}${suffix}.png`);
         done++;
@@ -3301,7 +3303,20 @@ async function renderPhotoToCanvas_(g, photo, refWidth){
     ctx.restore();
   });
 
-  return canvas;
+  // 텍스트박스마다 캔버스 안에서 차지하는 위치·크기를 %로도 함께 돌려줍니다.
+  // (반납대 가이드의 사진 격자에서, 캔버스 이미지 위에 클릭 가능한 투명 영역을 정확히 겹쳐 그리기 위함입니다.)
+  const boxRects = boxLayout.map((box, mi)=>{
+    if (!box) return null;
+    return {
+      caseIdx: photo.markers[mi].caseIdx,
+      leftPct: (box.x/canvas.width)*100,
+      topPct: (box.y/canvas.height)*100,
+      widthPct: (box.w/canvas.width)*100,
+      heightPct: (box.h/canvas.height)*100,
+    };
+  });
+
+  return { canvas, boxRects };
 }
 
 function roundRectPath_(ctx, x, y, w, h, r){
@@ -3331,7 +3346,7 @@ async function downloadGuideImage(idx){
   try{
     const stageEl = document.getElementById('photoStage');
     const refWidth = stageEl ? stageEl.getBoundingClientRect().width : GUIDE_EXPORT_DEFAULT_REF_WIDTH;
-    const canvas = await renderPhotoToCanvas_(g, photo, refWidth);
+    const { canvas } = await renderPhotoToCanvas_(g, photo, refWidth);
     const suffix = (g.photos.length > 1) ? `_사진${idx+1}` : '';
     downloadCanvasAsPng_(canvas, `${g.name || 'game'}${suffix}.png`);
   }catch(e){
@@ -3346,7 +3361,7 @@ async function downloadAllGuideImages(){
   const refWidth = stageEl ? stageEl.getBoundingClientRect().width : GUIDE_EXPORT_DEFAULT_REF_WIDTH;
   for (let i=0; i<g.photos.length; i++){
     try{
-      const canvas = await renderPhotoToCanvas_(g, g.photos[i], refWidth);
+      const { canvas } = await renderPhotoToCanvas_(g, g.photos[i], refWidth);
       downloadCanvasAsPng_(canvas, `${g.name || 'game'}_사진${i+1}.png`);
     }catch(e){
       alert(`${i+1}번째 사진을 만드는 중 문제가 발생했습니다: ` + e.message);
@@ -4214,14 +4229,26 @@ function renderReturnGuidePhotoGridHtml_(g){
   `;
 }
 
-/** 사진 탭의 이미지 다운로드 기능과 동일한 방식(캔버스에 마커·텍스트박스·라벨을 함께 그려서)으로
- *  각 사진의 축소 미리보기를 만들어 격자 칸에 채워 넣습니다. */
+/** "사진" 탭과 정확히 같은 비율로 보이도록, 지금 화면(탭바디)의 실제 폭을 기준 삼습니다.
+ *  반납대 가이드 탭에서는 실제 .photo-stage가 화면에 없으므로, 같은 자리(#tabBody)의 폭을
+ *  그대로 기준 폭으로 사용합니다 (사진 탭이든 반납대 가이드 탭이든 #tabBody 폭은 동일합니다). */
+function getPhotoStageRefWidth_(){
+  const el = document.getElementById('photoStage') || document.getElementById('tabBody');
+  const w = el ? el.getBoundingClientRect().width : 0;
+  return w || GUIDE_EXPORT_DEFAULT_REF_WIDTH;
+}
+
+/** 사진 탭의 이미지 다운로드 기능과 동일한 방식(캔버스에 마커·텍스트박스·라벨을 함께 그려서), 그리고
+ *  동일한 기준 폭으로 각 사진의 축소 미리보기를 만들어 격자 칸에 채워 넣습니다. 실제 사진과 완전히
+ *  같은 비율로 보이고, 텍스트박스 위치에는 클릭 가능한 투명 영역을 겹쳐서 그 구성품 사진을 크게
+ *  볼 수 있는 팝업을 띄웁니다. */
 async function populateReturnGuidePhotoGrid_(g){
   if (!g.photos) return;
+  const refWidth = getPhotoStageRefWidth_();
   for (let i=0; i<g.photos.length; i++){
     if (!document.getElementById(`rgPhotoCell${i}`)) continue; // 그 사이 다른 탭으로 이동했으면 중단
     try{
-      const canvas = await renderPhotoToCanvas_(g, g.photos[i], GUIDE_EXPORT_DEFAULT_REF_WIDTH);
+      const { canvas, boxRects } = await renderPhotoToCanvas_(g, g.photos[i], refWidth);
       const url = canvas.toDataURL('image/png');
       const cell = document.getElementById(`rgPhotoCell${i}`);
       if (!cell) continue;
@@ -4231,11 +4258,70 @@ async function populateReturnGuidePhotoGrid_(g){
       imgEl.src = url;
       imgEl.addEventListener('click', ()=> openPhotoLightbox_(url));
       cell.appendChild(imgEl);
+      (boxRects||[]).forEach(box=>{
+        if (!box) return;
+        const hot = document.createElement('div');
+        hot.className = 'rg-photo-hotspot';
+        hot.style.left = box.leftPct + '%';
+        hot.style.top = box.topPct + '%';
+        hot.style.width = box.widthPct + '%';
+        hot.style.height = box.heightPct + '%';
+        hot.title = '탭하면 이 구성품 사진을 크게 볼 수 있습니다';
+        hot.addEventListener('click', (ev)=>{
+          ev.stopPropagation();
+          openReturnGuideCasePopup_(g.id, box.caseIdx);
+        });
+        cell.appendChild(hot);
+      });
     }catch(e){
       const cell = document.getElementById(`rgPhotoCell${i}`);
       if (cell) cell.innerHTML = '<span class="rg-photo-loading">불러오지 못했습니다</span>';
     }
   }
+}
+
+/** 반납대 가이드의 사진 격자에서 텍스트박스(구성품) 영역을 탭했을 때, 그 케이스에 속한
+ *  구성품들의 사진을 크게 보여주는 팝업입니다. */
+function openReturnGuideCasePopup_(gameId, caseIdx){
+  const g = games.find(x=>String(x.id)===String(gameId));
+  const c = g && g.cases && g.cases[caseIdx];
+  if (!c) return;
+  const items = c.items || [];
+  const old = document.getElementById('rgCasePopupBackdrop');
+  if (old) old.remove();
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.id = 'rgCasePopupBackdrop';
+  backdrop.innerHTML = `
+    <div class="modal" style="max-width:420px; max-height:85vh; overflow-y:auto;">
+      <h3 style="display:flex; align-items:center; gap:6px;">
+        <span style="display:inline-block; width:0.7em; height:0.7em; border-radius:50%; background:${caseColor_(c.caseType)};"></span>
+        ${typeLabel_(c.caseType)} 구성품
+      </h3>
+      <div style="display:flex; flex-direction:column; gap:14px;">
+        ${items.length ? items.map(it=>`
+          <div style="display:flex; gap:12px; align-items:center;">
+            ${it.photo
+              ? `<div class="case-photo-wrap checkerboard-bg" data-photo="${it.photo}" style="width:5.5em; height:5.5em; flex-shrink:0;"><img class="case-photo-thumb" alt="" onclick="event.stopPropagation(); openPhotoLightbox_(this.src)"></div>`
+              : ''}
+            <div style="font-weight:700; font-size:13.5px;">${it.name||''}${it.qty ? ` <span style="color:var(--ink-soft); font-weight:600;">${it.qty}개</span>` : ''}</div>
+          </div>
+        `).join('') : '<p style="font-size:12.5px; color:var(--ink-soft);">등록된 구성품이 없습니다.</p>'}
+      </div>
+      ${c.note ? `<p style="font-size:11.5px; color:var(--ink-soft); font-style:italic; margin-top:14px; white-space:pre-wrap;">${c.note}</p>` : ''}
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="document.getElementById('rgCasePopupBackdrop').remove()">닫기</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+  backdrop.querySelectorAll('.case-photo-wrap[data-photo]').forEach(wrap=>{
+    const path = wrap.dataset.photo;
+    resolvePhotoUrl_(path).then(url=>{
+      const imgEl = wrap.querySelector('.case-photo-thumb');
+      if (imgEl) imgEl.src = url;
+    }).catch(()=>{});
+  });
 }
 
 function renderReturnGuideEditor_(g, rg){
