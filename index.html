@@ -1806,7 +1806,7 @@ function updateQrScanIndicator_(){
   const btn = document.getElementById('qrScanToggleBtn');
   if (!btn) return;
   btn.classList.toggle('qr-scan-active', qrScanActive_);
-  btn.textContent = qrScanActive_ ? '🟢 QR 스캔 중 (탭하면 종료)' : '📡 QR 스캔';
+  btn.textContent = qrScanActive_ ? '🟢 QR 스캔 중 (계속 스캔 가능 · 탭하면 종료)' : '📡 QR 스캔';
 }
 
 /** 스캐너가 보내온 문자열에서 게임 ID를 뽑아냅니다. QR에 전체 주소가 담겨 있어도,
@@ -1823,26 +1823,34 @@ function extractGameIdFromScan_(raw){
   }
 }
 
+// 아주 짧은 시간 안에 같은 내용이 연속으로 들어오면(스캐너가 흔들려 겹쳐 찍히는 등) 중복 처리하지 않습니다.
+let lastQrScanRaw_ = null;
+let lastQrScanAt_ = 0;
+
+/** 반납대에서는 게임을 하나 찍고 → 가이드를 보고 → 바로 이어서 다음 게임을 찍는 흐름으로 계속 쓰기
+ *  때문에, 스캔에 성공해도 스캔 모드를 자동으로 끄지 않고 계속 켜둔 채로 다음 스캔을 받습니다.
+ *  (스캔 모드를 끄는 것은 "QR 스캔" 버튼을 다시 눌러 직접 끌 때뿐입니다.) */
 function handleQrScanInput_(raw){
+  const now = Date.now();
+  if (raw === lastQrScanRaw_ && (now - lastQrScanAt_) < 1500) return; // 중복 스캔 무시
+  lastQrScanRaw_ = raw;
+  lastQrScanAt_ = now;
+
   const gameId = extractGameIdFromScan_(raw);
   if (!gameId){
-    deactivateQrScan_();
     renderGuideAccessError_('게임 QR코드를 다시 확인해주세요.');
     return;
   }
   const g = games.find(x=>String(x.id)===String(gameId));
   if (!g){
-    deactivateQrScan_();
     renderGuideAccessError_('등록된 게임 가이드를 찾을 수 없습니다.');
     return;
   }
   const isPublished = !!(g.returnGuide && g.returnGuide.published === true);
   if (!isPublished){
-    deactivateQrScan_();
     renderGuideAccessError_('현재 사용할 수 없는 가이드입니다.');
     return;
   }
-  deactivateQrScan_(); // 가이드 진입 후 스캔 기능은 자동으로 꺼집니다.
   openGame(g.id, 'return');
 }
 
@@ -2004,6 +2012,37 @@ function abbreviateGameName_(name, maxLen){
   return s.length <= maxLen ? s : s.slice(0, maxLen-1) + '…';
 }
 
+/** QR코드와 (필요하면) 축약된 게임명을 정사각형 캔버스 하나에 함께 그려, 라벨 한 칸 전체를
+ *  이미지 한 장으로 만듭니다. jsPDF의 기본 글꼴은 한글이 없어 텍스트로 찍으면 깨지므로,
+ *  게임명은 항상 이 캔버스에 브라우저 글꼴로 그려서 이미지로 굳혀 PDF에 넣습니다. */
+function buildQrLabelImage_(qrDataUrl, gameName, showName){
+  return new Promise((resolve, reject)=>{
+    const img = new Image();
+    img.onload = ()=>{
+      const SIZE = 240; // px, 라벨 한 칸(정사각형)과 같은 비율
+      const nameBand = showName ? 46 : 0;
+      const qrPx = SIZE - nameBand - 6;
+      const canvas = document.createElement('canvas');
+      canvas.width = SIZE;
+      canvas.height = SIZE;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, SIZE, SIZE);
+      ctx.drawImage(img, (SIZE-qrPx)/2, 3, qrPx, qrPx);
+      if (showName){
+        ctx.fillStyle = '#000';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = "700 22px 'Malgun Gothic', sans-serif";
+        ctx.fillText(abbreviateGameName_(gameName, 10), SIZE/2, qrPx + 6 + nameBand/2);
+      }
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.onerror = ()=>reject(new Error('QR 이미지를 불러오지 못했습니다'));
+    img.src = qrDataUrl;
+  });
+}
+
 async function generateQrLabelsPdf_(){
   const ids = [...qrPrintSelected_.keys()];
   if (!ids.length){ alert('인쇄할 게임을 먼저 선택해주세요.'); return; }
@@ -2021,8 +2060,10 @@ async function generateQrLabelsPdf_(){
     return;
   }
 
-  // 같은 게임의 QR은 한 번만 만들어서 필요한 수량만큼 재사용합니다.
-  const qrDataUrlByGame = {};
+  // 같은 게임의 라벨(QR + 게임명을 한 장의 이미지로 합친 것)은 한 번만 만들어서 필요한 수량만큼
+  // 재사용합니다. jsPDF의 기본 글꼴은 한글을 지원하지 않아 doc.text()로 한글을 찍으면 글자가
+  // 깨지므로, 게임명은 캔버스에 직접 그려서(브라우저 글꼴 사용) 이미지 형태로 PDF에 넣습니다.
+  const labelImgByGame = {};
   for (const id of ids){
     const g = games.find(x=>String(x.id)===id);
     if (!g) continue;
@@ -2033,19 +2074,23 @@ async function generateQrLabelsPdf_(){
     document.body.appendChild(probe);
     new QRCode(probe, { text: link, width: 240, height: 240, correctLevel: QRCode.CorrectLevel.M });
     await new Promise(r=>setTimeout(r, 30)); // 캔버스가 그려질 시간을 잠깐 줍니다.
-    const canvas = probe.querySelector('canvas');
-    const img = probe.querySelector('img');
-    qrDataUrlByGame[id] = canvas ? canvas.toDataURL('image/png') : (img ? img.src : null);
+    const qrCanvas = probe.querySelector('canvas');
+    const qrImgEl = probe.querySelector('img');
+    const qrSrc = qrCanvas ? qrCanvas.toDataURL('image/png') : (qrImgEl ? qrImgEl.src : null);
     probe.remove();
+    if (!qrSrc) continue;
+    try{
+      labelImgByGame[id] = await buildQrLabelImage_(qrSrc, g.name, showName);
+    }catch(e){ /* 실패하면 이 게임은 건너뜁니다 */ }
   }
 
   // 선택한 순서대로, 게임별 필요 수량만큼 라벨을 나열합니다.
   const labels = [];
   ids.forEach(id=>{
     const g = games.find(x=>String(x.id)===id);
-    if (!g || !qrDataUrlByGame[id]) return;
+    if (!g || !labelImgByGame[id]) return;
     const qty = qrPrintSelected_.get(id) || 0;
-    for (let i=0; i<qty; i++) labels.push({ game: g, qr: qrDataUrlByGame[id] });
+    for (let i=0; i<qty; i++) labels.push({ game: g, img: labelImgByGame[id] });
   });
 
   if (!labels.length){ setStatus('❌ 생성할 라벨이 없습니다. QR코드를 만드는 데 실패했을 수 있습니다.'); return; }
@@ -2056,8 +2101,6 @@ async function generateQrLabelsPdf_(){
   const gridW = cellW * QR_LABEL_COLS, gridH = cellH * QR_LABEL_ROWS;
   const marginX = (QR_PAGE_W_MM - gridW) / 2;
   const marginY = (QR_PAGE_H_MM - gridH) / 2;
-  const nameH = showName ? 3.6 : 0;
-  const qrSize = cellW - 2 - nameH;
 
   const doc = new jsPDF({ unit:'mm', format:'a4' });
   labels.forEach((lbl, i)=>{
@@ -2067,12 +2110,7 @@ async function generateQrLabelsPdf_(){
     const row = Math.floor(posInPage / QR_LABEL_COLS);
     const x = marginX + col*cellW;
     const y = marginY + row*cellH;
-    doc.addImage(lbl.qr, 'PNG', x + (cellW-qrSize)/2, y + 1, qrSize, qrSize);
-    if (showName){
-      doc.setFontSize(5.2);
-      doc.setTextColor(0, 0, 0);
-      doc.text(abbreviateGameName_(lbl.game.name, 10), x + cellW/2, y + cellH - 1, { align:'center' });
-    }
+    doc.addImage(lbl.img, 'PNG', x, y, cellW, cellH);
   });
 
   doc.save(`QR라벨_${new Date().toISOString().slice(0,10)}.pdf`);
