@@ -39,8 +39,23 @@
   code{background:var(--bg); padding:1px 5px; border-radius:4px; font-size:12px; font-family:var(--mono);}
 
   /* ---- 앱 화면 (로그인 이후) ---- */
-  .topbar{position:sticky; top:0; z-index:20; background:var(--surface); border-bottom:1px solid var(--line); padding:14px 24px; display:flex; align-items:center; gap:14px;}
-  .topbar .brand{font-size:19px; margin-bottom:0;}
+  .topbar{position:sticky; top:0; z-index:20; background:var(--surface); border-bottom:1px solid var(--line); padding:12px 24px; display:flex; align-items:center; gap:10px;}
+  .topbar .brand{font-size:19px; margin-bottom:0; flex-shrink:0;}
+  .topbar-spacer{flex:1;}
+  .topbar-user{display:flex; align-items:center; gap:10px; padding-left:10px; margin-left:4px; border-left:1px solid var(--line); flex-shrink:0;}
+  .nav-dropdown{position:relative; display:inline-block;}
+  .nav-caret{font-size:9px; opacity:.7; margin-left:1px;}
+  .nav-dropdown-menu{position:absolute; top:calc(100% + 8px); right:0; background:var(--surface); border:1px solid var(--line); border-radius:12px; box-shadow:0 10px 28px rgba(0,0,0,.14); padding:6px; min-width:210px; display:none; flex-direction:column; gap:1px; z-index:30;}
+  .nav-dropdown-menu.open{display:flex;}
+  .nav-dropdown-menu button{all:unset; box-sizing:border-box; width:100%; padding:9px 11px; border-radius:8px; font-size:13px; font-family:var(--sans); font-weight:600; cursor:pointer; color:var(--ink-mid); display:flex; align-items:center; gap:9px;}
+  .nav-dropdown-menu button:hover{background:var(--bg); color:var(--ink);}
+  .nav-dropdown-menu .nav-menu-label{padding:6px 11px 4px; font-size:10.5px; font-weight:800; letter-spacing:.03em; color:var(--ink-soft); text-transform:uppercase;}
+  .nav-dropdown-menu .nav-menu-divider{height:1px; background:var(--line); margin:5px 2px;}
+  @media (max-width:960px){
+    .topbar{flex-wrap:wrap; row-gap:8px;}
+    .topbar-spacer{flex-basis:100%; height:0; flex:0 0 0;}
+    .topbar-user{margin-left:auto;}
+  }
   .btn-ghost2, .btn-primary2{width:auto; margin:0; padding:9px 14px; border-radius:8px; font-weight:700; display:inline-flex; align-items:center; justify-content:center; gap:6px; cursor:pointer; font-size:13px; font-family:var(--sans); transition:background .15s, border-color .15s, color .15s, box-shadow .15s;}
   .btn-ghost2{background:var(--surface); border:1.5px solid var(--line-strong); color:var(--ink-mid); box-shadow:0 1px 2px rgba(0,0,0,.04);}
   .btn-ghost2:hover{color:var(--ink); border-color:var(--ink-soft); background:var(--bg);}
@@ -311,25 +326,46 @@
   <div class="topbar">
     <div class="brand" style="margin:0;">RED BUTTON<span class="r-mark">®</span></div>
     <input type="text" id="topSearchInput" placeholder="게임 이름 검색 (초성 가능)" oninput="onTopSearchInput(this.value)"
-      style="width:220px; padding:8px 12px; border:1px solid var(--line); border-radius:8px; font-size:13px; font-family:var(--sans);">
-    <div style="flex:1;"></div>
-    <span id="roleLabel" style="font-size:12px; color:var(--ink-soft);"></span>
+      style="width:190px; padding:8px 12px; border:1px solid var(--line); border-radius:8px; font-size:13px; font-family:var(--sans);">
+    <button class="btn btn-ghost2" onclick="renderList()">← 목록</button>
     <div id="roleToggle" style="display:none;">
       <button id="roleViewerBtn" onclick="setRole('viewer')">뷰어</button>
       <button id="roleEditorBtn" onclick="setRole('editor')">편집자</button>
     </div>
-    <button class="btn btn-ghost2" onclick="renderList()">← 목록</button>
     <button class="btn btn-primary2" id="newGameBtn" style="display:none;" onclick="createNewGame()">+ 새 게임</button>
-    <button class="btn btn-ghost2" onclick="openHelpModal()">❓ 이용 방법</button>
-    <button class="btn btn-ghost2" id="dashboardBtn" style="display:none;" onclick="openDashboard()">📊 진행현황</button>
-    <button class="btn btn-ghost2" id="accessBtn" style="display:none;" onclick="openAccessManagement()">🔑 권한 관리</button>
-    <button class="btn btn-ghost2" id="migrateBtn" style="display:none;" onclick="openMigrationTool()">📥 데이터 가져오기</button>
-    <button class="btn btn-ghost2" id="bulkDownloadBtn" style="display:none;" onclick="openBulkDownloadTool()">🖼️ 사진 일괄 다운로드</button>
-    <button class="btn btn-ghost2" id="conditionStandardsBtn" style="display:none;" onclick="openConditionStandardsAdmin_()">📋 상태 기준 관리</button>
-    <button class="btn btn-ghost2" onclick="openPurchaseGuide()">🛒 구매 가이드</button>
-    <button class="btn btn-ghost2" onclick="openQrPrintTool_()">🖨️ QR 인쇄</button>
+
+    <div class="topbar-spacer"></div>
+
     <button class="btn btn-ghost2" id="qrScanToggleBtn" onclick="toggleQrScanMode_()">📡 QR 스캔</button>
-    <button class="btn btn-ghost2" onclick="doLogout()">로그아웃</button>
+
+    <div class="nav-dropdown">
+      <button class="btn btn-ghost2" onclick="toggleNavDropdown_('toolsMenu')">🛠️ 도구 <span class="nav-caret">▾</span></button>
+      <div class="nav-dropdown-menu" id="toolsMenu">
+        <button onclick="closeAllNavDropdowns_(); openPurchaseGuide();">🛒 구매 가이드</button>
+        <button onclick="closeAllNavDropdowns_(); openQrPrintTool_();">🖨️ QR 인쇄</button>
+        <div class="nav-menu-divider"></div>
+        <button onclick="closeAllNavDropdowns_(); openHelpModal();">❓ 이용 방법</button>
+      </div>
+    </div>
+
+    <div class="nav-dropdown" id="adminMenuWrap" style="display:none;">
+      <button class="btn btn-ghost2" onclick="toggleNavDropdown_('adminMenu')">⚙️ 관리자 <span class="nav-caret">▾</span></button>
+      <div class="nav-dropdown-menu" id="adminMenu">
+        <div class="nav-menu-label">게임 관리</div>
+        <button onclick="closeAllNavDropdowns_(); openDashboard();">📊 진행현황</button>
+        <button onclick="closeAllNavDropdowns_(); openMigrationTool();">📥 데이터 가져오기</button>
+        <button onclick="closeAllNavDropdowns_(); openBulkDownloadTool();">🖼️ 사진 일괄 다운로드</button>
+        <button onclick="closeAllNavDropdowns_(); openConditionStandardsAdmin_();">📋 상태 기준 관리</button>
+        <div class="nav-menu-divider"></div>
+        <div class="nav-menu-label">계정</div>
+        <button onclick="closeAllNavDropdowns_(); openAccessManagement();">🔑 권한 관리</button>
+      </div>
+    </div>
+
+    <div class="topbar-user">
+      <span id="roleLabel" style="font-size:12px; color:var(--ink-soft);"></span>
+      <button class="btn btn-ghost2" onclick="doLogout()">로그아웃</button>
+    </div>
   </div>
   <div class="app" id="app"></div>
 </div>
@@ -598,17 +634,27 @@ function updateRoleToggleUI_(){
   if (eb) eb.classList.toggle('active', currentRole==='editor');
   const newBtn = document.getElementById('newGameBtn');
   if (newBtn) newBtn.style.display = currentRole==='editor' ? 'inline-flex' : 'none';
-  const dashBtn = document.getElementById('dashboardBtn');
-  if (dashBtn) dashBtn.style.display = currentRole==='editor' ? 'inline-flex' : 'none';
-  const accBtn = document.getElementById('accessBtn');
-  if (accBtn) accBtn.style.display = currentRole==='editor' ? 'inline-flex' : 'none';
-  const migBtn = document.getElementById('migrateBtn');
-  if (migBtn) migBtn.style.display = currentRole==='editor' ? 'inline-flex' : 'none';
-  const bulkBtn = document.getElementById('bulkDownloadBtn');
-  if (bulkBtn) bulkBtn.style.display = currentRole==='editor' ? 'inline-flex' : 'none';
-  const condBtn = document.getElementById('conditionStandardsBtn');
-  if (condBtn) condBtn.style.display = currentRole==='editor' ? 'inline-flex' : 'none';
+  const adminWrap = document.getElementById('adminMenuWrap');
+  if (adminWrap) adminWrap.style.display = currentRole==='editor' ? 'inline-block' : 'none';
 }
+
+/** 상단바 드롭다운(도구/관리자 메뉴) 하나만 열고 나머지는 닫습니다. */
+function toggleNavDropdown_(id){
+  document.querySelectorAll('.nav-dropdown-menu').forEach(m=>{
+    if (m.id !== id) m.classList.remove('open');
+  });
+  const menu = document.getElementById(id);
+  if (menu) menu.classList.toggle('open');
+}
+
+function closeAllNavDropdowns_(){
+  document.querySelectorAll('.nav-dropdown-menu.open').forEach(m=>m.classList.remove('open'));
+}
+
+// 드롭다운 바깥을 클릭하면 열려 있는 메뉴를 닫습니다.
+document.addEventListener('click', (e)=>{
+  if (!e.target.closest('.nav-dropdown')) closeAllNavDropdowns_();
+});
 
 /** 뷰어 ↔ 편집자 전환 버튼. 편집자로 전환하면서 지금 보고 있는 게임의 편집 잠금도 함께 확인합니다. */
 async function setRole(r){
@@ -5027,7 +5073,7 @@ Object.assign(window, {
   openBulkDownloadTool, toggleBulkDownloadGameSelect_, selectAllGuideDoneGames_, selectAllBulkDownloadGames_, deselectAllBulkDownloadGames_, startBulkDownload_,
   openConditionStandardsAdmin_, addConditionStandard_, deleteConditionStandard_, updateStandardGrade_, updateStandardDetail_,
   triggerStandardPhotoUpload_, removeStandardPhoto_,
-  openGameQrModal_, downloadGameQr_, copyGameQrLink_,
+  openGameQrModal_, downloadGameQr_, copyGameQrLink_, toggleNavDropdown_, closeAllNavDropdowns_,
   toggleQrScanMode_, openQrPrintTool_, toggleQrPrintGameSelect_, updateQrPrintQty_, removeQrPrintGame_, generateQrLabelsPdf_,
   openHelpModal
 });
