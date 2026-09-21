@@ -51,6 +51,8 @@
   #roleToggle{display:flex; align-items:center; gap:4px; background:var(--bg); border:1px solid var(--line); border-radius:999px; padding:3px;}
   #roleToggle button{border:none; background:transparent; padding:6px 14px; border-radius:999px; font-size:12.5px; font-weight:700; cursor:pointer; color:var(--ink-soft); font-family:var(--sans);}
   #roleToggle button.active{background:var(--ink); color:#fff;}
+  #qrScanToggleBtn.qr-scan-active{background:#1F7A5C; border-color:#1F7A5C; color:#fff; animation:qrScanPulse 1.4s ease-in-out infinite;}
+  @keyframes qrScanPulse{ 0%,100%{opacity:1;} 50%{opacity:.72;} }
 
   .app{max-width:1080px; margin:0 auto; padding:28px 24px 80px;}
   .app > h2{font-size:19px; letter-spacing:-0.01em;}
@@ -325,6 +327,8 @@
     <button class="btn btn-ghost2" id="bulkDownloadBtn" style="display:none;" onclick="openBulkDownloadTool()">🖼️ 사진 일괄 다운로드</button>
     <button class="btn btn-ghost2" id="conditionStandardsBtn" style="display:none;" onclick="openConditionStandardsAdmin_()">📋 상태 기준 관리</button>
     <button class="btn btn-ghost2" onclick="openPurchaseGuide()">🛒 구매 가이드</button>
+    <button class="btn btn-ghost2" onclick="openQrPrintTool_()">🖨️ QR 인쇄</button>
+    <button class="btn btn-ghost2" id="qrScanToggleBtn" onclick="toggleQrScanMode_()">📡 QR 스캔</button>
     <button class="btn btn-ghost2" onclick="doLogout()">로그아웃</button>
   </div>
   <div class="app" id="app"></div>
@@ -539,19 +543,53 @@ async function enterApp(email, role){
     document.getElementById('roleToggle').style.display = 'flex';
   }
   updateRoleToggleUI_();
-  await Promise.all([loadGames(), loadConditionStandards_()]);
+  try{
+    await Promise.all([loadGames(), loadConditionStandards_()]);
+  }catch(e){
+    console.error('게임 목록을 불러오지 못했습니다', e);
+    renderGuideAccessError_('가이드를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
+    return;
+  }
 
   // QR코드를 스캔해서 들어온 경우(주소에 ?game=아이디 가 붙어 있는 경우), 목록을 거치지 않고
   // 바로 그 게임의 화면(기본은 반납대 가이드)으로 이동합니다.
   const qParams = new URLSearchParams(location.search);
   const qGame = qParams.get('game');
-  const qMode = qParams.get('mode');
-  const target = qGame ? games.find(x=>String(x.id)===String(qGame)) : null;
-  if (target){
-    openGame(target.id, qMode === 'photo' || qMode === 'table' ? qMode : 'return');
+  if (qGame){
+    openGameFromQr_(qGame, qParams.get('mode'));
   } else {
     renderList();
   }
+}
+
+/** QR을 스캔해서(또는 QR이 담긴 링크로 직접) 들어왔을 때, 그 게임 가이드로 바로 이동합니다.
+ *  없는 게임이거나 비공개 가이드면 목록으로 가는 대신 안내 화면을 보여줍니다. */
+function openGameFromQr_(gameId, mode){
+  const target = games.find(x=>String(x.id)===String(gameId));
+  if (!target){
+    renderGuideAccessError_('등록된 게임 가이드를 찾을 수 없습니다.');
+    return;
+  }
+  const wantsReturnGuide = mode !== 'photo' && mode !== 'table';
+  const isPublished = !!(target.returnGuide && target.returnGuide.published === true);
+  if (wantsReturnGuide && !isPublished){
+    renderGuideAccessError_('현재 사용할 수 없는 가이드입니다.');
+    return;
+  }
+  openGame(target.id, wantsReturnGuide ? 'return' : mode);
+}
+
+/** QR 접근 관련 오류(등록되지 않은 QR, 비공개 가이드, 네트워크 오류 등)를 안내하는 화면입니다. */
+function renderGuideAccessError_(message){
+  leavePresence_();
+  currentGameId = null;
+  appEl.innerHTML = `
+    <div style="max-width:380px; margin:70px auto; text-align:center;">
+      <div style="font-size:38px; margin-bottom:14px;">⚠️</div>
+      <p style="font-size:15px; font-weight:700; margin-bottom:20px;">${message}</p>
+      <button class="btn btn-primary2" style="width:auto; padding:9px 22px;" onclick="renderList()">← 게임 목록으로</button>
+    </div>
+  `;
 }
 
 function updateRoleToggleUI_(){
@@ -1714,6 +1752,331 @@ function copyGameQrLink_(gameId){
   } else {
     prompt('아래 링크를 복사해주세요:', link);
   }
+}
+
+// ============================================================
+// QR 스캐너(USB/블루투스, 키보드 입력 방식) 스캔 모드
+// ============================================================
+let qrScanActive_ = false;
+let qrScanBuffer_ = '';
+let qrScanKeyHandler_ = null;
+
+function toggleQrScanMode_(){
+  if (qrScanActive_) deactivateQrScan_(); else activateQrScan_();
+}
+
+/** 스캔 모드를 켜면, 검색창 등 다른 입력에 포커스가 있어도 스캐너가 보내는 키 입력을
+ *  document 레벨에서 직접 가로채 버퍼에 모읍니다 (검색창 입력과 충돌하지 않도록). */
+function activateQrScan_(){
+  if (qrScanActive_) return;
+  qrScanActive_ = true;
+  qrScanBuffer_ = '';
+  if (document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur();
+  qrScanKeyHandler_ = (e)=>{
+    if (!qrScanActive_) return;
+    if (e.key === 'Enter'){
+      e.preventDefault();
+      e.stopPropagation();
+      const raw = qrScanBuffer_.trim();
+      qrScanBuffer_ = '';
+      if (!raw){ return; } // 빈 채로 Enter만 온 경우는 무시 (오작동 방지)
+      handleQrScanInput_(raw);
+      return;
+    }
+    // 문자 하나짜리 키(숫자·영문·기호 등)만 버퍼에 담고, Shift·Tab 같은 제어키는 무시합니다.
+    if (e.key.length === 1){
+      e.preventDefault();
+      e.stopPropagation();
+      qrScanBuffer_ += e.key;
+    }
+  };
+  document.addEventListener('keydown', qrScanKeyHandler_, true);
+  updateQrScanIndicator_();
+}
+
+function deactivateQrScan_(){
+  qrScanActive_ = false;
+  qrScanBuffer_ = '';
+  if (qrScanKeyHandler_) document.removeEventListener('keydown', qrScanKeyHandler_, true);
+  qrScanKeyHandler_ = null;
+  updateQrScanIndicator_();
+}
+
+function updateQrScanIndicator_(){
+  const btn = document.getElementById('qrScanToggleBtn');
+  if (!btn) return;
+  btn.classList.toggle('qr-scan-active', qrScanActive_);
+  btn.textContent = qrScanActive_ ? '🟢 QR 스캔 중 (탭하면 종료)' : '📡 QR 스캔';
+}
+
+/** 스캐너가 보내온 문자열에서 게임 ID를 뽑아냅니다. QR에 전체 주소가 담겨 있어도,
+ *  게임 ID만 담겨 있어도 둘 다 대응합니다. */
+function extractGameIdFromScan_(raw){
+  if (!raw) return null;
+  try{
+    const u = new URL(raw);
+    const id = u.searchParams.get('game');
+    if (id) return id;
+    return null; // URL 형태인데 game 파라미터가 없으면 우리 QR이 아닙니다
+  }catch(e){
+    return raw; // URL이 아니면 게임 ID 그 자체로 취급합니다
+  }
+}
+
+function handleQrScanInput_(raw){
+  const gameId = extractGameIdFromScan_(raw);
+  if (!gameId){
+    deactivateQrScan_();
+    renderGuideAccessError_('게임 QR코드를 다시 확인해주세요.');
+    return;
+  }
+  const g = games.find(x=>String(x.id)===String(gameId));
+  if (!g){
+    deactivateQrScan_();
+    renderGuideAccessError_('등록된 게임 가이드를 찾을 수 없습니다.');
+    return;
+  }
+  const isPublished = !!(g.returnGuide && g.returnGuide.published === true);
+  if (!isPublished){
+    deactivateQrScan_();
+    renderGuideAccessError_('현재 사용할 수 없는 가이드입니다.');
+    return;
+  }
+  deactivateQrScan_(); // 가이드 진입 후 스캔 기능은 자동으로 꺼집니다.
+  openGame(g.id, 'return');
+}
+
+// ============================================================
+// QR 라벨 대량 인쇄 (매장 사용자도 접근 가능한 일반 기능 — 관리자 전용 아님)
+// ============================================================
+const QR_LABEL_MM = 20;       // 라벨 한 칸 크기 (정사각형, mm)
+const QR_LABEL_COLS = 8;      // 8 x 13 = 104칸 라벨지 기준
+const QR_LABEL_ROWS = 13;
+const QR_LABELS_PER_PAGE = QR_LABEL_COLS * QR_LABEL_ROWS;
+const QR_PAGE_W_MM = 210, QR_PAGE_H_MM = 297; // A4
+
+let qrPrintSelected_ = new Map(); // 게임ID(문자열) -> 필요 수량
+let qrPrintSearch_ = '';
+
+function openQrPrintTool_(){
+  leavePresence_();
+  currentGameId = null;
+  qrPrintSearch_ = '';
+
+  appEl.innerHTML = `
+    <button class="back" onclick="renderList()">← 목록으로</button>
+    <div class="pg-head">
+      <h2>🖨️ QR 라벨 인쇄</h2>
+      <p class="pg-desc">
+        게임을 검색해서 선택하고 필요한 수량을 입력한 뒤 PDF를 만들면, A4 용지·20×20mm·한 장 104칸(8×13) 기준의
+        인쇄용 QR 라벨 PDF가 만들어집니다. 같은 게임의 QR은 게임을 다시 만들거나 가이드를 수정해도 항상 그대로이므로,
+        한 번 인쇄해서 붙여두면 계속 같은 QR을 씁니다. 실제 라벨지에 인쇄하기 전에 일반 A4 용지로 먼저 뽑아서
+        칸 위치가 맞는지 확인해보시길 권장합니다 (인쇄 배율은 "100%" 또는 "실제 크기"로, "페이지에 맞춤"은 꺼주세요).
+      </p>
+    </div>
+    <div class="pg-body">
+      <div class="pg-panel">
+        <h3>게임 검색·선택</h3>
+        <input type="text" id="qrPrintSearchInput" class="pg-search" placeholder="게임 이름 검색 (초성 가능)">
+        <div class="pg-game-list" id="qrPrintGameList"></div>
+      </div>
+      <div class="pg-panel">
+        <h3 id="qrPrintSelectedTitle">선택한 게임</h3>
+        <div id="qrPrintSelectedList" style="margin-bottom:14px;"></div>
+        <label style="display:flex; align-items:center; gap:6px; font-size:12.5px; margin-bottom:14px; cursor:pointer;">
+          <input type="checkbox" id="qrPrintShowName" checked> 라벨에 게임명(축약) 표시
+        </label>
+        <p id="qrPrintTotalInfo" style="font-size:12.5px; color:var(--ink-soft); margin-bottom:14px;"></p>
+        <button class="btn btn-primary2" style="width:auto;" onclick="generateQrLabelsPdf_()">PDF 생성 및 다운로드</button>
+        <div id="qrPrintStatus" style="margin-top:12px; font-size:12.5px; color:var(--ink-soft); white-space:pre-wrap;"></div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('qrPrintSearchInput').addEventListener('input', (e)=>{
+    qrPrintSearch_ = e.target.value;
+    renderQrPrintGameList_();
+  });
+
+  renderQrPrintGameList_();
+  renderQrPrintSelectedList_();
+}
+
+function renderQrPrintGameList_(){
+  const listEl = document.getElementById('qrPrintGameList');
+  if (!listEl) return;
+  const q = qrPrintSearch_.trim();
+  const visibleGames = games
+    .filter(g => !q || (g.name||'').includes(q) || (isChosungOnly(q) && getChosung(g.name||'').includes(q)))
+    .slice()
+    .sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''), 'ko'));
+
+  listEl.innerHTML = visibleGames.map(g=>{
+    const checked = qrPrintSelected_.has(String(g.id));
+    return `
+      <label class="pg-game-row">
+        <input type="checkbox" ${checked?'checked':''} onchange="toggleQrPrintGameSelect_('${g.id}', this.checked)">
+        <span class="pg-game-name">${g.name}</span>
+        <span class="pg-game-id">ID ${g.id}</span>
+      </label>`;
+  }).join('') || '<p style="font-size:12.5px; color:var(--ink-soft);">검색 결과가 없습니다.</p>';
+}
+
+function toggleQrPrintGameSelect_(id, checked){
+  id = String(id);
+  if (checked){
+    if (!qrPrintSelected_.has(id)) qrPrintSelected_.set(id, 1);
+  } else {
+    qrPrintSelected_.delete(id);
+  }
+  renderQrPrintSelectedList_();
+}
+
+function updateQrPrintQty_(id, qty){
+  id = String(id);
+  const n = Math.max(1, Math.min(999, parseInt(qty, 10) || 1));
+  if (qrPrintSelected_.has(id)) qrPrintSelected_.set(id, n);
+  renderQrPrintSelectedList_();
+}
+
+function removeQrPrintGame_(id){
+  id = String(id);
+  qrPrintSelected_.delete(id);
+  renderQrPrintGameList_();
+  renderQrPrintSelectedList_();
+}
+
+function renderQrPrintSelectedList_(){
+  const el = document.getElementById('qrPrintSelectedList');
+  const titleEl = document.getElementById('qrPrintSelectedTitle');
+  const infoEl = document.getElementById('qrPrintTotalInfo');
+  if (!el) return;
+  const ids = [...qrPrintSelected_.keys()];
+  if (titleEl) titleEl.textContent = `선택한 게임 (${ids.length}종)`;
+
+  if (!ids.length){
+    el.innerHTML = '<p style="font-size:12.5px; color:var(--ink-soft);">왼쪽에서 게임을 선택해주세요.</p>';
+  } else {
+    el.innerHTML = `
+      <table style="width:100%; border-collapse:collapse; font-size:12.5px;">
+        <thead><tr style="text-align:left; border-bottom:1px solid var(--line);">
+          <th style="padding:4px 6px;">게임명</th><th style="padding:4px 6px;">필요 수량</th><th></th>
+        </tr></thead>
+        <tbody>
+          ${ids.map(id=>{
+            const g = games.find(x=>String(x.id)===id);
+            const qty = qrPrintSelected_.get(id);
+            return `
+              <tr style="border-bottom:1px solid var(--line);">
+                <td style="padding:6px;">${g ? g.name : `(삭제된 게임 ${id})`}</td>
+                <td style="padding:6px;"><input type="number" min="1" max="999" value="${qty}" style="width:60px; padding:4px 6px; border:1px solid var(--line); border-radius:6px;" onchange="updateQrPrintQty_('${id}', this.value)"></td>
+                <td style="padding:6px;"><button class="btn btn-ghost2" style="width:auto; padding:3px 8px; font-size:11px;" onclick="removeQrPrintGame_('${id}')">삭제</button></td>
+              </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    `;
+  }
+
+  const total = ids.reduce((sum,id)=> sum + (qrPrintSelected_.get(id)||0), 0);
+  const pages = total ? Math.ceil(total / QR_LABELS_PER_PAGE) : 0;
+  if (infoEl) infoEl.textContent = total ? `총 라벨 수: ${total}개 · 예상 용지: ${pages}장 (한 장당 ${QR_LABELS_PER_PAGE}칸 기준)` : '';
+}
+
+/** jsPDF를 처음 쓸 때만 CDN에서 불러옵니다 (QR 라벨 PDF 생성용). */
+let jspdfLoadPromise_ = null;
+function loadJsPDF_(){
+  if (window.jspdf && window.jspdf.jsPDF) return Promise.resolve(window.jspdf.jsPDF);
+  if (jspdfLoadPromise_) return jspdfLoadPromise_;
+  jspdfLoadPromise_ = new Promise((resolve, reject)=>{
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+    s.onload = ()=>resolve(window.jspdf.jsPDF);
+    s.onerror = ()=>reject(new Error('PDF 생성 라이브러리를 불러오지 못했습니다 (네트워크 문제일 수 있습니다)'));
+    document.head.appendChild(s);
+  });
+  return jspdfLoadPromise_;
+}
+
+/** 게임 이름이 라벨에 다 안 들어갈 만큼 길면 뒷부분을 줄여서 표시합니다. */
+function abbreviateGameName_(name, maxLen){
+  const s = String(name||'').trim();
+  return s.length <= maxLen ? s : s.slice(0, maxLen-1) + '…';
+}
+
+async function generateQrLabelsPdf_(){
+  const ids = [...qrPrintSelected_.keys()];
+  if (!ids.length){ alert('인쇄할 게임을 먼저 선택해주세요.'); return; }
+
+  const statusEl = document.getElementById('qrPrintStatus');
+  const showName = document.getElementById('qrPrintShowName')?.checked;
+  const setStatus = (msg)=>{ if (statusEl) statusEl.textContent = msg; };
+
+  setStatus('QR코드를 만드는 중...');
+  let QRCode, jsPDF;
+  try{
+    [QRCode, jsPDF] = await Promise.all([loadQRCodeLib_(), loadJsPDF_()]);
+  }catch(e){
+    setStatus('❌ ' + e.message);
+    return;
+  }
+
+  // 같은 게임의 QR은 한 번만 만들어서 필요한 수량만큼 재사용합니다.
+  const qrDataUrlByGame = {};
+  for (const id of ids){
+    const g = games.find(x=>String(x.id)===id);
+    if (!g) continue;
+    const link = buildGameDeepLink_(g.id, 'return');
+    const probe = document.createElement('div');
+    probe.style.position = 'absolute';
+    probe.style.left = '-9999px';
+    document.body.appendChild(probe);
+    new QRCode(probe, { text: link, width: 240, height: 240, correctLevel: QRCode.CorrectLevel.M });
+    await new Promise(r=>setTimeout(r, 30)); // 캔버스가 그려질 시간을 잠깐 줍니다.
+    const canvas = probe.querySelector('canvas');
+    const img = probe.querySelector('img');
+    qrDataUrlByGame[id] = canvas ? canvas.toDataURL('image/png') : (img ? img.src : null);
+    probe.remove();
+  }
+
+  // 선택한 순서대로, 게임별 필요 수량만큼 라벨을 나열합니다.
+  const labels = [];
+  ids.forEach(id=>{
+    const g = games.find(x=>String(x.id)===id);
+    if (!g || !qrDataUrlByGame[id]) return;
+    const qty = qrPrintSelected_.get(id) || 0;
+    for (let i=0; i<qty; i++) labels.push({ game: g, qr: qrDataUrlByGame[id] });
+  });
+
+  if (!labels.length){ setStatus('❌ 생성할 라벨이 없습니다. QR코드를 만드는 데 실패했을 수 있습니다.'); return; }
+
+  setStatus(`PDF를 만드는 중... (라벨 ${labels.length}개)`);
+
+  const cellW = QR_LABEL_MM, cellH = QR_LABEL_MM;
+  const gridW = cellW * QR_LABEL_COLS, gridH = cellH * QR_LABEL_ROWS;
+  const marginX = (QR_PAGE_W_MM - gridW) / 2;
+  const marginY = (QR_PAGE_H_MM - gridH) / 2;
+  const nameH = showName ? 3.6 : 0;
+  const qrSize = cellW - 2 - nameH;
+
+  const doc = new jsPDF({ unit:'mm', format:'a4' });
+  labels.forEach((lbl, i)=>{
+    const posInPage = i % QR_LABELS_PER_PAGE;
+    if (posInPage === 0 && i !== 0) doc.addPage();
+    const col = posInPage % QR_LABEL_COLS;
+    const row = Math.floor(posInPage / QR_LABEL_COLS);
+    const x = marginX + col*cellW;
+    const y = marginY + row*cellH;
+    doc.addImage(lbl.qr, 'PNG', x + (cellW-qrSize)/2, y + 1, qrSize, qrSize);
+    if (showName){
+      doc.setFontSize(5.2);
+      doc.setTextColor(0, 0, 0);
+      doc.text(abbreviateGameName_(lbl.game.name, 10), x + cellW/2, y + cellH - 1, { align:'center' });
+    }
+  });
+
+  doc.save(`QR라벨_${new Date().toISOString().slice(0,10)}.pdf`);
+  setStatus(`✅ 완료! 라벨 ${labels.length}개 · ${Math.ceil(labels.length/QR_LABELS_PER_PAGE)}장짜리 PDF를 다운로드했습니다.\n실제 라벨지에 인쇄하기 전, 일반 A4 용지로 먼저 뽑아 칸 위치를 확인해보시길 권장합니다.`);
 }
 
 async function startBulkDownload_(){
@@ -4627,6 +4990,7 @@ Object.assign(window, {
   openConditionStandardsAdmin_, addConditionStandard_, deleteConditionStandard_, updateStandardGrade_, updateStandardDetail_,
   triggerStandardPhotoUpload_, removeStandardPhoto_,
   openGameQrModal_, downloadGameQr_, copyGameQrLink_,
+  toggleQrScanMode_, openQrPrintTool_, toggleQrPrintGameSelect_, updateQrPrintQty_, removeQrPrintGame_, generateQrLabelsPdf_,
   openHelpModal
 });
 
