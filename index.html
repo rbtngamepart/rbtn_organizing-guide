@@ -72,6 +72,7 @@
   .viewer-head{display:flex; align-items:center; gap:10px; margin-bottom:10px; flex-wrap:wrap;}
   .viewer-back{background:var(--surface); border:1.5px solid var(--line-strong); color:var(--ink-mid); border-radius:8px; width:34px; height:34px; flex-shrink:0; font-size:15px; cursor:pointer; display:flex; align-items:center; justify-content:center;}
   .viewer-back:hover{background:var(--bg); color:var(--ink);}
+  .est-badge{flex:0 0 auto; background:#fdeceb; color:var(--accent); font-weight:800; font-size:15px; padding:5px 12px; border-radius:999px; white-space:nowrap;}
   .viewer-title{margin:0; font-size:16px; flex:1; min-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
   .app > h2{font-size:19px; letter-spacing:-0.01em;}
 
@@ -2825,6 +2826,7 @@ function renderDetail(){
       <div class="viewer-head">
         <button class="viewer-back" onclick="renderList()" title="목록으로">←</button>
         <h2 class="viewer-title">${g.name || ''}</h2>
+        ${estMinutesBadgeHtml_(g)}
         <div class="scan-chips" id="scanChipsSlot">${scanChipsHtml_(g)}</div>
         <div class="tabs" style="margin:0;">
           <button class="${currentMode==='photo'?'active':''}" onclick="switchMode('photo')">사진</button>
@@ -4916,6 +4918,7 @@ function ensureReturnGuide_(g){
   if (!rg.noCountItems) rg.noCountItems = [];
   if (!rg.otherNotes) rg.otherNotes = [];
   if (rg.protectorInfo === undefined) rg.protectorInfo = '';
+  if (rg.estMinutes === undefined) rg.estMinutes = null;
   return rg;
 }
 
@@ -5161,6 +5164,11 @@ function renderReturnGuideEditor_(g, rg){
         <input type="checkbox" ${rg.published?'checked':''} onchange="toggleGuidePublished_(this.checked)"> 반납대 가이드 게시 (체크해야 뷰어에게 보입니다)
       </label>
       <p style="margin-top:6px;">필수 구성품 ${rg.requiredItems.length}종</p>
+      <label style="display:flex; align-items:center; gap:8px; margin-top:10px; font-size:13px; font-weight:700;">
+        ⏱ 반납 관리 예상 소요 시간
+        <input type="number" min="0" step="1" inputmode="numeric" value="${rg.estMinutes ?? ''}" placeholder="예: 3" onchange="updateEstMinutes_(this.value)" style="width:80px; padding:5px 8px;"> 분
+        <span style="font-weight:400; font-size:11.5px; color:var(--ink-soft);">비워두면 뷰어에 표시되지 않습니다</span>
+      </label>
     </div>
 
     ${g.photos && g.photos.length ? `
@@ -5342,6 +5350,18 @@ async function deleteGuideItem_(section, idx){
 function updateProtectorInfo_(v){
   const g = games.find(x=>x.id===currentGameId);
   ensureReturnGuide_(g).protectorInfo = v;
+}
+function estMinutesBadgeHtml_(g){
+  const m = g && g.returnGuide ? Number(g.returnGuide.estMinutes) : NaN;
+  if (!isFinite(m) || m <= 0) return '';
+  return `<span class="est-badge" title="반납 관리 예상 소요 시간">⏱ 약 ${Math.round(m)}분</span>`;
+}
+async function updateEstMinutes_(v){
+  const g = games.find(x=>x.id===currentGameId);
+  const n = parseInt(v, 10);
+  ensureReturnGuide_(g).estMinutes = (isFinite(n) && n > 0) ? n : null;
+  await persistGame_(g);
+  renderReturnGuideTab();
 }
 async function toggleGuidePublished_(checked){
   const g = games.find(x=>x.id===currentGameId);
@@ -6143,6 +6163,7 @@ async function applyGameXlsx_(){
 
 // 전역에 노출 (onclick에서 호출하기 위함 - type="module"은 기본적으로 전역 스코프가 아니라서 필요)
 Object.assign(window, {
+  updateEstMinutes_,
   toggleReturnViewer_, enterReturnViewer_, exitReturnViewer_,
   switchStore_, toggleMoreMenu_, closeMoreMenu_, pickScanColor_, openScanHistory_, setHistRange_, openGameFromHistory_,
   openScanRanking_, setRankRange_, setRankCustom_, selectRankGame_, openMaintenance_, toggleMaintShowAll_, toggleMaintDetail_,
