@@ -174,8 +174,6 @@
   .anno-item-photo-row{display:flex; align-items:center; margin:0.17em 0 0.26em;}
   .anno-item-photo-btn{font-size:0.83em; color:var(--ink-soft); background:none; border:1px dashed var(--line); border-radius:0.35em; padding:0.17em 0.52em; cursor:pointer; font-family:var(--sans);}
   .anno-item-photo-btn:hover{color:var(--ink); border-color:var(--ink-soft);}
-  .photo-lightbox{position:fixed; inset:0; background:rgba(0,0,0,.82); z-index:400; display:flex; align-items:center; justify-content:center; padding:30px; cursor:zoom-out;}
-  .photo-lightbox img{max-width:100%; max-height:100%; border-radius:8px; box-shadow:0 10px 40px rgba(0,0,0,.5);}
   .rg-row{display:flex; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap; padding-bottom:8px; border-bottom:1px solid var(--line);}
   .rg-row input[type=text], .rg-row textarea{padding:6px 8px; border:1px solid var(--line); border-radius:6px; font-size:13px; font-family:var(--sans);}
   .rg-row textarea{resize:vertical; min-height:2.4em;}
@@ -430,6 +428,159 @@
     .print-table tr{page-break-inside:avoid;}
     .pt-memo{height:42px;}
   }
+
+  /* ============================================================
+     추가 상태 색상 토큰 (다크 모드에서 함께 바뀜)
+     ============================================================ */
+  :root{
+    --done-bg:#EAF6EC; --done-line:#B9DFC0; --done-line-strong:#7FBE8B;
+    --warn-bg:#FFF6DE; --warn-line:#F0DFA8; --warn-ink:#7a5b12;
+    --stage-bg:#EDEDE8;
+  }
+  .game-card.work-done{background:var(--done-bg); border-color:var(--done-line);}
+  .game-card.work-done:hover{border-color:var(--done-line-strong);}
+  .presence-banner{background:var(--warn-bg); border-color:var(--warn-line); color:var(--warn-ink);}
+  .case-badge{background:color-mix(in srgb, var(--c) 10%, var(--surface));}
+  .pg-top50-badge{background:color-mix(in srgb, var(--accent) 12%, var(--surface));}
+  .dash-progress-bar-label{text-shadow:0 0 4px var(--surface), 0 0 8px var(--surface), 0 0 2px var(--surface);}
+  /* 사진 영역은 다크 모드에서도 "실제 인쇄물/화면과 같은 모습"을 유지하도록 항상 밝은 색을 씁니다 */
+  .photo-stage{
+    --bg:#F6F6F3; --surface:#FFFFFF; --ink:#1B1C1A; --ink-soft:#63645F; --ink-mid:#46473F;
+    --line:#E3E3DE; --line-strong:#C7C7BE; color-scheme:light; color:var(--ink); background-color:var(--stage-bg);
+  }
+
+  /* ---- 다크 모드 ---- */
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      color-scheme:dark;
+      --bg:#151614; --surface:#1F201E; --ink:#ECECE8; --ink-soft:#A3A49D; --ink-mid:#C3C4BC;
+      --line:#33342F; --line-strong:#4A4B45; --accent:#F0383E; --accent-soft:#3A1E1E; --danger:#E0795A;
+      --done-bg:#1C3022; --done-line:#2F5A3A; --done-line-strong:#4E8A5C;
+      --warn-bg:#3A3018; --warn-line:#5E4E22; --warn-ink:#F0D58A;
+    }
+    :root:not([data-theme="light"]) .case-badge{color:color-mix(in srgb, var(--c) 55%, white);}
+  }
+  :root[data-theme="dark"]{
+    color-scheme:dark;
+    --bg:#151614; --surface:#1F201E; --ink:#ECECE8; --ink-soft:#A3A49D; --ink-mid:#C3C4BC;
+    --line:#33342F; --line-strong:#4A4B45; --accent:#F0383E; --accent-soft:#3A1E1E; --danger:#E0795A;
+    --done-bg:#1C3022; --done-line:#2F5A3A; --done-line-strong:#4E8A5C;
+    --warn-bg:#3A3018; --warn-line:#5E4E22; --warn-ink:#F0D58A;
+  }
+  :root[data-theme="dark"] .case-badge{color:color-mix(in srgb, var(--c) 55%, white);}
+  .photo-stage .case-badge{color:var(--c) !important;}
+  input, select, textarea{color:var(--ink); background-color:var(--surface);}
+  .case-table input, .case-table select{background:transparent;}
+
+  /* ---- 상단바 테마 버튼 · 다크 모드에서 흰 글씨를 쓰던 활성 버튼들 ---- */
+  #themeToggleBtn{min-width:40px;}
+  .viewer-tools{display:flex; align-items:center; gap:6px; flex-shrink:0;}
+  body.rv-mode .viewer-tools{display:none;}
+  #roleToggle button.active, .chip-btn.on, .rg-tag.active{color:var(--surface);}
+  .bn-badge{box-shadow:0 0 0 2px var(--surface), 0 0 0 3.5px var(--accent);}
+  .est-badge{background:var(--accent-soft);}
+
+  /* ---- 목록: 즐겨찾기 · 최근 본 게임 · 썸네일 ---- */
+  .quick-row{display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:10px; font-size:12.5px;}
+  .quick-row-title{font-weight:700; color:var(--ink-soft); margin-right:2px; white-space:nowrap;}
+  .quick-chip{border:1px solid var(--line); background:var(--surface); color:var(--ink); border-radius:999px; padding:5px 11px; font-size:12.5px; cursor:pointer; font-family:var(--sans);}
+  .quick-chip:hover{border-color:var(--accent);}
+  .fav-btn{border:none; background:none; cursor:pointer; font-size:16px; line-height:1; padding:2px; color:var(--ink-soft);}
+  .fav-btn.on{color:#E0A100;}
+  .card-thumb{width:100%; aspect-ratio:4/3; border-radius:8px; background:var(--bg); background-size:cover; background-position:center; margin:6px 0 8px; border:1px solid var(--line);}
+  .card-badges{display:flex; gap:4px; flex-wrap:wrap; margin-top:4px;}
+  .mini-badge{font-size:10.5px; font-weight:700; border-radius:4px; padding:1px 6px; background:var(--bg); color:var(--ink-soft); border:1px solid var(--line);}
+  .mini-badge.warn{background:var(--warn-bg); color:var(--warn-ink); border-color:var(--warn-line);}
+  .list-toolbar{display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; align-items:center;}
+  .list-toolbar select{padding:9px 10px; border:1px solid var(--line); border-radius:8px; font-size:13px; font-family:var(--sans);}
+
+  /* ---- 상세: 저장 상태 표시 ---- */
+  .save-state{font-size:11.5px; font-weight:700; color:var(--ink-soft); display:inline-flex; align-items:center; gap:5px;}
+  .save-state.dirty{color:var(--accent);}
+  .save-state.saving{color:var(--ink-mid);}
+  .dirty-dot{display:none; width:7px; height:7px; border-radius:50%; background:#fff;}
+  .btn-primary2.dirty .dirty-dot{display:inline-block;}
+  .detail-actions{display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; align-items:center;}
+  .detail-actions .btn{width:auto; padding:6px 12px; font-size:12.5px;}
+  #undoBtn, #redoBtn{font-size:16px; padding:3px 11px; line-height:1;}
+  .game-card .name{overflow-wrap:anywhere;}
+  .tabs button{white-space:nowrap;}
+  @media (max-width: 640px){ .tabs{overflow-x:auto;} }
+  .crop-toolbar button{background:var(--surface);}
+  @media (max-width: 640px){ #roleLabel{display:none;} }
+
+  /* ---- 누락 신고 ---- */
+  .report-banner{background:var(--warn-bg); border:1px solid var(--warn-line); color:var(--warn-ink); border-radius:10px; padding:10px 14px; margin-bottom:14px; font-size:12.5px;}
+  .report-banner summary{cursor:pointer; font-weight:700;}
+  .report-item{display:flex; justify-content:space-between; gap:10px; align-items:flex-start; padding:8px 0; border-top:1px dashed var(--warn-line); flex-wrap:wrap;}
+  .report-item:first-of-type{margin-top:8px;}
+
+  /* ---- 반납대 가이드: 필수 구성품 확인 체크 ---- */
+  .rg-check-bar{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:0 0 10px;}
+  .rg-check-bar .dash-progress-bar-track{flex:1; min-width:140px; height:16px; margin:0;}
+  .rg-check-actions{display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;}
+  .rg-check-actions .btn{width:auto; padding:7px 12px; font-size:12.5px;}
+  .rg-item-card.checkable{cursor:pointer; user-select:none; -webkit-tap-highlight-color:transparent;}
+  .rg-item-card.checkable:hover{border-color:var(--line-strong);}
+  .rg-item-card.checked{background:var(--done-bg); border-color:var(--done-line-strong);}
+  .rg-item-card.checked .rg-item-qty{color:#2E8B4A;}
+  .rg-check-box{flex:0 0 22px; width:22px; height:22px; border-radius:6px; border:2px solid var(--line-strong); background:var(--surface); display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:800; color:#fff;}
+  .rg-item-card.checked .rg-check-box{background:#2E8B4A; border-color:#2E8B4A;}
+  @media (max-width:560px){ .rg-items{grid-template-columns:minmax(0,1fr);} .rg-item-card.wide{grid-column:auto;} }
+
+  /* ---- 확대 보기(라이트박스) ---- */
+  .lightbox{position:fixed; inset:0; z-index:400; background:rgba(10,10,10,.92); overflow:hidden; touch-action:none;}
+  .lightbox img{position:absolute; left:0; top:0; transform-origin:0 0; user-select:none; -webkit-user-drag:none; max-width:none;}
+  .lightbox-bar{position:absolute; top:10px; right:10px; display:flex; gap:6px; z-index:2;}
+  .lightbox-bar button{border:none; background:rgba(255,255,255,.92); color:#1B1C1A; border-radius:8px; padding:9px 13px; font-size:14px; font-weight:700; cursor:pointer; font-family:var(--sans);}
+  .lightbox-hint{position:absolute; bottom:12px; left:0; right:0; text-align:center; color:#ddd; font-size:12px; pointer-events:none;}
+
+  /* ---- 이력 비교 ---- */
+  .history-list{max-height:62vh !important;}
+  .history-preview{margin-top:10px; padding:10px; background:var(--bg); border:1px solid var(--line); border-radius:8px;}
+  .history-preview img{width:100%; border-radius:6px; border:1px solid var(--line); margin-bottom:8px;}
+  .diff-list{margin:0; padding-left:18px; font-size:12.5px; line-height:1.6;}
+  .diff-add{color:#2E8B4A;} .diff-del{color:var(--danger);} .diff-chg{color:var(--ink-mid);}
+
+  /* ---- 구매 가이드: 재고 · 단가 ---- */
+  .pg-table input[type=number]{width:72px; padding:5px 6px; border:1px solid var(--line); border-radius:6px; font-size:12.5px; font-family:var(--sans);}
+  .pg-total td{font-weight:800; border-bottom:none;}
+  .pg-table th, .pg-table td{white-space:nowrap;}
+  .pg-panel{min-width:0;}
+  .pg-table td{padding:10px 6px;}
+
+  /* ---- 진행현황: 매장별 ---- */
+  .store-progress{display:grid; grid-template-columns:minmax(90px,1.2fr) 3fr 80px; gap:8px 12px; align-items:center; font-size:12.5px;}
+  .store-progress .dash-progress-bar-track{height:14px;}
+
+  /* ---- 단축키 표 ---- */
+  .kbd{display:inline-block; font-family:var(--mono); font-size:11px; border:1px solid var(--line-strong); border-bottom-width:2px; border-radius:4px; padding:0 5px; background:var(--surface);}
+
+  /* ---- 터치 기기: 누르기 쉬운 크기 ---- */
+  @media (pointer:coarse){
+    .btn-ghost2, .btn-primary2{min-height:40px;}
+    .tabs button{min-height:40px;}
+    .marker::after{content:''; position:absolute; inset:-10px;}
+    .card-select, .game-card input[type=checkbox]{width:20px; height:20px;}
+    .fav-btn{font-size:20px; padding:4px;}
+  }
+  @media (max-width: 640px){
+    .store-progress{grid-template-columns:1fr 2fr 60px;}
+  }
+
+  /* ---- 게임 가이드 인쇄 (사진 + 체크리스트 표 + QR) ---- */
+  @media print{
+    body.printing-guide{background:#fff;}
+    body.printing-guide #appRoot, body.printing-guide #loginGate, body.printing-guide .modal-backdrop, body.printing-guide .lightbox{display:none !important;}
+    body.printing-guide #printArea{display:block; color:#000;}
+    .print-page{font-family:var(--sans);}
+    .print-head{display:flex; justify-content:space-between; align-items:flex-start; gap:16px; margin-bottom:10px;}
+    .print-head h1{font-size:22px; margin:0 0 4px;}
+    .print-head .print-meta{font-size:11px; color:#555;}
+    .print-qr img, .print-qr canvas{width:90px; height:90px;}
+    .print-photo{width:100%; border:1px solid #ccc; border-radius:4px; margin-bottom:10px; page-break-inside:avoid;}
+    .print-check{display:inline-block; width:12px; height:12px; border:1.5px solid #000; border-radius:2px;}
+  }
 </style>
 </head>
 <body>
@@ -482,6 +633,7 @@
 
     <div class="topbar-user">
       <span id="roleLabel" style="font-size:12px; color:var(--ink-soft);"></span>
+      <button class="btn btn-ghost2" id="themeToggleBtn" onclick="cycleTheme_()" title="화면 테마 (자동 → 밝게 → 어둡게)">🌓</button>
       <button class="btn btn-ghost2" onclick="doLogout()">로그아웃</button>
     </div>
   </div>
@@ -500,7 +652,13 @@
     <button class="bn-item" id="bnMore" onclick="toggleMoreMenu_()"><span class="bn-ic">⋯</span><span class="bn-lb">더보기</span></button>
   </nav>
 </div>
+<!-- 인쇄할 때만 보이는 영역 (정기 점검표, 게임 가이드 인쇄) -->
 <div id="printArea"></div>
+
+<script>
+// 화면 테마는 그리기 전에 먼저 적용해서, 다크 모드 사용자가 밝은 화면이 번쩍이는 걸 보지 않게 합니다.
+try{ const t = localStorage.getItem('rbtn_theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; }catch(e){}
+</script>
 
 <!-- Firebase SDK (CDN, 모듈 방식) -->
 <script type="module">
@@ -510,7 +668,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
   getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, addDoc,
-  runTransaction, onSnapshot, query, orderBy, limit, where, increment
+  runTransaction, onSnapshot, query, orderBy, limit, where, increment, arrayUnion, arrayRemove, deleteField
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {
   getStorage, ref, uploadBytes, getDownloadURL, deleteObject
@@ -602,6 +760,59 @@ function getChosung(str){
 function isChosungOnly(str){
   return str.length > 0 && [...str].every(ch => CHO.includes(ch));
 }
+/** 게임 ID에는 따옴표·슬래시 등 화면 버튼이나 저장 경로를 깨뜨리는 문자를 쓸 수 없게 합니다. */
+function isValidGameId_(id){ return /^[^\s'"`\\/<>&#?%]+$/.test(id); }
+
+/** 이 기기(브라우저)에만 저장하는 개인 설정 (즐겨찾기, 최근 본 게임, 테마 등).
+ *  시크릿 창처럼 저장소를 못 쓰는 환경에서도 앱이 멈추지 않도록 실패는 조용히 무시합니다. */
+function lsGet_(key, fallback){
+  try{ const v = localStorage.getItem(key); return v == null ? fallback : JSON.parse(v); }catch(e){ return fallback; }
+}
+function lsSet_(key, value){
+  try{ localStorage.setItem(key, JSON.stringify(value)); }catch(e){}
+}
+
+// ---- 화면 테마 (자동 → 밝게 → 어둡게) ----
+function applyTheme_(){
+  let t = 'auto';
+  try{ t = localStorage.getItem('rbtn_theme') || 'auto'; }catch(e){}
+  if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+  else delete document.documentElement.dataset.theme;
+  const btn = document.getElementById('themeToggleBtn');
+  if (btn){
+    btn.textContent = t === 'dark' ? '🌙' : t === 'light' ? '☀️' : '🌓';
+    btn.title = `화면 테마: ${t === 'dark' ? '어둡게' : t === 'light' ? '밝게' : '자동(기기 설정)'} — 눌러서 바꾸기`;
+  }
+}
+function cycleTheme_(){
+  let t = 'auto';
+  try{ t = localStorage.getItem('rbtn_theme') || 'auto'; }catch(e){}
+  const next = t === 'auto' ? 'light' : t === 'light' ? 'dark' : 'auto';
+  try{ localStorage.setItem('rbtn_theme', next); }catch(e){}
+  applyTheme_();
+}
+applyTheme_();
+
+// ---- 즐겨찾기 · 최근 본 게임 (이 기기에만 저장) ----
+const RECENT_MAX_ = 8;
+function getFavorites_(){ return lsGet_('rbtn_favs', []).map(String); }
+function isFavorite_(id){ return getFavorites_().includes(String(id)); }
+function toggleFavorite_(id){
+  id = String(id);
+  const favs = getFavorites_();
+  const next = favs.includes(id) ? favs.filter(x=>x!==id) : [...favs, id];
+  lsSet_('rbtn_favs', next);
+  if (document.getElementById('gameListResults')) renderGameListResults_();
+  else if (currentGameId === id) renderDetail();
+}
+function pushRecent_(id){
+  id = String(id);
+  const list = lsGet_('rbtn_recent', []).map(String).filter(x=>x!==id);
+  list.unshift(id);
+  lsSet_('rbtn_recent', list.slice(0, RECENT_MAX_));
+}
+function getRecent_(){ return lsGet_('rbtn_recent', []).map(String); }
+
 const gateContent = document.getElementById('gateContent');
 const appEl = document.getElementById('app');
 
@@ -655,7 +866,7 @@ function renderPending(email, isNew){
   gateContent.innerHTML = `
     <div class="brand">RED BUTTON<span class="r-mark">®</span></div>
     <p style="margin-top:10px;">${isNew ? '접근 권한 요청이 접수되었습니다.' : '아직 승인 대기 중입니다.'}<br>담당자의 승인 후 이용하실 수 있습니다.</p>
-    <p style="margin-top:14px; font-size:12px;">로그인 계정: ${email}</p>
+    <p style="margin-top:14px; font-size:12px;">로그인 계정: ${escHtml_(email)}</p>
     <button class="btn btn-ghost" id="logoutBtn2">다른 계정으로 로그인</button>
   `;
   document.getElementById('logoutBtn2').addEventListener('click', ()=>signOut(auth));
@@ -679,7 +890,7 @@ async function renderProfileForm(email){
       <label>매장</label>
       <select id="storeSelect">
         <option value="">매장을 선택하세요</option>
-        ${stores.map(s=>`<option value="${s.code}">${s.name}</option>`).join('')}
+        ${stores.map(s=>`<option value="${escHtml_(s.code)}">${escHtml_(s.name)}</option>`).join('')}
       </select>
     </div>
     <div class="field">
@@ -795,6 +1006,7 @@ document.addEventListener('click', (e)=>{
 /** 뷰어 ↔ 편집자 전환 버튼. 편집자로 전환하면서 지금 보고 있는 게임의 편집 잠금도 함께 확인합니다. */
 async function setRole(r){
   if (r === 'editor' && myApprovedRole !== 'editor') return; // 애초에 편집 권한이 없는 계정
+  if (r === 'viewer' && currentRole === 'editor' && !confirmLeaveDetail_()) return; // 저장 안 한 변경사항 확인
   currentRole = r;
   updateRoleToggleUI_();
 
@@ -810,6 +1022,7 @@ async function setRole(r){
     } else {
       leavePresence_();
     }
+    resetChangeTracking_();
     renderDetail();
   }
 }
@@ -827,7 +1040,11 @@ async function handleGoogleLogin(){
   }
 }
 
-function doLogout(){ leavePresence_(); signOut(auth); }
+function doLogout(){
+  if (!confirmLeaveDetail_()) return;
+  leavePresence_();
+  signOut(auth);
+}
 
 async function checkAccessAndRender(user){
   const email = user.email.toLowerCase().trim();
@@ -873,11 +1090,23 @@ async function submitProfile(email){
 // ============================================================
 // 게임 목록 / 상세 (핵심 CRUD) - 이번 단계에서는 사진 없이 케이스만
 // ============================================================
+let trashedGames_ = []; // 휴지통으로 옮긴(삭제 표시된) 게임들 — 목록·구매 가이드 등에서는 빠지고, 편집자가 복구할 수 있습니다
+
 async function loadGames(){
   const snap = await getDocs(collection(db, 'games'));
   games = [];
-  snap.forEach(d => games.push({ id: d.id, ...d.data() }));
+  trashedGames_ = [];
+  snap.forEach(d => {
+    const g = { id: d.id, ...d.data() };
+    (g.deleted ? trashedGames_ : games).push(g);
+  });
   games.sort((a,b)=> String(a.name||'').localeCompare(String(b.name||''), 'ko'));
+  trashedGames_.sort((a,b)=> (b.deletedAt||0) - (a.deletedAt||0));
+}
+
+/** 게임 ID가 이미 쓰이고 있는지 (휴지통에 있는 게임 포함) */
+function isGameIdTaken_(id){
+  return games.some(x => String(x.id) === id) || trashedGames_.some(x => String(x.id) === id);
 }
 
 /** 구성품 상태(A/B/C) 판정 기준 목록을 불러옵니다. 게임과 무관하게 공통으로 관리되는
@@ -927,6 +1156,7 @@ function getReturnGuideCommonNoticeLines_(){
 const POSITIONS_ = ['점주','점장','매니저','트레이너','버트너','본사'];
 
 async function openAccessManagement(){
+  if (!confirmLeaveDetail_()) return;
   leavePresence_();
   currentGameId = null;
   showDashboard_ = false;
@@ -959,8 +1189,8 @@ async function renderAccessManagement(){
         <div class="access-row access-row-pending">
           <div class="access-person">
             <div>
-              <div style="font-weight:700; font-size:13px;">${p.name||'-'} · ${p.position||'-'}</div>
-              <div class="access-email-sub">${storeName_(p.storeCode)} · ${p.email}</div>
+              <div style="font-weight:700; font-size:13px;">${escHtml_(p.name||'-')} · ${escHtml_(p.position||'-')}</div>
+              <div class="access-email-sub">${escHtml_(storeName_(p.storeCode))} · ${escHtml_(p.email)}</div>
             </div>
           </div>
           <div class="access-actions">
@@ -985,7 +1215,7 @@ async function renderAccessManagement(){
       <div class="access-section-title">편집자 (${editors.length})</div>
       ${editors.map(e=>`
         <div class="access-row">
-          <span class="access-email-only">${e.name ? `${e.name} · ` : ''}${e.email}</span>
+          <span class="access-email-only">${e.name ? `${escHtml_(e.name)} · ` : ''}${escHtml_(e.email)}</span>
           <div class="access-actions">
             <button class="btn btn-ghost2" style="width:auto; padding:4px 8px; font-size:11.5px;" onclick="removeAccess('${e.email}','editors')">제거</button>
           </div>
@@ -997,7 +1227,7 @@ async function renderAccessManagement(){
       <div class="access-section-title">뷰어 (${viewers.length})</div>
       ${viewers.map(v=>`
         <div class="access-row">
-          <span class="access-email-only">${v.name ? `${v.name} · ${storeName_(v.storeCode)} · ` : ''}${v.email}</span>
+          <span class="access-email-only">${v.name ? `${escHtml_(v.name)} · ${escHtml_(storeName_(v.storeCode))} · ` : ''}${escHtml_(v.email)}</span>
           <div class="access-actions">
             <button class="btn btn-ghost2" style="width:auto; padding:4px 8px; font-size:11.5px;" onclick="removeAccess('${v.email}','viewers')">제거</button>
           </div>
@@ -1015,7 +1245,7 @@ async function renderAccessManagement(){
       <div style="max-height:240px; overflow-y:auto;">
         ${stores.map(s=>`
           <div class="access-row">
-            <span class="access-email-only">${s.name} <span style="color:var(--ink-mid); font-family:var(--sans); font-size:11px;">${s.code}</span></span>
+            <span class="access-email-only">${escHtml_(s.name)} <span style="color:var(--ink-mid); font-family:var(--sans); font-size:11px;">${escHtml_(s.code)}</span></span>
             <div class="access-actions">
               <button class="btn btn-ghost2" style="width:auto; padding:4px 8px; font-size:11.5px;" onclick="removeStore('${s.code}')">삭제</button>
             </div>
@@ -1076,6 +1306,7 @@ async function removeStore(code){
  * 업로드하면, 사진은 Storage에 올리고 나머지 데이터는 Firestore에 씁니다.
  */
 function openMigrationTool(){
+  if (!confirmLeaveDetail_()) return;
   leavePresence_();
   currentGameId = null;
   showDashboard_ = false;
@@ -1179,19 +1410,19 @@ function renderGameReplacePreview_(){
     if (entry.parseError){
       return `
         <tr style="border-bottom:1px solid var(--line);">
-          <td style="padding:6px 8px;">${entry.fileName}</td>
-          <td colspan="3" style="padding:6px 8px; color:#c0392b;">❌ ${entry.parseError}</td>
+          <td style="padding:6px 8px;">${escHtml_(entry.fileName)}</td>
+          <td colspan="3" style="padding:6px 8px; color:#c0392b;">❌ ${escHtml_(entry.parseError)}</td>
         </tr>`;
     }
     const currentGame = games.find(g => String(g.id) === String(entry.guessedId));
     const newName = entry.gameData.name || '(이름 없음)';
     const statusHtml = currentGame
-      ? `기존: <b>${currentGame.name}</b> → 교체 후: <b>${newName}</b>`
+      ? `기존: <b>${escHtml_(currentGame.name)}</b> → 교체 후: <b>${escHtml_(newName)}</b>`
       : `<span style="color:#b8860b;">⚠ 이 ID의 기존 게임이 없습니다 — 새로 생성됩니다</span>`;
     return `
       <tr style="border-bottom:1px solid var(--line);">
-        <td style="padding:6px 8px; max-width:220px; word-break:break-all;">${entry.fileName}</td>
-        <td style="padding:6px 8px;"><input type="text" data-idx="${idx}" class="grIdInput" value="${entry.guessedId}"
+        <td style="padding:6px 8px; max-width:220px; word-break:break-all;">${escHtml_(entry.fileName)}</td>
+        <td style="padding:6px 8px;"><input type="text" data-idx="${idx}" class="grIdInput" value="${escHtml_(entry.guessedId)}"
               style="width:90px; padding:5px 8px; border:1px solid var(--line); border-radius:5px; font-size:12.5px;"
               onchange="updateGameReplaceId_(${idx}, this.value)"></td>
         <td style="padding:6px 8px; font-size:12px;">${statusHtml}</td>
@@ -1427,6 +1658,7 @@ let bulkDownloadSelected_ = new Set();
 let bulkDownloadSearch_ = '';
 
 function openPurchaseGuide(){
+  if (!confirmLeaveDetail_()) return;
   leavePresence_();
   currentGameId = null;
   showDashboard_ = false;
@@ -1486,7 +1718,7 @@ function renderPurchaseGameList_(){
     return `
       <label class="pg-game-row">
         <input type="checkbox" ${checked?'checked':''} onchange="togglePurchaseGameSelect('${g.id}', this.checked)">
-        <span class="pg-game-name">${g.name}</span>
+        <span class="pg-game-name">${escHtml_(g.name)}</span>
         ${isTop50 ? '<span class="pg-top50-badge">TOP50</span>' : ''}
         <span class="pg-game-id">ID ${g.id}</span>
       </label>`;
@@ -1511,25 +1743,98 @@ function renderPurchaseCaseSummary_(){
     return;
   }
 
+  // 매장 보유 재고와 개당 단가는 이 기기에만 저장됩니다 (매장마다 다르므로 서버에 공유하지 않음).
+  const stock = lsGet_('rbtn_pg_stock', {});
+  const price = lsGet_('rbtn_pg_price', {});
+  let totalBuy = 0, totalCost = 0, hasPrice = false;
+  const rowsHtml = neededTypes.map(t=>{
+    const p = CASE_PRODUCTS[t] || {};
+    const have = Number(stock[t]) || 0;
+    const buy = Math.max(0, counts[t] - have);
+    const unit = Number(price[t]) || 0;
+    totalBuy += buy;
+    if (unit){ hasPrice = true; totalCost += buy * unit; }
+    return `
+    <tr>
+      <td><span class="case-badge case-${t}">${typeLabel_(t)}</span></td>
+      <td class="pg-size">${CASE_SIZES[t]||'-'}mm</td>
+      <td class="pg-qty">${counts[t]}개</td>
+      <td><input type="number" min="0" value="${have||''}" placeholder="0" onchange="setPurchaseStock_('${t}', this.value)" title="매장에 이미 있는 수량"></td>
+      <td class="pg-qty" style="color:${buy?'var(--accent)':'var(--ink-soft)'};">${buy}개</td>
+      <td><input type="number" min="0" step="10" value="${unit||''}" placeholder="원" onchange="setPurchasePrice_('${t}', this.value)" title="개당 단가 (원)"></td>
+      <td class="pg-size">${unit ? (buy*unit).toLocaleString('ko-KR')+'원' : '-'}</td>
+      <td class="pg-option">${escHtml_(p.option||'-')}</td>
+      <td>${p.url ? `<a href="${escHtml_(p.url)}" target="_blank" rel="noopener" class="btn btn-primary2" style="width:auto; padding:6px 12px; font-size:12.5px; display:inline-flex;">구매하기 ↗</a>` : '-'}</td>
+    </tr>`;
+  }).join('');
+
   el.innerHTML = `
+    <div style="overflow-x:auto;">
     <table class="pg-table">
-      <thead><tr><th>종류</th><th>사이즈</th><th>필요 수량</th><th>옵션</th><th>구매</th></tr></thead>
+      <thead><tr><th>종류</th><th>사이즈</th><th>필요</th><th>보유 재고</th><th>구매 필요</th><th>단가</th><th>금액</th><th>옵션</th><th>구매</th></tr></thead>
       <tbody>
-        ${neededTypes.map(t=>{
-          const p = CASE_PRODUCTS[t] || {};
-          return `
-          <tr>
-            <td><span class="case-badge case-${t}">${typeLabel_(t)}</span></td>
-            <td class="pg-size">${CASE_SIZES[t]||'-'}mm</td>
-            <td class="pg-qty">${counts[t]}개</td>
-            <td class="pg-option">${p.option||'-'}</td>
-            <td>${p.url ? `<a href="${p.url}" target="_blank" rel="noopener" class="btn btn-primary2" style="width:auto; padding:6px 12px; font-size:12.5px; display:inline-flex;">구매하기 ↗</a>` : '-'}</td>
-          </tr>`;
-        }).join('')}
+        ${rowsHtml}
+        <tr class="pg-total">
+          <td colspan="4">합계</td>
+          <td style="color:var(--accent);">${totalBuy}개</td>
+          <td></td>
+          <td>${hasPrice ? totalCost.toLocaleString('ko-KR')+'원' : '-'}</td>
+          <td colspan="2"></td>
+        </tr>
       </tbody>
     </table>
-    <p class="pg-note">※ 실시간 재고 확인은 자동으로 제공되지 않습니다. 구매 링크를 눌러 직접 확인해주세요.</p>
+    </div>
+    <div class="pg-actions" style="margin-top:12px;">
+      <button class="btn btn-ghost2" style="width:auto;" onclick="copyPurchaseList_()">📋 구매 목록 복사</button>
+      <button class="btn btn-ghost2" style="width:auto;" onclick="clearPurchaseStock_()">보유 재고 초기화</button>
+    </div>
+    <p class="pg-note">※ "보유 재고"를 입력하면 실제로 더 사야 하는 수량만 계산합니다. 단가를 넣으면 예상 금액도 함께 보여줍니다. (재고·단가는 이 기기에만 저장됩니다)<br>※ 실시간 재고 확인은 자동으로 제공되지 않습니다. 구매 링크를 눌러 직접 확인해주세요.</p>
   `;
+}
+
+function setPurchaseStock_(t, v){
+  const stock = lsGet_('rbtn_pg_stock', {});
+  stock[t] = Math.max(0, Number(v) || 0);
+  lsSet_('rbtn_pg_stock', stock);
+  renderPurchaseCaseSummary_();
+}
+function setPurchasePrice_(t, v){
+  const price = lsGet_('rbtn_pg_price', {});
+  price[t] = Math.max(0, Number(v) || 0);
+  lsSet_('rbtn_pg_price', price);
+  renderPurchaseCaseSummary_();
+}
+function clearPurchaseStock_(){
+  if (!confirm('입력한 보유 재고를 모두 지울까요?')) return;
+  lsSet_('rbtn_pg_stock', {});
+  renderPurchaseCaseSummary_();
+}
+/** 구매가 필요한 케이스 목록을 글자로 복사합니다 (메신저·발주서에 붙여넣기용). */
+async function copyPurchaseList_(){
+  const counts = {};
+  purchaseGuideSelected_.forEach(id=>{
+    const g = games.find(x=>String(x.id)===String(id));
+    if (g && g.cases) g.cases.forEach(c=>{ counts[c.caseType] = (counts[c.caseType]||0) + 1; });
+  });
+  const stock = lsGet_('rbtn_pg_stock', {});
+  const price = lsGet_('rbtn_pg_price', {});
+  let total = 0;
+  const lines = PURCHASE_TYPES.filter(t=>counts[t]).map(t=>{
+    const buy = Math.max(0, counts[t] - (Number(stock[t])||0));
+    if (!buy) return null;
+    const p = CASE_PRODUCTS[t] || {};
+    const unit = Number(price[t]) || 0;
+    total += buy * unit;
+    return `${t} (${CASE_SIZES[t]}mm) ${buy}개${p.option && p.option !== '-' ? ` · 옵션 ${p.option}` : ''}${unit ? ` · ${(buy*unit).toLocaleString('ko-KR')}원` : ''}${p.url ? `\n  ${p.url}` : ''}`;
+  }).filter(Boolean);
+  if (!lines.length){ alert('추가로 구매할 케이스가 없습니다.'); return; }
+  const text = `[케이스 구매 목록] 게임 ${purchaseGuideSelected_.size}개 기준\n` + lines.join('\n') + (total ? `\n합계 예상 금액: ${total.toLocaleString('ko-KR')}원` : '');
+  try{
+    await navigator.clipboard.writeText(text);
+    alert('구매 목록을 복사했습니다.');
+  }catch(e){
+    prompt('아래 내용을 복사해주세요:', text);
+  }
 }
 
 function togglePurchaseGameSelect(id, checked){
@@ -1600,6 +1905,7 @@ function exportGameCaseCountsCsv_(){
 const CONDITION_GRADE_COLORS = { A:'#1F7A5C', B:'#B08900', C:'#C1440E' };
 
 function openConditionStandardsAdmin_(){
+  if (!confirmLeaveDetail_()) return;
   leavePresence_();
   currentGameId = null;
   showDashboard_ = false;
@@ -1761,6 +2067,7 @@ async function removeStandardPhoto_(standardId, grade){
 }
 
 function openBulkDownloadTool(){
+  if (!confirmLeaveDetail_()) return;
   leavePresence_();
   currentGameId = null;
   showDashboard_ = false;
@@ -1794,6 +2101,7 @@ function openBulkDownloadTool(){
           사진 수가 많으면 zip 파일을 만드는 데 시간이 좀 걸릴 수 있습니다. 창을 닫지 말고 기다려주세요.
         </p>
         <button class="btn btn-primary2" style="width:auto;" onclick="startBulkDownload_()">선택한 게임 사진 다운로드 시작</button>
+        <button class="btn btn-ghost2" style="width:auto; margin-top:8px;" onclick="generateMissingThumbs_()" title="목록 카드에 보이는 작은 사진(썸네일)이 없는 게임들의 썸네일을 한 번에 만듭니다. 새로 올리는 사진은 자동으로 만들어집니다.">🧩 목록용 썸네일 만들기 (${games.filter(g => (g.photos||[]).length && !g.photos[0].thumbPath).length}개 없음)</button>
         <div id="bulkDownloadLog" style="margin-top:16px; font-size:12.5px; font-family:var(--mono); white-space:pre-wrap; background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:14px; max-height:340px; overflow-y:auto;"></div>
       </div>
     </div>
@@ -1824,7 +2132,7 @@ function renderBulkDownloadGameList_(){
     return `
       <label class="pg-game-row">
         <input type="checkbox" ${checked?'checked':''} ${photoCount?'':'disabled'} onchange="toggleBulkDownloadGameSelect_('${g.id}', this.checked)">
-        <span class="pg-game-name">${g.name}${g.guideDone?'':' <span style=\"color:var(--ink-soft); font-weight:400;\">(가이드 준비중)</span>'}</span>
+        <span class="pg-game-name">${escHtml_(g.name)}${g.guideDone?'':' <span style=\"color:var(--ink-soft); font-weight:400;\">(가이드 준비중)</span>'}</span>
         <span class="pg-game-id">${photoCount ? `사진 ${photoCount}장` : '사진 없음'}</span>
       </label>`;
   }).join('') || '<p style="font-size:12.5px; color:var(--ink-soft);">검색 결과가 없습니다.</p>';
@@ -1909,13 +2217,14 @@ async function openGameQrModal_(gameId){
   backdrop.id = 'qrBackdrop';
   backdrop.innerHTML = `
     <div class="modal" style="max-width:340px; text-align:center;">
-      <h3 style="margin-top:0;">${g.name || '(이름 없음)'} QR코드</h3>
+      <h3 style="margin-top:0;">${escHtml_(g.name || '(이름 없음)')} QR코드</h3>
       <p style="font-size:11.5px; color:var(--ink-soft); margin-bottom:12px;">이 QR코드를 스캔하면 로그인 후 바로 이 게임의 반납대 가이드로 이동합니다. 인쇄해서 게임 상자에 붙여두세요.</p>
       <div id="qrCodeBox" style="display:flex; justify-content:center; align-items:center; min-height:200px; margin-bottom:12px;"><span style="font-size:12px; color:var(--ink-soft);">QR코드를 만드는 중...</span></div>
       <input type="text" readonly value="${link}" style="width:100%; box-sizing:border-box; padding:6px 8px; border:1px solid var(--line); border-radius:6px; font-size:11px; margin-bottom:10px;" onclick="this.select()">
       <div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
         <button class="btn btn-ghost2" style="width:auto;" onclick="downloadGameQr_('${g.id}')">🖼️ QR 이미지 저장</button>
         <button class="btn btn-ghost2" style="width:auto;" onclick="copyGameQrLink_('${g.id}')">🔗 링크 복사</button>
+        ${navigator.share ? `<button class="btn btn-ghost2" style="width:auto;" onclick="shareGameQrLink_('${g.id}')">📤 공유</button>` : ''}
       </div>
       <div class="modal-actions">
         <button class="btn-cancel" onclick="document.getElementById('qrBackdrop').remove()">닫기</button>
@@ -2032,6 +2341,8 @@ function toggleReturnViewer_(){
 }
 function enterReturnViewer_(){
   if (rvMode_) return;
+  if (!confirmLeaveDetail_()) return; // 편집하던 내용이 있으면 먼저 저장할지 묻습니다
+  resetChangeTracking_();
   rvMode_ = true;
   closeMoreMenu_();
   document.body.classList.add('rv-mode');
@@ -2122,6 +2433,7 @@ let qrPrintSelected_ = new Map(); // 게임ID(문자열) -> 필요 수량
 let qrPrintSearch_ = '';
 
 function openQrPrintTool_(){
+  if (!confirmLeaveDetail_()) return;
   leavePresence_();
   currentGameId = null;
   qrPrintSearch_ = '';
@@ -2307,9 +2619,9 @@ async function generateQrLabelsPdf_(){
   const setStatus = (msg)=>{ if (statusEl) statusEl.textContent = msg; };
 
   setStatus('QR코드를 만드는 중...');
-  let QRCode, jsPDF;
+  let jsPDF;
   try{
-    [QRCode, jsPDF] = await Promise.all([loadQRCodeLib_(), loadJsPDF_()]);
+    [, jsPDF] = await Promise.all([loadQRCodeLib_(), loadJsPDF_()]);
   }catch(e){
     setStatus('❌ ' + e.message);
     return;
@@ -2322,17 +2634,7 @@ async function generateQrLabelsPdf_(){
   for (const id of ids){
     const g = games.find(x=>String(x.id)===id);
     if (!g) continue;
-    const link = buildGameDeepLink_(g.id, 'return');
-    const probe = document.createElement('div');
-    probe.style.position = 'absolute';
-    probe.style.left = '-9999px';
-    document.body.appendChild(probe);
-    new QRCode(probe, { text: link, width: 240, height: 240, correctLevel: QRCode.CorrectLevel.M });
-    await new Promise(r=>setTimeout(r, 30)); // 캔버스가 그려질 시간을 잠깐 줍니다.
-    const qrCanvas = probe.querySelector('canvas');
-    const qrImgEl = probe.querySelector('img');
-    const qrSrc = qrCanvas ? qrCanvas.toDataURL('image/png') : (qrImgEl ? qrImgEl.src : null);
-    probe.remove();
+    const qrSrc = await makeQrDataUrl_(buildGameDeepLink_(g.id, 'return'), 240);
     if (!qrSrc) continue;
     try{
       labelImgByGame[id] = await buildQrLabelImage_(qrSrc, g.name, showName);
@@ -2472,7 +2774,13 @@ function openHelpModal(){
         <li><b>사진 탭</b> — 실제 사진 위에 케이스종류(알파벳)와 위치가 표시됩니다. 점선으로 표시된 라벨은 실제 라벨기 인쇄 모습입니다. 사진이 여러 장이면 좌우를 클릭하거나 화면을 좌우로 밀어서 넘길 수 있습니다.</li>
         <li><b>표 탭</b> — 케이스종류·구성품·수량·비고를 표로 확인할 수 있습니다.</li>
         <li><b>작업 완료 체크</b> — 목록 카드에서 체크하면 내 계정 기준으로 완료 여부가 저장됩니다.</li>
-        <li><b>구매 가이드</b> — 상단 "🛒 구매 가이드"에서 필요한 케이스 수량과 구매 링크를 확인할 수 있습니다.</li>
+        <li><b>구매 가이드</b> — 상단 "🛠️ 도구 → 🛒 구매 가이드"에서 필요한 케이스 수량과 구매 링크를 확인할 수 있습니다. "보유 재고"를 넣으면 더 사야 할 수량만, 단가를 넣으면 예상 금액도 계산합니다.</li>
+        <li><b>⭐ 즐겨찾기 · 최근 본 게임</b> — 카드나 게임 제목 옆의 ☆을 누르면 즐겨찾기에 추가됩니다. 목록 맨 위에 즐겨찾기와 최근 본 게임이 바로가기로 나옵니다 (이 기기에만 저장).</li>
+        <li><b>✅ 필수 구성품 확인 · 누락 신고</b> — 반납대 가이드의 "① 필수 구성품 확인" 카드를 누르면 하나씩 확인 표시가 됩니다. 다 확인되면 바로 "작업 완료"로 체크할 수 있고, 빠진 게 있거나 파손·오염이 있으면 "누락·파손 신고"로 편집자에게 알립니다. 같은 게임을 다시 스캔하면 체크는 새로 시작됩니다.</li>
+        <li><b>🔗 링크 · QR</b> — 게임 화면의 🔗(편집자는 "📱 QR코드")에서 이 게임의 반납대 가이드로 바로 들어오는 링크를 복사·공유하거나 QR 이미지를 저장할 수 있습니다. 목록에서 여러 게임을 체크하고 "QR 라벨 인쇄"를 누르면 선택한 게임이 담긴 채로 QR 라벨 인쇄 화면이 열립니다.</li>
+        <li><b>🔍 크게 보기 · 🖨️ 인쇄</b> — 사진 탭의 "크게 보기"나 구성품·반납대 사진을 누르면 화면 가득 띄워 두 손가락(또는 휠)으로 확대할 수 있습니다. 🖨️ 인쇄는 사진과 체크리스트 표, 반납대 필수 구성품, QR을 한 장으로 정리해 인쇄합니다.</li>
+        <li><b>🌓 화면 테마</b> — 상단의 🌓 버튼으로 자동(기기 설정) · 밝게 · 어둡게를 바꿀 수 있습니다.</li>
+        <li><b>⌨️ 단축키</b> — <span class="kbd">/</span> 검색, <span class="kbd">←</span><span class="kbd">→</span> 사진 넘기기, <span class="kbd">F</span> 크게 보기, <span class="kbd">Esc</span> 창 닫기·선택 해제, <span class="kbd">?</span> 이 도움말.</li>
       </ul>
 
       ${currentRole === 'editor' ? `
@@ -2486,13 +2794,17 @@ function openHelpModal(){
         <li><b>구성품 사진</b> — 텍스트박스 안의 각 구성품 항목마다 "📷 사진 추가"로 실제 사진을 넣을 수 있습니다 (한 케이스에 여러 종류의 구성품이 있으면 항목별로 따로 넣을 수 있습니다. 반납대 가이드처럼 사진으로 바로 알아볼 수 있게 하고 싶을 때 유용합니다). 사진을 고르면 네 귀퉁이 색을 기준으로 배경을 자동으로 지워주는데, 결과가 마음에 안 들면 민감도 슬라이더로 조절하거나 "배경 유지하고 사용"을 누르면 됩니다. 넣은 사진은 항목 옆 ✕ 버튼으로 지울 수 있습니다.</li>
         <li><b>라벨</b> — 텍스트박스의 "라벨 만들기"로 실제 인쇄 미리보기(검정 바탕 흰 글씨)를 만듭니다. 드래그 이동, 글자 클릭 후 직접 수정, A-/A+ 글자 크기, ⟳ 90도 회전, ⧉ 복제, 손잡이로 크기 조절이 가능합니다. 다른 라벨과 가장자리·중앙이 맞으면 빨간 점선으로 자동 정렬(스냅)됩니다.</li>
         <li><b>표 편집</b> — 표 탭에서 케이스 추가/삭제, 구성품·수량·비고를 직접 입력합니다. 종류 선택에는 플라스틱 케이스(A~L)와 지퍼백 외에, 케이스를 쓰지 않는 구성품을 화살표로 가리키는 "구성품" 옵션도 있습니다.</li>
-        <li><b>저장 · 이전 버전</b> — 제목 옆 "💾 저장"으로 저장하고, "🕐 이전 버전"으로 최근 5개까지 되돌릴 수 있습니다.</li>
+        <li><b>저장 · 자동 저장 · 실행 취소</b> — "💾 저장"(<span class="kbd">Ctrl</span>+<span class="kbd">S</span>)으로 저장합니다. "자동 저장"을 켜두면 수정하고 몇 초 뒤 알아서 저장되고, 저장 안 된 변경이 있으면 저장 버튼에 점(●)이 표시됩니다. 저장하지 않고 다른 화면으로 가거나 창을 닫으려 하면 먼저 물어봅니다. ↶ ↷ 버튼(<span class="kbd">Ctrl</span>+<span class="kbd">Z</span> / <span class="kbd">Ctrl</span>+<span class="kbd">Shift</span>+<span class="kbd">Z</span>)으로 마커·라벨·표 편집을 한 단계씩 되돌립니다. 마커·라벨을 선택하고 <span class="kbd">Delete</span>를 누르면 삭제됩니다.</li>
+        <li><b>이전 버전</b> — "🕐 이전 버전"에서 최근 ${HISTORY_LIST_MAX_}개까지 볼 수 있습니다. "미리보기"로 그 버전의 사진 모습과 되돌리면 바뀌는 내용을 먼저 확인한 뒤 복원하세요.</li>
+        <li><b>편집 상태로 찾기</b> — 목록의 "편집 상태" 선택에서 사진 없음 / 마커 없음 / 표에는 있는데 마커 없는 케이스 / 누락 신고 있음 게임만 골라볼 수 있습니다. 카드에도 작은 배지로 표시됩니다.</li>
+        <li><b>누락 신고 처리</b> — 매장에서 접수한 누락 신고가 게임 화면 위에 노란 상자로 보입니다. 확인 후 "해결됨"을 누르세요. 📊 진행현황에서도 신고가 있는 게임만 모아볼 수 있습니다.</li>
+        <li><b>🗑️ 휴지통</b> — 카드의 ✕로 삭제한 게임은 휴지통으로 옮겨지고, 목록의 "🗑️ 휴지통"에서 복구하거나 영구 삭제할 수 있습니다.</li>
         <li><b>동시 편집</b> — 같은 게임을 다른 편집자도 보고 있으면 노란 배너로 알려줍니다. 이미 편집 중인 게임에 들어가면 "넘겨받으시겠습니까?" 확인 후 진행됩니다.</li>
         <li><b>가이드 완료 · 게임 메모</b> — 상세 화면에서 체크박스와 메모란으로 표시합니다.</li>
-        <li><b>📊 진행현황</b> — 전체 완료율과 게임별 상태를 한눈에 보고 필터링할 수 있습니다.</li>
+        <li><b>📊 진행현황</b> — 전체 완료율과 게임별 상태, 매장별 작업 완료율을 한눈에 봅니다. 매장을 고르면 그 매장에서 아직 작업하지 않은 게임만 볼 수 있습니다.</li>
         <li><b>🔑 권한 관리</b> — 승인 대기 요청 처리, 편집자/뷰어 등록·제거, 매장 관리를 할 수 있습니다.</li>
         <li><b>📥 데이터 가져오기</b> — 기존 시스템에서 내보낸 파일을 업로드해 전체 또는 특정 게임 하나만 다시 가져올 수 있습니다.</li>
-        <li><b>🖼️ 사진 일괄 다운로드</b> — 게임을 여러 개 선택해서 사진들을 뷰어 화면 그대로 이미지로 만들어 zip 파일로 한 번에 받을 수 있습니다. "가이드 완료된 게임만 선택"으로 완료된 게임을 한 번에 고를 수 있습니다.</li>
+        <li><b>🖼️ 사진 일괄 다운로드</b> — 게임을 여러 개 선택해서 사진들을 뷰어 화면 그대로 이미지로 만들어 zip 파일로 한 번에 받을 수 있습니다. "가이드 완료된 게임만 선택"으로 완료된 게임을 한 번에 고를 수 있습니다. 같은 화면의 "목록용 썸네일 만들기"로 목록 카드에 보이는 작은 사진을 한 번에 만들 수 있습니다 (새로 올리는 사진은 자동).</li>
       </ul>
       ` : ''}
 
@@ -2507,57 +2819,132 @@ function openHelpModal(){
 let showDashboard_ = false;
 let dashboardFilter_ = 'all'; // 'all' | 'done' | 'undone'
 
-function openDashboard(){
+let dashboardPeople_ = null; // { storeOfEmail: {email: storeCode}, stores: [{code,name,members}] } — 진행현황을 열 때 한 번 불러옵니다
+let dashboardStore_ = ''; // 진행현황 표에서 특정 매장 기준으로 볼 때의 매장 코드
+
+async function openDashboard(){
+  if (!confirmLeaveDetail_()) return;
   leavePresence_();
   showDashboard_ = true;
   currentGameId = null;
-  renderDashboard();
+  appEl.innerHTML = `<p>불러오는 중...</p>`;
+  try{
+    const [editorsSnap, viewersSnap, storesSnap] = await Promise.all([
+      getDocs(collection(db, 'editors')),
+      getDocs(collection(db, 'viewers')),
+      getDocs(collection(db, 'stores')),
+    ]);
+    const storeOfEmail = {};
+    const memberCount = {};
+    [editorsSnap, viewersSnap].forEach(snap => snap.forEach(d => {
+      const code = (d.data() || {}).storeCode || '';
+      storeOfEmail[d.id.toLowerCase()] = code;
+      if (code) memberCount[code] = (memberCount[code] || 0) + 1;
+    }));
+    const stores = [];
+    storesSnap.forEach(d => stores.push({ code: d.id, name: (d.data()||{}).name || d.id, members: memberCount[d.id] || 0 }));
+    stores.sort((a,b)=> String(a.name).localeCompare(String(b.name), 'ko'));
+    dashboardPeople_ = { storeOfEmail, stores };
+  }catch(e){
+    console.error('진행현황: 사용자/매장 정보를 불러오지 못했습니다', e);
+    dashboardPeople_ = { storeOfEmail: {}, stores: [] };
+  }
+  if (showDashboard_) renderDashboard();
 }
 function closeDashboard(){
   showDashboard_ = false;
   renderList();
 }
 function setDashboardFilter(v){ dashboardFilter_ = v; renderDashboard(); }
+function setDashboardStore_(code){ dashboardStore_ = code; renderDashboard(); }
+
+/** 게임 하나를 "작업 완료"로 체크한 사람들이 속한 매장 코드 목록 */
+function storesDoneForGame_(g){
+  const map = (dashboardPeople_ && dashboardPeople_.storeOfEmail) || {};
+  const set = new Set();
+  (g.completedBy||[]).forEach(email => { const code = map[String(email).toLowerCase()]; if (code) set.add(code); });
+  return set;
+}
+function openReportsOf_(g){ return (g.missingReports||[]).filter(r => !r.resolved); }
 
 function renderDashboard(){
   const total = games.length;
   const doneCount = games.filter(g=>g.guideDone).length;
   const pct = total ? Math.round(doneCount/total*100) : 0;
+  const people = dashboardPeople_ || { storeOfEmail:{}, stores:[] };
+  const storeName = code => (people.stores.find(s=>s.code===code)||{}).name || code;
+
+  // ---- 매장별 작업 완료율 (가이드가 완성된 게임 기준) ----
+  const readyGames = games.filter(g=>g.guideDone);
+  const storeDoneSets = games.map(g => storesDoneForGame_(g));
+  const storeRows = people.stores.filter(s=>s.members > 0).map(s=>{
+    const done = readyGames.filter(g => storeDoneSets[games.indexOf(g)].has(s.code)).length;
+    const p = readyGames.length ? Math.round(done/readyGames.length*100) : 0;
+    return { ...s, done, pct: p };
+  }).sort((a,b)=> b.pct - a.pct || String(a.name).localeCompare(String(b.name), 'ko'));
 
   let filtered = games;
   if (dashboardFilter_ === 'done') filtered = games.filter(g=>g.guideDone);
   if (dashboardFilter_ === 'undone') filtered = games.filter(g=>!g.guideDone);
+  if (dashboardFilter_ === 'reports') filtered = games.filter(g=>openReportsOf_(g).length);
+  if (dashboardFilter_ === 'storeUndone' && dashboardStore_) filtered = games.filter(g=>g.guideDone && !storeDoneSets[games.indexOf(g)].has(dashboardStore_));
   filtered = filtered.slice().sort((a,b)=> String(a.name||'').localeCompare(String(b.name||''), 'ko'));
+  const totalOpenReports = games.reduce((n,g)=> n + openReportsOf_(g).length, 0);
+  const btnStyle = v => dashboardFilter_===v ? 'background:var(--ink); color:var(--surface);' : '';
 
   appEl.innerHTML = `
     <button class="back" onclick="closeDashboard()">← 목록으로</button>
     <h2 style="margin:0 0 6px;">📊 작업 진행 현황</h2>
     <div class="dash-progress-card">
-      <p style="font-size:13px; color:var(--ink-soft); margin:0 0 12px;">${pct}% · 가이드 완료 ${doneCount}/${total}개</p>
+      <p style="font-size:13px; color:var(--ink-soft); margin:0 0 12px;">${pct}% · 가이드 완료 ${doneCount}/${total}개${totalOpenReports ? ` · <b style="color:var(--accent);">미해결 누락 신고 ${totalOpenReports}건</b>` : ''}</p>
       <div class="dash-progress-bar-track">
         <div class="dash-progress-bar-fill" style="width:${pct}%;"></div>
         <div class="dash-progress-bar-label">${pct}%</div>
       </div>
     </div>
-    <div class="crop-toolbar" style="margin-bottom:14px;">
-      <button onclick="setDashboardFilter('all')" style="${dashboardFilter_==='all'?'background:var(--ink); color:#fff;':''}">전체</button>
-      <button onclick="setDashboardFilter('undone')" style="${dashboardFilter_==='undone'?'background:var(--ink); color:#fff;':''}">가이드 미완료만</button>
-      <button onclick="setDashboardFilter('done')" style="${dashboardFilter_==='done'?'background:var(--ink); color:#fff;':''}">가이드 완료만</button>
+    <div class="dash-progress-card">
+      <p style="font-size:13px; font-weight:700; margin:0 0 4px;">🏪 매장별 작업 완료율</p>
+      <p style="font-size:12px; color:var(--ink-soft); margin:0 0 12px;">가이드가 완성된 게임 ${readyGames.length}개 중, 그 매장 소속 누군가가 "작업 완료"를 체크한 게임 수입니다.</p>
+      ${storeRows.length ? `<div class="store-progress">
+        ${storeRows.map(r=>`
+          <div><a href="javascript:void(0)" onclick="setDashboardStore_('${escHtml_(jsq_(r.code))}'); setDashboardFilter('storeUndone');" title="이 매장에서 아직 안 한 게임 보기">${escHtml_(r.name)}</a> <span style="color:var(--ink-soft); font-size:11px;">${r.members}명</span></div>
+          <div class="dash-progress-bar-track"><div class="dash-progress-bar-fill" style="width:${r.pct}%;"></div></div>
+          <div style="text-align:right; font-weight:700;">${r.done}/${readyGames.length} · ${r.pct}%</div>
+        `).join('')}
+      </div>` : `<p style="font-size:12.5px; color:var(--ink-soft); margin:0;">매장 정보가 등록된 사용자가 없습니다.</p>`}
     </div>
+    <div class="crop-toolbar" style="margin-bottom:14px; flex-wrap:wrap; align-items:center;">
+      <button onclick="setDashboardFilter('all')" style="${btnStyle('all')}">전체</button>
+      <button onclick="setDashboardFilter('undone')" style="${btnStyle('undone')}">가이드 미완료만</button>
+      <button onclick="setDashboardFilter('done')" style="${btnStyle('done')}">가이드 완료만</button>
+      <button onclick="setDashboardFilter('reports')" style="${btnStyle('reports')}">누락 신고 있음</button>
+      <select onchange="setDashboardStore_(this.value); if (this.value) setDashboardFilter('storeUndone'); else if ('${dashboardFilter_}'==='storeUndone') setDashboardFilter('all');" style="padding:6px 8px; border:1.5px solid var(--line-strong); border-radius:7px; font-size:12.5px; ${btnStyle('storeUndone')}">
+        <option value="">매장 선택: 이 매장 미완료 게임 보기</option>
+        ${people.stores.map(s=>`<option value="${escHtml_(s.code)}" ${s.code===dashboardStore_?'selected':''}>${escHtml_(s.name)}</option>`).join('')}
+      </select>
+    </div>
+    <div style="overflow-x:auto;">
     <table class="case-table">
-      <thead><tr><th>이름</th><th>사진</th><th>가이드완료</th><th>매장 완료</th><th></th></tr></thead>
+      <thead><tr><th>이름</th><th>사진</th><th>가이드완료</th><th>작업 완료 매장</th>${dashboardStore_ ? `<th>${escHtml_(storeName(dashboardStore_))}</th>` : ''}<th>누락 신고</th><th></th></tr></thead>
       <tbody>
-        ${filtered.map(g=>`
+        ${filtered.map(g=>{
+          const sd = storeDoneSets[games.indexOf(g)];
+          const names = [...sd].map(storeName);
+          const reports = openReportsOf_(g).length;
+          return `
           <tr>
-            <td>${g.name}</td>
+            <td>${escHtml_(g.name)}</td>
             <td>${(g.photos||[]).length ? '있음' : '-'}</td>
             <td><input type="checkbox" ${g.guideDone?'checked':''} onchange="toggleGuideDoneFor(this, '${g.id}')"></td>
-            <td><span class="dash-count">${(g.completedBy||[]).length}개</span></td>
+            <td><span class="dash-count" title="${escHtml_(names.join(', ') || '없음')} (체크한 사람 ${(g.completedBy||[]).length}명)">${sd.size}개 매장</span></td>
+            ${dashboardStore_ ? `<td>${sd.has(dashboardStore_) ? '✅' : '—'}</td>` : ''}
+            <td>${reports ? `<span class="mini-badge warn">${reports}건</span>` : '-'}</td>
             <td><button class="btn btn-ghost2" style="width:auto; padding:5px 10px; font-size:12px;" onclick="openGame('${g.id}')">열기</button></td>
-          </tr>
-        `).join('') || `<tr><td colspan="5" style="color:var(--ink-soft);">해당하는 게임이 없습니다.</td></tr>`}
+          </tr>`;
+        }).join('') || `<tr><td colspan="7" style="color:var(--ink-soft);">해당하는 게임이 없습니다.</td></tr>`}
       </tbody>
     </table>
+    </div>
   `;
 }
 
@@ -2569,10 +2956,29 @@ async function toggleGuideDoneFor(checkbox, gameId){
 
 let listSearch_ = '';
 let listSort_ = 'name'; // 'name' | 'updated'
-let listWorkFilter_ = 'all'; // 'all' | 'done' | 'undone' (작업 완료 여부 기준)
+let listWorkFilter_ = 'all'; // 'all' | 'done' | 'undone' | 'fav' (작업 완료 여부 / 즐겨찾기 기준)
+let listEditFilter_ = 'all'; // 편집자용 "편집 상태" 필터: 'all' | 'noPhoto' | 'noMarker' | 'mismatch' | 'reports' | 'noGuide'
 let listSelectedIds_ = new Set(); // 목록에서 체크한 게임들 (필요 케이스 합계 확인용)
 
+/** 편집 상태 판단: 표에는 있는데 어느 사진에도 마커가 없는 케이스 수 */
+function unplacedCaseCount_(g){
+  const placed = new Set();
+  (g.photos||[]).forEach(p => (p.markers||[]).forEach(m => placed.add(m.caseIdx)));
+  return (g.cases||[]).filter((c, ci) => !placed.has(ci)).length;
+}
+function markerCount_(g){ return (g.photos||[]).reduce((n,p)=> n + (p.markers||[]).length, 0); }
+
+const LIST_EDIT_FILTERS_ = {
+  all:      { label:'편집 상태: 전체',          test: ()=>true },
+  noGuide:  { label:'가이드 준비중',             test: g=>!g.guideDone },
+  noPhoto:  { label:'사진 없음',                 test: g=>!(g.photos||[]).length },
+  noMarker: { label:'사진은 있는데 마커 없음',    test: g=>(g.photos||[]).length && !markerCount_(g) },
+  mismatch: { label:'표에 있는데 사진 마커 없음', test: g=>(g.photos||[]).length && (g.cases||[]).length && unplacedCaseCount_(g) > 0 },
+  reports:  { label:'누락 신고 있음',            test: g=>openReportsOf_(g).length > 0 },
+};
+
 function renderList(){
+  if (!confirmLeaveDetail_()) return;
   leavePresence_();
   currentGameId = null;
   currentScan_ = null;
@@ -2583,10 +2989,12 @@ function renderList(){
   if (location.search){
     history.replaceState(null, '', location.pathname + location.hash);
   }
+  showDashboard_ = false;
+  const editable = currentRole === 'editor';
 
   appEl.innerHTML = `
-    <div style="display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;">
-      <select id="listSortSelect" style="padding:9px 10px; border:1px solid var(--line); border-radius:8px; font-size:13px;">
+    <div class="list-toolbar">
+      <select id="listSortSelect">
         <option value="name" ${listSort_==='name'?'selected':''}>이름순</option>
         <option value="updated" ${listSort_==='updated'?'selected':''}>최근 수정순</option>
       </select>
@@ -2594,9 +3002,18 @@ function renderList(){
         <button data-v="all" class="${listWorkFilter_==='all'?'active':''}" onclick="setListWorkFilter_('all')">전체</button>
         <button data-v="undone" class="${listWorkFilter_==='undone'?'active':''}" onclick="setListWorkFilter_('undone')">작업 미완료</button>
         <button data-v="done" class="${listWorkFilter_==='done'?'active':''}" onclick="setListWorkFilter_('done')">작업 완료</button>
+        <button data-v="fav" class="${listWorkFilter_==='fav'?'active':''}" onclick="setListWorkFilter_('fav')">⭐ 즐겨찾기</button>
       </div>
+      ${editable ? `
+        <select id="listEditFilterSelect" title="편집이 덜 된 게임 찾기">
+          ${Object.entries(LIST_EDIT_FILTERS_).map(([k,v])=>`<option value="${k}" ${listEditFilter_===k?'selected':''}>${v.label}</option>`).join('')}
+        </select>
+        ${trashedGames_.length ? `<button class="btn btn-ghost2" style="width:auto;" onclick="renderTrash_()">🗑️ 휴지통 (${trashedGames_.length})</button>` : ''}
+      ` : ''}
     </div>
+    <div id="listQuickSlot"></div>
     <div id="listSelectionSlot"></div>
+    <div id="listCountSlot" style="font-size:12px; color:var(--ink-soft); margin-bottom:8px;"></div>
     <div class="game-list" id="gameListResults"></div>
   `;
 
@@ -2604,6 +3021,11 @@ function renderList(){
   // 계속 보이고, 입력하는 즉시 이 목록 화면으로 돌아와 이어서 검색됩니다).
   document.getElementById('listSortSelect').addEventListener('change', (e)=>{
     listSort_ = e.target.value;
+    renderGameListResults_();
+  });
+  const editSel = document.getElementById('listEditFilterSelect');
+  if (editSel) editSel.addEventListener('change', (e)=>{
+    listEditFilter_ = e.target.value;
     renderGameListResults_();
   });
 
@@ -2627,46 +3049,102 @@ function onTopSearchInput(v){
   }
 }
 
+/** 즐겨찾기 · 최근 본 게임을 목록 위에 바로가기 버튼으로 보여줍니다 (검색 중이 아닐 때만). */
+function renderListQuickRows_(){
+  const slot = document.getElementById('listQuickSlot');
+  if (!slot) return;
+  if (listSearch_){ slot.innerHTML = ''; return; }
+  const byId = id => games.find(g=>String(g.id)===id);
+  const favs = getFavorites_().map(byId).filter(Boolean);
+  const recent = getRecent_().map(byId).filter(Boolean);
+  const chip = g => `<button class="quick-chip" onclick="openGame('${g.id}')">${escHtml_(g.name || '(이름 없음)')}</button>`;
+  slot.innerHTML =
+    (favs.length ? `<div class="quick-row"><span class="quick-row-title">⭐ 즐겨찾기</span>${favs.map(chip).join('')}</div>` : '') +
+    (recent.length ? `<div class="quick-row"><span class="quick-row-title">🕘 최근 본 게임</span>${recent.map(chip).join('')}</div>` : '');
+}
+
 function renderGameListResults_(){
   const container = document.getElementById('gameListResults');
   const selectionSlot = document.getElementById('listSelectionSlot');
   if (!container) return;
   const editable = currentRole === 'editor';
   const myEmail = auth.currentUser?.email?.toLowerCase();
+  const favs = new Set(getFavorites_());
 
-  let filtered = games.filter(g => !listSearch_ || (g.name||'').includes(listSearch_) || (isChosungOnly(listSearch_) && getChosung(g.name||'').includes(listSearch_)));
-  if (listWorkFilter_ !== 'all'){
+  let filtered = games.filter(g => !listSearch_ || (g.name||'').includes(listSearch_) || String(g.id) === listSearch_.trim() || (isChosungOnly(listSearch_) && getChosung(g.name||'').includes(listSearch_)));
+  if (listWorkFilter_ === 'fav'){
+    filtered = filtered.filter(g => favs.has(String(g.id)));
+  } else if (listWorkFilter_ !== 'all'){
     filtered = filtered.filter(g=>{
       const isDone = myEmail && (g.completedBy||[]).includes(myEmail);
       return listWorkFilter_ === 'done' ? isDone : !isDone;
     });
+  }
+  if (editable && listEditFilter_ !== 'all' && LIST_EDIT_FILTERS_[listEditFilter_]){
+    filtered = filtered.filter(LIST_EDIT_FILTERS_[listEditFilter_].test);
   }
   filtered = filtered.slice().sort((a,b)=>{
     if (listSort_ === 'updated') return (b.updatedAt||0) - (a.updatedAt||0);
     return String(a.name||'').localeCompare(String(b.name||''), 'ko');
   });
 
+  renderListQuickRows_();
   if (selectionSlot) selectionSlot.innerHTML = listSelectedIds_.size > 0 ? renderListSelectionSummary_() : '';
+  const countSlot = document.getElementById('listCountSlot');
+  if (countSlot) countSlot.textContent = filtered.length !== games.length ? `${filtered.length}개 게임 (전체 ${games.length}개)` : `전체 ${games.length}개 게임`;
 
   container.innerHTML = filtered.length ? filtered.map(g=>{
     const done = myEmail && (g.completedBy||[]).includes(myEmail);
     const checked = listSelectedIds_.has(String(g.id));
+    const fav = favs.has(String(g.id));
+    const thumbPath = (g.photos||[])[0]?.thumbPath;
+    const reports = openReportsOf_(g).length;
+    const badges = [];
+    if (reports) badges.push(`<span class="mini-badge warn">누락 신고 ${reports}</span>`);
+    if (editable){
+      if (!(g.photos||[]).length) badges.push('<span class="mini-badge">사진 없음</span>');
+      else if (!markerCount_(g)) badges.push('<span class="mini-badge">마커 없음</span>');
+      else { const n = unplacedCaseCount_(g); if (n) badges.push(`<span class="mini-badge">마커 없는 케이스 ${n}</span>`); }
+    }
     return `
     <div class="game-card ${g.guideDone ? '' : 'no-guide'} ${done ? 'work-done' : ''}" style="position:relative;">
       <div style="display:flex; align-items:center; gap:7px; margin-bottom:2px;">
         <input type="checkbox" class="card-select" ${checked?'checked':''} onclick="event.stopPropagation();" onchange="toggleGameSelect_('${g.id}')" title="선택해서 필요 케이스 모아보기">
-        <div class="meta" style="flex:1;">ID ${g.id}</div>
+        <div class="meta" style="flex:1;">ID ${escHtml_(g.id)}</div>
+        <button class="fav-btn ${fav?'on':''}" onclick="event.stopPropagation(); toggleFavorite_('${g.id}')" title="${fav?'즐겨찾기 해제':'즐겨찾기에 추가'}" style="${editable?'margin-right:18px;':''}">${fav?'★':'☆'}</button>
       </div>
       <div onclick="openGame('${g.id}')" style="cursor:pointer;">
-        <div class="name">${g.name || '(이름 없음)'}</div>
+        ${thumbPath ? `<div class="card-thumb" data-thumb-path="${escHtml_(thumbPath)}"></div>` : ''}
+        <div class="name">${escHtml_(g.name || '(이름 없음)')}</div>
         <div class="meta">케이스 ${(g.cases||[]).length}개${g.guideDone ? '' : ' · 가이드 준비중'}</div>
+        ${badges.length ? `<div class="card-badges">${badges.join('')}</div>` : ''}
       </div>
       <label style="display:flex; align-items:center; gap:5px; margin-top:8px; font-size:11.5px; color:var(--ink-soft); cursor:pointer;">
         <input type="checkbox" ${done?'checked':''} onclick="event.stopPropagation(); toggleWorkComplete('${g.id}', this.checked, this)"> 작업 완료
       </label>
-      ${editable ? `<button onclick="event.stopPropagation(); deleteGame('${g.id}')" style="position:absolute; top:12px; right:12px; border:none; background:none; color:var(--ink-soft); cursor:pointer; font-size:13px;">✕</button>` : ''}
+      ${editable ? `<button onclick="event.stopPropagation(); deleteGame('${g.id}')" style="position:absolute; top:12px; right:12px; border:none; background:none; color:var(--ink-soft); cursor:pointer;" title="휴지통으로 이동">✕</button>` : ''}
     </div>
   `;}).join('') : '<div class="empty">검색 결과가 없습니다.</div>';
+
+  observeCardThumbs_(container);
+}
+
+/** 카드 썸네일은 화면에 보일 때만 주소를 받아와서 불러옵니다 (게임이 많아도 목록이 느려지지 않게). */
+let thumbObserver_ = null;
+function observeCardThumbs_(container){
+  const els = container.querySelectorAll('.card-thumb[data-thumb-path]');
+  if (!els.length) return;
+  const load = async (el)=>{
+    const path = el.dataset.thumbPath;
+    el.removeAttribute('data-thumb-path');
+    try{ el.style.backgroundImage = `url('${await resolvePhotoUrl_(path)}')`; }catch(e){ el.remove(); }
+  };
+  if (!('IntersectionObserver' in window)){ els.forEach(load); return; }
+  if (thumbObserver_) thumbObserver_.disconnect();
+  thumbObserver_ = new IntersectionObserver(entries=>{
+    entries.forEach(en=>{ if (en.isIntersecting){ thumbObserver_.unobserve(en.target); load(en.target); } });
+  }, { rootMargin: '200px' });
+  els.forEach(el=>thumbObserver_.observe(el));
 }
 
 /** 목록 카드의 체크박스로 게임을 선택/해제하고, 선택된 게임들의 필요 케이스 합계를 갱신합니다. */
@@ -2691,10 +3169,13 @@ function renderListSelectionSummary_(){
   return `<div class="selection-panel">
     <div class="selection-head">
       <span>${selected.length}개 게임 선택됨 · 필요한 케이스 합계</span>
-      <button class="btn btn-ghost2" style="width:auto; padding:4px 10px; font-size:12px;" onclick="clearListSelection_()">선택 해제</button>
+      <span style="display:flex; gap:6px; flex-wrap:wrap;">
+        <button class="btn btn-ghost2" style="width:auto; padding:4px 10px; font-size:12px;" onclick="printSelectedQr_()" title="선택한 게임들을 QR 라벨 인쇄 화면에 담습니다 (게임 박스에 붙여두기용)">🖨️ QR 라벨 인쇄</button>
+        <button class="btn btn-ghost2" style="width:auto; padding:4px 10px; font-size:12px;" onclick="clearListSelection_()">선택 해제</button>
+      </span>
     </div>
     <div class="selection-games">
-      ${selected.map(g=>`<span class="sel-chip">${g.name}<button onclick="toggleGameSelect_('${g.id}')">✕</button></span>`).join('')}
+      ${selected.map(g=>`<span class="sel-chip">${escHtml_(g.name)}<button onclick="toggleGameSelect_('${g.id}')">✕</button></span>`).join('')}
     </div>
     <div class="selection-totals">
       ${types.length
@@ -2706,7 +3187,7 @@ function renderListSelectionSummary_(){
 
 async function toggleWorkComplete(gameId, checked, checkboxEl){
   const myEmail = auth.currentUser?.email?.toLowerCase();
-  if (!myEmail) return;
+  if (!myEmail) return false;
   // 서버 응답을 기다리지 않고, 체크하자마자 카드 색상부터 바로 바꿔줍니다.
   const card = checkboxEl && checkboxEl.closest('.game-card');
   if (card) card.classList.toggle('work-done', checked);
@@ -2717,21 +3198,82 @@ async function toggleWorkComplete(gameId, checked, checkboxEl){
   if (checked && !g.completedBy.includes(myEmail)) g.completedBy.push(myEmail);
   if (!checked) g.completedBy = g.completedBy.filter(e=>e!==myEmail);
   try{
-    await updateDoc(gameRef, { completedBy: g.completedBy });
+    // 목록 전체를 덮어쓰지 않고 "내 이메일만" 넣고 빼서, 여러 사람이 동시에 체크해도 서로 지워지지 않게 합니다.
+    await updateDoc(gameRef, { completedBy: checked ? arrayUnion(myEmail) : arrayRemove(myEmail) });
   }catch(e){
     // 저장에 실패하면 화면 표시도 원래대로 되돌립니다.
     if (checked) g.completedBy = g.completedBy.filter(e=>e!==myEmail);
     else g.completedBy.push(myEmail);
     if (card) card.classList.toggle('work-done', !checked);
+    if (checkboxEl) checkboxEl.checked = !checked;
     alert('작업 완료 상태를 저장하지 못했습니다: ' + e.message);
+    return false;
+  }
+  return true;
+}
+
+/** 게임을 바로 지우지 않고 휴지통으로 옮깁니다. 편집자는 목록의 "🗑️ 휴지통"에서 복구할 수 있습니다. */
+async function deleteGame(gameId){
+  const g = games.find(x=>x.id===gameId);
+  if (!confirm(`"${g?.name || gameId}" 게임을 휴지통으로 옮길까요?\n(목록의 "🗑️ 휴지통"에서 다시 복구할 수 있습니다)`)) return;
+  try{
+    await updateDoc(doc(db, 'games', gameId), { deleted: true, deletedAt: Date.now(), deletedBy: auth.currentUser?.email?.toLowerCase() || '' });
+  }catch(e){
+    alert('휴지통으로 옮기지 못했습니다: ' + e.message);
+    return;
+  }
+  listSelectedIds_.delete(String(gameId));
+  await loadGames();
+  renderList();
+}
+
+function renderTrash_(){
+  if (!confirmLeaveDetail_()) return;
+  leavePresence_();
+  currentGameId = null;
+  appEl.innerHTML = `
+    <button class="back" onclick="renderList()">← 목록으로</button>
+    <h2 style="margin:0 0 6px;">🗑️ 휴지통</h2>
+    <p style="margin:0 0 14px;">삭제한 게임은 여기에 남아 있다가 "복구"로 되살릴 수 있습니다. "영구 삭제"는 되돌릴 수 없습니다.</p>
+    ${trashedGames_.length ? `
+    <table class="case-table">
+      <thead><tr><th>이름</th><th>ID</th><th>삭제한 시각 · 사람</th><th></th></tr></thead>
+      <tbody>
+        ${trashedGames_.map(g=>`
+          <tr>
+            <td>${escHtml_(g.name || '(이름 없음)')}</td>
+            <td>${escHtml_(g.id)}</td>
+            <td style="font-size:12px; color:var(--ink-soft);">${g.deletedAt ? formatHistoryDate_(g.deletedAt) : '-'} · ${escHtml_(g.deletedBy || '-')}</td>
+            <td style="white-space:nowrap;">
+              <button class="btn btn-primary2" style="width:auto; padding:5px 10px; font-size:12px;" onclick="restoreGame_('${g.id}')">복구</button>
+              <button class="btn btn-ghost2" style="width:auto; padding:5px 10px; font-size:12px;" onclick="purgeGame_('${g.id}')">영구 삭제</button>
+            </td>
+          </tr>`).join('')}
+      </tbody>
+    </table>` : `<div class="empty">휴지통이 비어 있습니다.</div>`}
+  `;
+}
+
+async function restoreGame_(gameId){
+  try{
+    await updateDoc(doc(db, 'games', gameId), { deleted: deleteField(), deletedAt: deleteField(), deletedBy: deleteField() });
+    await loadGames();
+    renderTrash_();
+  }catch(e){
+    alert('복구하지 못했습니다: ' + e.message);
   }
 }
 
-async function deleteGame(gameId){
-  if (!confirm('이 게임을 삭제할까요? 되돌릴 수 없습니다.')) return;
-  await deleteDoc(doc(db, 'games', gameId));
-  await loadGames();
-  renderList();
+async function purgeGame_(gameId){
+  const g = trashedGames_.find(x=>x.id===gameId);
+  if (!confirm(`"${g?.name || gameId}" 게임을 영구 삭제할까요?\n이 작업은 되돌릴 수 없습니다.`)) return;
+  try{
+    await deleteDoc(doc(db, 'games', gameId));
+    await loadGames();
+    renderTrash_();
+  }catch(e){
+    alert('영구 삭제하지 못했습니다: ' + e.message);
+  }
 }
 
 async function createNewGame(){
@@ -2739,8 +3281,9 @@ async function createNewGame(){
   if (id === null) return;
   const trimmedId = id.trim();
   if (!trimmedId){ alert('게임 ID를 입력해주세요.'); return; }
-  if (games.some(x => String(x.id) === trimmedId)){
-    alert(`ID "${trimmedId}"는 이미 사용 중입니다. 다른 ID를 입력해주세요.`);
+  if (!isValidGameId_(trimmedId)){ alert('게임 ID에는 공백이나 따옴표, 슬래시(/), #, ?, % 같은 특수문자를 쓸 수 없습니다.'); return; }
+  if (isGameIdTaken_(trimmedId)){
+    alert(`ID "${trimmedId}"는 이미 사용 중입니다${trashedGames_.some(x=>String(x.id)===trimmedId) ? ' (휴지통에 있는 게임)' : ''}. 다른 ID를 입력해주세요.`);
     return;
   }
   const name = prompt('새 게임 이름을 입력하세요:');
@@ -2758,10 +3301,14 @@ async function createNewGame(){
 }
 
 async function openGame(id, mode){
+  if (String(id) !== String(currentGameId) && !confirmLeaveDetail_()) return;
   leavePresence_(); // 이전 게임에 있던 접속/잠금 정리
+  showDashboard_ = false;
   currentGameId = id;
   currentMode = rvMode_ ? 'return' : (mode || 'photo');
   currentPhotoIdx = 0;
+  pushRecent_(id);
+  resetChangeTracking_();
   renderDetail();
 
   if (currentRole === 'editor' && !rvMode_){
@@ -2778,10 +3325,12 @@ async function openGame(id, mode){
 
 function renderDetail(){
   const g = games.find(x=>x.id===currentGameId);
-  if (!g){ renderList(); return; }
+  if (!g){ resetChangeTracking_(); currentGameId = null; renderList(); return; }
   if (rvMode_) currentMode = 'return';
   const editable = currentRole === 'editor' && !rvMode_;
   setNavActive_(rvMode_ ? 'none' : 'home');
+  const fav = isFavorite_(g.id);
+  const favBtn = `<button class="fav-btn ${fav?'on':''}" onclick="toggleFavorite_('${jsq_(g.id)}')" title="${fav?'즐겨찾기 해제':'즐겨찾기에 추가'}">${fav?'★':'☆'}</button>`;
 
   if (editable){
     // 편집자 화면: 이름·ID 변경, QR코드, 가이드완료, 메모 등 관리용 도구를 모두 보여줍니다.
@@ -2791,27 +3340,36 @@ function renderDetail(){
       <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin-bottom:10px; flex-wrap:wrap;">
         <div>
           <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:4px;">
-            <h2 style="margin:0;">${g.name || '(이름 없음)'}</h2>
-            <span style="font-size:12px; font-weight:600; font-family:var(--sans); color:var(--ink-mid);">ID ${g.id}</span>
+            ${favBtn}
+            <h2 style="margin:0;">${escHtml_(g.name || '(이름 없음)')}</h2>
+            <span style="font-size:12px; font-weight:600; font-family:var(--sans); color:var(--ink-mid);">ID ${escHtml_(g.id)}</span>
             <button class="btn btn-ghost2" style="width:auto; padding:3px 8px; font-size:11px;" onclick="changeGameName_()">이름 변경</button>
             <button class="btn btn-ghost2" style="width:auto; padding:3px 8px; font-size:11px;" onclick="changeGameId_()">ID 변경</button>
-            <button class="btn btn-ghost2" style="width:auto; padding:3px 8px; font-size:11px;" onclick="openGameQrModal_('${g.id}')" title="스캔하면 바로 이 게임의 반납대 가이드로 이동하는 QR코드">📱 QR코드</button>
+            <button class="btn btn-ghost2" style="width:auto; padding:3px 8px; font-size:11px;" onclick="openGameQrModal_('${jsq_(g.id)}')" title="스캔하면 바로 이 게임의 반납대 가이드로 이동하는 QR코드">📱 QR코드</button>
+            <button class="btn btn-ghost2" style="width:auto; padding:3px 8px; font-size:11px;" onclick="printGameGuide_()" title="사진·표·체크리스트·QR을 한 장으로 정리해서 인쇄합니다">🖨️ 인쇄</button>
             <div class="scan-chips" id="scanChipsSlot">${scanChipsHtml_(g)}</div>
           </div>
           <label style="display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--ink-soft); cursor:pointer;">
             <input type="checkbox" ${g.guideDone?'checked':''} onchange="toggleGuideDone(this.checked)"> 가이드 제작 완료
           </label>
-          <div style="display:flex; gap:8px; margin-top:10px;">
-            <button class="btn btn-primary2" style="width:auto; padding:6px 14px; font-size:12.5px;" onclick="saveGame()">💾 저장</button>
-            <button class="btn btn-ghost2" style="width:auto; padding:6px 14px; font-size:12.5px;" onclick="showHistoryModal_()">🕐 이전 버전</button>
+          <div class="detail-actions">
+            <button class="btn btn-primary2" id="saveBtn" onclick="saveGame()" title="저장 (Ctrl+S)"><span class="dirty-dot"></span>💾 저장</button>
+            <button class="btn btn-ghost2" id="undoBtn" onclick="undo_()" title="실행 취소 (Ctrl+Z)">↶</button>
+            <button class="btn btn-ghost2" id="redoBtn" onclick="redo_()" title="다시 실행 (Ctrl+Shift+Z)">↷</button>
+            <button class="btn btn-ghost2" onclick="showHistoryModal_()">🕐 이전 버전</button>
+            <label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--ink-soft); cursor:pointer;" title="수정하고 몇 초 지나면 자동으로 저장합니다">
+              <input type="checkbox" ${isAutosaveOn_()?'checked':''} onchange="setAutosave_(this.checked)"> 자동 저장
+            </label>
+            <span class="save-state" id="saveState"></span>
           </div>
         </div>
         <div style="flex:1; min-width:220px; max-width:360px;">
           <textarea id="gameNoteInput" placeholder="게임 전체 메모 (선택)"
             style="width:100%; min-height:44px; padding:8px 10px; border:1px solid var(--line); border-radius:8px; font-size:12.5px; font-family:var(--sans); resize:vertical;"
-            onchange="updateGameNote(this.value)">${g.note||''}</textarea>
+            onchange="updateGameNote(this.value)">${escHtml_(g.note||'')}</textarea>
         </div>
       </div>
+      <div id="reportBannerSlot">${renderReportBanner_(g)}</div>
       <div class="tabs">
         <button class="${currentMode==='photo'?'active':''}" onclick="switchMode('photo')">사진</button>
         <button class="${currentMode==='table'?'active':''}" onclick="switchMode('table')">표</button>
@@ -2825,7 +3383,12 @@ function renderDetail(){
     appEl.innerHTML = `
       <div class="viewer-head">
         <button class="viewer-back" onclick="renderList()" title="목록으로">←</button>
-        <h2 class="viewer-title">${g.name || ''}</h2>
+        <h2 class="viewer-title">${escHtml_(g.name || '')}</h2>
+        <span class="viewer-tools">
+          ${favBtn}
+          <button class="viewer-back" onclick="openGameQrModal_('${jsq_(g.id)}')" title="이 게임으로 바로 들어오는 링크 · QR코드">🔗</button>
+          <button class="viewer-back" onclick="printGameGuide_()" title="사진·표·체크리스트·QR을 한 장으로 정리해서 인쇄">🖨️</button>
+        </span>
         ${estMinutesBadgeHtml_(g)}
         <div class="scan-chips" id="scanChipsSlot">${scanChipsHtml_(g)}</div>
         <div class="tabs" style="margin:0;">
@@ -2834,6 +3397,7 @@ function renderDetail(){
           <button class="${currentMode==='return'?'active':''}" onclick="switchMode('return')">반납대 가이드</button>
         </div>
       </div>
+      <div id="reportBannerSlot">${renderReportBanner_(g)}</div>
       <div id="tabBody"></div>
     `;
   }
@@ -2841,6 +3405,7 @@ function renderDetail(){
   else if (currentMode === 'table') renderTableTab();
   else renderReturnGuideTab();
   updatePresenceBanner_(lastPresenceOthers_);
+  updateSaveStateUI_();
 }
 
 async function toggleGuideDone(checked){
@@ -2884,8 +3449,9 @@ async function changeGameId_(){
   if (newId === null) return;
   const trimmed = newId.trim();
   if (!trimmed || trimmed === g.id) return;
-  if (games.some(x => String(x.id) === trimmed)){
-    alert(`ID "${trimmed}"는 이미 다른 게임이 사용 중입니다.`);
+  if (!isValidGameId_(trimmed)){ alert('게임 ID에는 공백이나 따옴표, 슬래시(/), #, ?, % 같은 특수문자를 쓸 수 없습니다.'); return; }
+  if (isGameIdTaken_(trimmed)){
+    alert(`ID "${trimmed}"는 이미 다른 게임이 사용 중입니다${trashedGames_.some(x=>String(x.id)===trimmed) ? ' (휴지통에 있는 게임)' : ''}.`);
     return;
   }
   if (!confirm(`게임 ID를 "${g.id}" → "${trimmed}"로 변경할까요?\n이전 버전 기록도 함께 옮겨집니다. 되돌릴 수 없습니다.`)) return;
@@ -2894,6 +3460,7 @@ async function changeGameId_(){
     const oldId = g.id;
     const { id, editLockHolder, editLockAt, ...data } = g; // 편집 잠금 정보는 새 ID로 옮기지 않습니다.
     await setDoc(doc(db, 'games', trimmed), { ...data, updatedAt: Date.now() });
+    resetChangeTracking_(); // 바뀐 내용까지 새 ID 문서에 그대로 복사됐으므로, "저장 안 됨" 상태를 비웁니다
 
     // 이전 버전 기록(history)도 그대로 복사합니다.
     const historySnap = await getDocs(collection(db, 'games', oldId, 'history'));
@@ -2951,6 +3518,7 @@ async function renderPhotoTab(){
       </div>
       <div class="toolbar-divider"></div>
       <div class="toolbar-group">
+        <button class="btn btn-ghost2" style="width:auto;" onclick="openLightbox_()" title="사진을 화면 가득 크게 보고 확대/이동합니다 (F)">🔍 크게 보기</button>
         <button class="btn btn-ghost2" style="width:auto;" onclick="downloadGuideImage()" title="이 사진의 가이드 화면을 이미지로 저장합니다">🖼️ 이미지 다운로드</button>
         ${photos.length>1 ? `<button class="btn btn-ghost2" style="width:auto;" onclick="downloadAllGuideImages()" title="사진 ${photos.length}장을 전부 이미지로 저장합니다">🖼️ 전체(${photos.length}장) 다운로드</button>` : ''}
       </div>
@@ -3120,7 +3688,7 @@ function drawMarkers(stage, photo, editable){
           ${(c.items||[]).map((it, ii)=>`
             <div class="anno-item-row">
               <div class="anno-item">
-                <input type="text" value="${it.name||''}" placeholder="구성품명" onchange="updateMarkerItem(${mi},${ii},'name',this.value)">
+                <input type="text" value="${escHtml_(it.name||'')}" placeholder="구성품명" onchange="updateMarkerItem(${mi},${ii},'name',this.value)">
                 <input type="number" value="${it.qty||0}" onchange="updateMarkerItem(${mi},${ii},'qty',this.value)">
                 <button onclick="deleteMarkerItem(${mi},${ii})">✕</button>
               </div>
@@ -3137,7 +3705,7 @@ function drawMarkers(stage, photo, editable){
         </div>
         <button class="anno-additem" onclick="addMarkerItem(${mi})">+ 항목 추가</button>
         <textarea placeholder="비고 (선택)" rows="2" style="width:100%; margin-top:6px; padding:4px 6px; font-size:11px; border:1px solid var(--line); border-radius:4px; box-sizing:border-box; font-family:var(--sans); resize:vertical;"
-          onchange="updateCaseNote(${m.caseIdx}, this.value)">${c.note||''}</textarea>
+          onchange="updateCaseNote(${m.caseIdx}, this.value)">${escHtml_(c.note||'')}</textarea>
         <button class="anno-label-btn" onclick="createLabelFromMarker(${mi})">라벨 만들기</button>
         <button class="anno-label-btn" onclick="duplicateMarkerCase(${mi})" title="이 텍스트박스(케이스) 복제">복제</button>
       `;
@@ -3170,10 +3738,10 @@ function drawMarkers(stage, photo, editable){
         ${(c.items||[]).map(it=>`
           <div style="display:flex; align-items:center; gap:0.35em; margin-bottom:0.17em;">
             ${it.photo ? `<span class="case-photo-wrap mini checkerboard-bg" data-photo="${it.photo}"><img class="case-photo-thumb" alt="" onclick="event.stopPropagation(); openPhotoLightbox_(this.src)"></span>` : ''}
-            <span>${it.name||''}${it.qty?` <span style="color:var(--ink-soft);">${it.qty}개</span>`:''}</span>
+            <span>${escHtml_(it.name||'')}${it.qty?` <span style="color:var(--ink-soft);">${it.qty}개</span>`:''}</span>
           </div>
         `).join('')}
-        ${c.note ? `<div style="margin-top:0.35em; font-size:0.96em; color:var(--ink-soft); font-style:italic; white-space:pre-wrap;">${c.note}</div>` : ''}
+        ${c.note ? `<div style="margin-top:0.35em; font-size:0.96em; color:var(--ink-soft); font-style:italic; white-space:pre-wrap;">${escHtml_(c.note)}</div>` : ''}
       `;
       box.addEventListener('click', (e)=>{ e.stopPropagation(); selectAnno_('marker', mi); });
     } else {
@@ -3182,14 +3750,14 @@ function drawMarkers(stage, photo, editable){
         ${(c.items||[]).map(it=>`
           <div style="display:flex; align-items:center; gap:0.35em; margin-bottom:0.17em;">
             ${it.photo ? `<span class="case-photo-wrap mini checkerboard-bg" data-photo="${it.photo}"><img class="case-photo-thumb" alt="" onclick="event.stopPropagation(); openPhotoLightbox_(this.src)"></span>` : ''}
-            <span>${it.name||''}${it.qty?` <span style="color:var(--ink-soft);">${it.qty}개</span>`:''}</span>
+            <span>${escHtml_(it.name||'')}${it.qty?` <span style="color:var(--ink-soft);">${it.qty}개</span>`:''}</span>
           </div>
         `).join('')}
-        ${c.note ? `<div style="margin-top:0.35em; font-size:0.96em; color:var(--ink-soft); font-style:italic; white-space:pre-wrap;">${c.note}</div>` : ''}
+        ${c.note ? `<div style="margin-top:0.35em; font-size:0.96em; color:var(--ink-soft); font-style:italic; white-space:pre-wrap;">${escHtml_(c.note)}</div>` : ''}
       `;
     }
     stage.appendChild(box);
-    clampBoxToStage_(stage, box, m); // 텍스트박스가 사진 오른쪽/아래쪽 밖으로 삐져나가지 않도록 보정
+    clampBoxToStage_(stage, box, m, false); // 텍스트박스가 사진 오른쪽/아래쪽 밖으로 삐져나가지 않도록 보정
     box.querySelectorAll('.case-photo-wrap[data-photo]').forEach(wrap=>{
       const path = wrap.dataset.photo;
       resolvePhotoUrl_(path).then(url=>{
@@ -3213,7 +3781,7 @@ function drawMarkers(stage, photo, editable){
  */
 /** 텍스트박스가 사진 영역의 오른쪽/아래쪽(또는 왼쪽/위쪽) 밖으로 삐져나가지 않도록,
  *  실제 렌더링된 박스 크기를 기준으로 위치를 안쪽으로 당겨줍니다. */
-function clampBoxToStage_(stage, box, m){
+function clampBoxToStage_(stage, box, m, persist = true){
   if (!m.box) return false;
   const stageRect = stage.getBoundingClientRect();
   const boxRect = box.getBoundingClientRect();
@@ -3225,7 +3793,9 @@ function clampBoxToStage_(stage, box, m){
   let x = Math.min(Math.max(m.box.x, 0), maxX);
   let y = Math.min(Math.max(m.box.y, 0), maxY);
   if (x !== m.box.x || y !== m.box.y){
-    m.box.x = x; m.box.y = y;
+    // 화면을 그릴 때(persist=false)는 보이는 위치만 안쪽으로 당기고 저장값은 건드리지 않습니다.
+    // (화면 크기가 다른 기기에서 열기만 해도 "수정됨"으로 잡히지 않게) 직접 드래그할 때만 값을 바꿉니다.
+    if (persist){ m.box.x = x; m.box.y = y; }
     box.style.left = x+'%';
     box.style.top = y+'%';
     return true;
@@ -3516,15 +4086,6 @@ function closeCasePhotoModal_(){
   casePhotoState_ = null;
 }
 
-/** 작은 썸네일을 클릭하면 화면 전체 크기로 크게 볼 수 있게 합니다 (다시 클릭하면 닫힘). */
-function openPhotoLightbox_(url){
-  if (!url) return;
-  const overlay = document.createElement('div');
-  overlay.className = 'photo-lightbox';
-  overlay.innerHTML = `<img src="${url}" alt="">`;
-  overlay.onclick = ()=> overlay.remove();
-  document.body.appendChild(overlay);
-}
 
 /** 원본 픽셀 데이터를 기준으로, 네 귀퉁이 평균색과의 색 거리(threshold)에 따라
  *  배경을 투명하게 만든 새 ImageData를 계산합니다 (원본은 건드리지 않습니다). */
@@ -4474,11 +5035,19 @@ async function applyCropAndUpload_(){
   if (statusEl) statusEl.textContent = '업로드 중...';
 
   const g = games.find(x=>x.id===currentGameId);
-  const storagePath = `games/${g.id}/${Date.now()}_cropped.jpg`;
+  const stamp = Date.now();
+  const storagePath = `games/${g.id}/${stamp}_cropped.jpg`;
   try{
     await uploadBytes(ref(storage, storagePath), blob);
+    // 목록 카드에 쓸 작은 썸네일도 함께 올립니다 (실패해도 사진 업로드 자체는 그대로 진행)
+    let thumbPath = null;
+    try{
+      const thumbBlob = await makeThumbBlob_(outCanvas);
+      thumbPath = `games/${g.id}/${stamp}_thumb.jpg`;
+      await uploadBytes(ref(storage, thumbPath), thumbBlob);
+    }catch(e){ console.warn('썸네일 업로드 실패', e); thumbPath = null; }
     g.photos = g.photos || [];
-    g.photos.push({ storagePath, markers: [] });
+    g.photos.push(thumbPath ? { storagePath, thumbPath, markers: [] } : { storagePath, markers: [] });
     currentPhotoIdx = g.photos.length - 1;
     await persistGame_(g);
     renderPhotoTab();
@@ -4568,6 +5137,7 @@ let historyLastSavedAt_ = {}; // gameId -> 마지막으로 이력을 남긴 시�
 async function persistGame_(g){
   const gameRef = doc(db, 'games', g.id);
   const basedOnUpdatedAt = g.updatedAt;
+  const savingJson = contentJson_(g); // 저장을 시작한 순간의 내용 (저장 도중 또 바뀌면 그 부분은 "저장 안 됨"으로 남음)
 
   try{
     const result = await runTransaction(db, async (tx)=>{
@@ -4591,8 +5161,11 @@ async function persistGame_(g){
         }
       }
 
-      const { id, editLockHolder, editLockAt, ...data } = g;
+      // 작업 완료 체크·누락 신고·가이드 완료·휴지통 상태는 각자 따로 즉시 저장되는 값이라, 여기서 내 화면에
+      // 남아있던 (오래됐을 수 있는) 값으로 덮어쓰면 다른 사람이 방금 한 체크가 지워집니다. 그래서 제외합니다.
+      const { id, editLockHolder, editLockAt, completedBy, missingReports, guideDone, deleted, deletedAt, deletedBy, ...data } = g;
       data.updatedAt = Date.now();
+      data.updatedBy = auth.currentUser?.email?.toLowerCase() || '';
       // merge:true로 저장해서, 이 문서에 있는 편집 잠금 필드(editLockHolder/editLockAt)는
       // 절대 건드리지 않습니다. (내용 저장과 잠금 상태는 완전히 분리되어야 함)
       tx.set(gameRef, data, { merge: true });
@@ -4602,12 +5175,14 @@ async function persistGame_(g){
     if (result.conflict){
       const idx = games.findIndex(x=>x.id===g.id);
       if (idx !== -1) games[idx] = result.serverGame;
-      if (currentGameId === g.id) renderDetail();
+      if (currentGameId === g.id){ resetChangeTracking_(); renderDetail(); }
       alert('⚠ 다른 편집자가 방금 이 게임을 수정해서, 최신 내용을 다시 불러왔습니다.\n방금 편집하신 내용은 다시 적용해주세요.');
       return false;
     }
 
     g.updatedAt = result.newUpdatedAt; // 다음 저장 때 "나 자신"을 충돌로 오판하지 않도록 갱신
+    g.updatedBy = auth.currentUser?.email?.toLowerCase() || '';
+    markSaved_(g.id, savingJson);
     return true;
   }catch(e){
     console.error('저장 실패', e);
@@ -4621,12 +5196,17 @@ async function persistGame_(g){
  * 이전 버전(수정 이력) 보기·복원
  * ============================================================
  */
+let historyItems_ = []; // 지금 열려있는 이전 버전 목록 (미리보기용)
+const HISTORY_LIST_MAX_ = 10;
+
 async function showHistoryModal_(){
   const gameId = currentGameId;
-  const q = query(collection(db, 'games', gameId, 'history'), orderBy('savedAt', 'desc'), limit(5));
+  noteChange_();
+  const q = query(collection(db, 'games', gameId, 'history'), orderBy('savedAt', 'desc'), limit(HISTORY_LIST_MAX_));
   const snap = await getDocs(q);
   const items = [];
   snap.forEach(d => items.push({ id: d.id, ...d.data() }));
+  historyItems_ = items;
   renderHistoryModal_(gameId, items);
 }
 
@@ -4644,19 +5224,21 @@ function renderHistoryModal_(gameId, items){
   backdrop.className = 'modal-backdrop';
   backdrop.id = 'historyBackdrop';
   backdrop.innerHTML = `
-    <div class="modal" style="max-width:420px;">
+    <div class="modal" style="max-width:520px;">
       <h3>이전 버전</h3>
-      <p style="font-size:12px; color:var(--ink-soft); margin-top:-8px;">저장할 때마다 직전 내용이 최근 5개까지 자동으로 남습니다.</p>
+      <p style="font-size:12px; color:var(--ink-soft); margin-top:-8px;">저장할 때 직전 내용이 자동으로 남습니다 (최근 ${HISTORY_LIST_MAX_}개 표시). "미리보기"로 그 버전의 모습과 지금과 달라지는 점을 먼저 확인할 수 있습니다.</p>
       <div class="history-list">
         ${items.length ? items.map(h=>`
           <div class="history-row">
             <div>
               <div class="history-time">${formatHistoryDate_(h.savedAt)}</div>
-              <div class="history-meta">${h.snapshot.name} · 케이스 ${(h.snapshot.cases||[]).length}개</div>
+              <div class="history-meta">${escHtml_(h.snapshot.name)} · 케이스 ${(h.snapshot.cases||[]).length}개 · 사진 ${(h.snapshot.photos||[]).length}장${h.snapshot.updatedBy ? ` · 작성 ${escHtml_(h.snapshot.updatedBy)}` : ''}</div>
             </div>
             <div class="history-actions">
+              <button class="btn btn-ghost2" style="width:auto; padding:5px 10px; font-size:12px;" onclick="showHistoryPreview_('${gameId}','${h.id}')">미리보기</button>
               <button class="btn btn-ghost2" style="width:auto; padding:5px 10px; font-size:12px;" onclick="restoreHistory_('${gameId}','${h.id}')">복원</button>
             </div>
+            <div id="historyPreview_${h.id}" style="flex-basis:100%;"></div>
           </div>
         `).join('') : `<p>아직 저장된 이전 버전이 없습니다.</p>`}
       </div>
@@ -4676,14 +5258,22 @@ async function restoreHistory_(gameId, historyId){
 
   // 혹시 예전에 만들어진 이력에 편집 잠금 정보가 남아있더라도(수정 전 버전), 복원 시
   // 절대 반영하지 않도록 한 번 더 걸러냅니다.
-  const { editLockHolder, editLockAt, ...contentOnly } = item.snapshot;
-  const g = { id: gameId, ...contentOnly, updatedAt: games.find(x=>x.id===gameId)?.updatedAt };
+  // 작업 완료 체크·누락 신고·가이드 완료 같은 "상태" 값은 되돌리지 않고 지금 값을 그대로 둡니다.
+  const { editLockHolder, editLockAt, completedBy, missingReports, guideDone, deleted, deletedAt, deletedBy, updatedBy, ...contentOnly } = item.snapshot;
+  const current = games.find(x=>x.id===gameId) || {};
+  const g = {
+    id: gameId,
+    completedBy: current.completedBy, missingReports: current.missingReports, guideDone: current.guideDone,
+    ...contentOnly,
+    updatedAt: current.updatedAt
+  };
+  ['markerSize','lineWidth','annoScale'].forEach(k=>{ if (!(k in contentOnly)) delete g[k]; });
   const ok = await persistGame_(g);
   if (ok){
     const idx = games.findIndex(x=>x.id===gameId);
     if (idx !== -1) games[idx] = g;
     document.getElementById('historyBackdrop')?.remove();
-    if (currentGameId === gameId) renderDetail();
+    if (currentGameId === gameId){ resetChangeTracking_(); renderDetail(); }
     alert('복원되었습니다.');
   }
 }
@@ -4844,13 +5434,13 @@ function renderTableTab(){
             : `<span class="case-badge case-${c.caseType}">${typeLabel_(c.caseType)}</span>`}
         </td>`;
       }
-      rows += `<td>${editable ? `<input value="${it.name||''}" onchange="updateItem(${ci},${ii},'name',this.value)">` : (it.name||'')}</td>`;
+      rows += `<td>${editable ? `<input value="${escHtml_(it.name||'')}" onchange="updateItem(${ci},${ii},'name',this.value)">` : escHtml_(it.name||'')}</td>`;
       rows += `<td style="width:80px;">${editable ? `<input type="number" value="${it.qty||0}" onchange="updateItem(${ci},${ii},'qty',this.value)">` : (it.qty||0)}</td>`;
       if (ii === 0){
         rows += `<td rowspan="${items.length}">
           ${editable
-            ? `<textarea rows="2" style="width:100%; box-sizing:border-box; font-family:var(--sans); resize:vertical; padding:6px 8px; border:1px solid var(--line); border-radius:6px; font-size:13px;" placeholder="비고" onchange="updateCaseNote(${ci}, this.value)">${c.note||''}</textarea>`
-            : `<span style="white-space:pre-wrap;">${c.note||''}</span>`}
+            ? `<textarea rows="2" style="width:100%; box-sizing:border-box; font-family:var(--sans); resize:vertical; padding:6px 8px; border:1px solid var(--line); border-radius:6px; font-size:13px;" placeholder="비고" onchange="updateCaseNote(${ci}, this.value)">${escHtml_(c.note||'')}</textarea>`
+            : `<span style="white-space:pre-wrap;">${escHtml_(c.note||'')}</span>`}
         </td>`;
       }
       if (editable) rows += `<td style="width:40px;"><button class="btn btn-ghost2" style="padding:4px 8px; width:auto;" onclick="deleteItem(${ci},${ii})">✕</button></td>`;
@@ -4990,7 +5580,7 @@ function rgClickableName_(name, standardIds){
   const idsLiteral = `[${ids.map(id=>`'${id}'`).join(',')}]`;
   const safeName = String(name||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
   return `
-    <div class="rg-item-clickable" onclick="openConditionPopup_('${safeName}', ${idsLiteral})">
+    <div class="rg-item-clickable" onclick="event.stopPropagation(); openConditionPopup_('${safeName}', ${idsLiteral})">
       <span class="rg-item-name" style="font-weight:700;">${name||''}</span><span class="rg-standard-badge">📋 상태기준</span>
     </div>
   `;
@@ -5238,14 +5828,18 @@ function renderReturnGuideViewer_(g, rg){
   // 우: 정리된 사진(라벨만, 사진 원본 비율). 두 영역은 각각 독립적으로 스크롤됩니다 (높이는 fitReturnSplit_()가 맞춥니다).
   const hasPhotos = !!(g.photos && g.photos.length);
   const thumb = (photo)=> photo ? `<div class="case-photo-wrap mini" data-photo="${photo}"><img class="case-photo-thumb" alt="" onclick="event.stopPropagation(); openPhotoLightbox_(this.src)"></div>` : '';
-  const itemCard = (it)=>{
+  // 필수 구성품 카드는 눌러서 하나씩 "확인" 체크할 수 있습니다 (반납 정리 중 구성품 점검).
+  const checked = returnCheckSet_(g.id);
+  const itemCard = (it, idx)=>{
     const long = String(it.name||'').length > 11 || !!it.note;
+    const on = checked.has(idx);
     return `
-      <div class="rg-item-card ${long?'wide':''}">
+      <div class="rg-item-card checkable ${long?'wide':''} ${on?'checked':''}" data-check-idx="${idx}" onclick="toggleReturnCheck_(${idx})" title="눌러서 확인 체크">
+        <span class="rg-check-box">${on?'✓':''}</span>
         ${it.photo ? thumb(it.photo) : `<div class="rg-item-photo-empty"></div>`}
         <div class="rg-item-main">
           ${rgClickableName_(it.name, it.standardIds)}
-          ${it.note ? `<div>${it.note}</div>` : ''}
+          ${it.note ? `<div>${escHtml_(it.note)}</div>` : ''}
         </div>
         <div class="rg-item-qty">${it.qty||0}개</div>
       </div>`;
@@ -5254,7 +5848,9 @@ function renderReturnGuideViewer_(g, rg){
   cards.push(`
     <div class="rg-card">
       <h3>① 필수 구성품 확인 <span class="case-badge case-ITEM" style="font-size:10.5px; padding:2px 8px;">${rg.requiredItems.length}종</span></h3>
+      <div class="rg-check-bar" id="rgCheckBar">${returnCheckBarHtml_(g, rg)}</div>
       ${rg.requiredItems.length ? `<div class="rg-items">${rg.requiredItems.map(itemCard).join('')}</div>` : `<p style="color:var(--ink-soft); font-size:13px;">필수 수량 확인 없음</p>`}
+      <div class="rg-check-actions" id="rgCheckActions">${returnCheckActionsHtml_(g, rg)}</div>
     </div>`);
   if (rg.sortingSteps.length) cards.push(`
     <div class="rg-card">
@@ -5370,10 +5966,851 @@ async function toggleGuidePublished_(checked){
 }
 
 async function saveGame(){
-  const g = games.find(x=>x.id===currentGameId);
   // 사진 탭에서 마커를 옮겼을 수도 있으니, 표 저장 시에도 전체를 같이 저장합니다.
+  const ok = await doSave_(false);
+  if (ok) toast_('저장되었습니다 ✓');
+}
+
+/**
+ * ============================================================
+ * 변경사항 추적 · 실행 취소(Ctrl+Z) · 자동 저장 · 저장 안 하고 나가기 방지
+ * ============================================================
+ * 마커/라벨/표 편집 함수가 아주 많아서 하나하나에 "바뀜" 표시를 넣는 대신, 사용자가
+ * 클릭·드래그·입력을 마칠 때마다 게임 내용(JSON)을 직전 상태와 비교해서 바뀌었으면
+ * 실행 취소 기록에 쌓습니다. 마지막으로 저장한 내용과 다르면 "저장 안 됨"으로 봅니다.
+ */
+const UNDO_MAX_ = 50;
+const AUTOSAVE_DELAY_MS_ = 4000;
+let track_ = { gameId:null, saved:null, last:null, undo:[], redo:[] };
+let saving_ = false;
+let pendingSave_ = false;
+let autosaveTimer_ = null;
+let lastSavedAt_ = 0;
+let pointerIsDown_ = false;
+
+function currentGame_(){ return games.find(x=>x.id===currentGameId) || null; }
+
+/** 저장 대상이 되는 "게임 내용"만 뽑아서 비교용 문자열로 만듭니다.
+ *  (작업 완료 체크·가이드 완료·누락 신고·이름처럼 즉시 따로 저장되는 값은 제외) */
+function contentJson_(g){
+  return JSON.stringify({
+    cases: g.cases || [], photos: g.photos || [], note: g.note || '',
+    markerSize: g.markerSize ?? null, lineWidth: g.lineWidth ?? null, annoScale: g.annoScale ?? null,
+    returnGuide: normReturnGuide_(g.returnGuide)
+  });
+}
+/** 반납대 가이드는 화면에 그릴 때 빈 항목(기본값)이 채워지므로, 비교할 때는 같은 기본값을 채운 복사본으로 비교합니다
+ *  (열어보기만 했는데 "수정됨"으로 잡히지 않게). */
+function normReturnGuide_(rg){
+  return ensureReturnGuide_({ returnGuide: JSON.parse(JSON.stringify(rg || {})) });
+}
+function applyContent_(g, json){
+  const c = JSON.parse(json);
+  g.cases = c.cases; g.photos = c.photos; g.note = c.note;
+  g.returnGuide = c.returnGuide;
+  ['markerSize','lineWidth','annoScale'].forEach(k=>{ if (c[k] == null) delete g[k]; else g[k] = c[k]; });
+}
+
+function resetChangeTracking_(){
+  const g = currentGame_();
+  const json = g ? contentJson_(g) : null;
+  track_ = { gameId: g ? g.id : null, saved: json, last: json, undo: [], redo: [] };
+  clearTimeout(autosaveTimer_);
+  lastSavedAt_ = 0;
+  updateSaveStateUI_();
+}
+
+function isDirty_(){
+  if (currentRole !== 'editor' || !track_.gameId) return false;
+  const g = currentGame_();
+  if (!g || g.id !== track_.gameId) return false;
+  return contentJson_(g) !== track_.saved;
+}
+
+/** 사용자 동작이 끝날 때마다 호출: 바뀐 게 있으면 실행 취소 기록에 쌓고 자동 저장을 예약합니다. */
+function noteChange_(){
+  if (currentRole !== 'editor') return;
+  const g = currentGame_();
+  if (!g || g.id !== track_.gameId) return;
+  const cur = contentJson_(g);
+  if (cur === track_.last) return;
+  track_.undo.push(track_.last);
+  if (track_.undo.length > UNDO_MAX_) track_.undo.shift();
+  track_.redo = [];
+  track_.last = cur;
+  updateSaveStateUI_();
+  scheduleAutosave_();
+}
+['pointerup','click','change','focusout'].forEach(type=>{
+  document.addEventListener(type, ()=> setTimeout(noteChange_, 0), true);
+});
+document.addEventListener('pointerdown', ()=>{ pointerIsDown_ = true; }, true);
+document.addEventListener('pointerup', ()=>{ pointerIsDown_ = false; }, true);
+document.addEventListener('pointercancel', ()=>{ pointerIsDown_ = false; }, true);
+
+function rerenderAfterContentSwap_(){
+  editSelection_ = null;
+  renderDetail();
+}
+function undo_(){
+  if (currentRole !== 'editor') return;
+  noteChange_(); // 아직 기록 안 된 마지막 변경까지 먼저 반영
+  const g = currentGame_();
+  if (!g || !track_.undo.length) return;
+  track_.redo.push(track_.last);
+  const prev = track_.undo.pop();
+  applyContent_(g, prev);
+  track_.last = prev;
+  rerenderAfterContentSwap_();
+  scheduleAutosave_();
+}
+function redo_(){
+  if (currentRole !== 'editor') return;
+  const g = currentGame_();
+  if (!g || !track_.redo.length) return;
+  track_.undo.push(track_.last);
+  const next = track_.redo.pop();
+  applyContent_(g, next);
+  track_.last = next;
+  rerenderAfterContentSwap_();
+  scheduleAutosave_();
+}
+
+function isAutosaveOn_(){ return lsGet_('rbtn_autosave', true) !== false; }
+function setAutosave_(on){
+  lsSet_('rbtn_autosave', !!on);
+  if (on) scheduleAutosave_(); else clearTimeout(autosaveTimer_);
+  updateSaveStateUI_();
+}
+function scheduleAutosave_(){
+  clearTimeout(autosaveTimer_);
+  if (!isAutosaveOn_() || currentRole !== 'editor') return;
+  autosaveTimer_ = setTimeout(autosaveTick_, AUTOSAVE_DELAY_MS_);
+}
+function autosaveTick_(){
+  if (!isAutosaveOn_() || !isDirty_()) return;
+  // 드래그 중이거나 글자를 입력하는 중이면 끝날 때까지 조금 더 기다립니다.
+  const a = document.activeElement;
+  const typing = a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.isContentEditable);
+  if (pointerIsDown_ || typing || saving_ || document.querySelector('.modal-backdrop')){ scheduleAutosave_(); return; }
+  doSave_(true);
+}
+
+/** 저장 (버튼·Ctrl+S·자동 저장 공통). 저장하는 동안 또 바뀐 내용은 끝난 뒤 다시 저장됩니다. */
+async function doSave_(silent){
+  const g = currentGame_();
+  if (!g) return false;
+  if (saving_){ pendingSave_ = true; return false; }
+  saving_ = true;
+  updateSaveStateUI_();
   const ok = await persistGame_(g);
-  if (ok) alert('저장되었습니다.');
+  saving_ = false;
+  updateSaveStateUI_();
+  if (pendingSave_){ pendingSave_ = false; if (isDirty_()) scheduleAutosave_(); }
+  return ok;
+}
+
+/** persistGame_가 저장에 성공했을 때 호출: "마지막으로 저장한 내용"을 갱신합니다. */
+function markSaved_(gameId, json){
+  if (track_.gameId !== gameId) return;
+  track_.saved = json;
+  lastSavedAt_ = Date.now();
+  updateSaveStateUI_();
+}
+
+function updateSaveStateUI_(){
+  const el = document.getElementById('saveState');
+  const btn = document.getElementById('saveBtn');
+  const dirty = isDirty_();
+  if (btn) btn.classList.toggle('dirty', dirty);
+  if (el){
+    el.className = 'save-state' + (saving_ ? ' saving' : dirty ? ' dirty' : '');
+    const t = lastSavedAt_ ? new Date(lastSavedAt_) : null;
+    el.textContent = saving_ ? '저장 중...'
+      : dirty ? (isAutosaveOn_() ? '● 변경됨 · 곧 자동 저장' : '● 저장 안 됨')
+      : t ? `✓ 저장됨 ${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}` : '';
+  }
+  const ub = document.getElementById('undoBtn'), rb = document.getElementById('redoBtn');
+  const g = currentGame_();
+  const hasUnrecorded = !!(g && track_.last && contentJson_(g) !== track_.last); // 기록 직전의 변경도 되돌릴 수 있음
+  if (ub) ub.disabled = !track_.undo.length && !hasUnrecorded;
+  if (rb) rb.disabled = !track_.redo.length;
+}
+
+/** 게임 화면에서 다른 화면으로 갈 때: 저장 안 한 변경사항이 있으면 물어봅니다.
+ *  true = 계속 이동, false = 머무르기 */
+function confirmLeaveDetail_(){
+  if (!isDirty_()) return true;
+  const g = currentGame_();
+  if (!confirm(`"${g.name || g.id}"에 저장하지 않은 변경사항이 있습니다.\n\n[확인] 저장하고 이동\n[취소] 이 화면에 머무르기`)) return false;
+  persistGame_(g); // 이동은 바로 하고, 저장은 뒤에서 마무리합니다 (실패하면 알림이 뜹니다)
+  track_ = { gameId:null, saved:null, last:null, undo:[], redo:[] };
+  clearTimeout(autosaveTimer_);
+  return true;
+}
+window.addEventListener('beforeunload', (e)=>{
+  if (isDirty_()){ e.preventDefault(); e.returnValue = ''; }
+});
+
+/** 화면 아래에 잠깐 떴다 사라지는 알림 */
+function toast_(msg, ms){
+  let el = document.getElementById('toast_');
+  if (!el){
+    el = document.createElement('div');
+    el.id = 'toast_';
+    el.style.cssText = 'position:fixed; left:50%; bottom:24px; transform:translateX(-50%); background:var(--ink); color:var(--surface); padding:10px 16px; border-radius:10px; font-size:13px; font-weight:700; z-index:500; box-shadow:0 6px 20px rgba(0,0,0,.25); transition:opacity .2s; pointer-events:none; max-width:90vw; text-align:center;';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.style.opacity = '1';
+  clearTimeout(el._t);
+  el._t = setTimeout(()=>{ el.style.opacity = '0'; }, ms || 1800);
+}
+
+/**
+ * ============================================================
+ * 키보드 단축키
+ * ============================================================
+ */
+document.addEventListener('keydown', (e)=>{
+  if (document.getElementById('appRoot').style.display === 'none') return;
+  const t = e.target;
+  const typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
+  const mod = e.ctrlKey || e.metaKey;
+  const key = e.key;
+
+  if (key === 'Escape'){
+    const lb = document.querySelector('.lightbox');
+    if (lb){ closeLightbox_(); return; }
+    const modals = document.querySelectorAll('.modal-backdrop');
+    if (modals.length){
+      const top = modals[modals.length-1];
+      if (top.id === 'cropBackdrop') closeCropModal_();
+      else if (top.id === 'casePhotoBackdrop') closeCasePhotoModal_();
+      else top.remove();
+      return;
+    }
+    if (document.querySelector('.nav-dropdown-menu.open, .more-menu.open')){ closeAllNavDropdowns_(); closeMoreMenu_(); return; }
+    if (typing){ t.blur(); return; }
+    if (editSelection_) deselectAnno_();
+    return;
+  }
+
+  const editing = !!currentGameId && currentRole === 'editor' && !rvMode_;
+  // 저장: 입력 중이어도 동작 (입력칸을 먼저 빠져나와서 입력한 값이 반영되게 합니다)
+  if (mod && (key === 's' || key === 'S')){
+    if (editing){
+      e.preventDefault();
+      if (typing) t.blur();
+      setTimeout(saveGame, 0);
+    }
+    return;
+  }
+  // 실행 취소/다시 실행: 입력칸 안에서는 브라우저 기본 동작(글자 되돌리기)을 그대로 씁니다
+  if (mod && !typing && editing){
+    if (key === 'z' || key === 'Z'){ e.preventDefault(); if (e.shiftKey) redo_(); else undo_(); return; }
+    if (key === 'y' || key === 'Y'){ e.preventDefault(); redo_(); return; }
+  }
+  if (mod || e.altKey || typing) return;
+
+  const lb = document.querySelector('.lightbox');
+  if (lb){
+    if (key === 'ArrowLeft'){ e.preventDefault(); lightboxStep_(-1); }
+    if (key === 'ArrowRight'){ e.preventDefault(); lightboxStep_(1); }
+    if (key === '+' || key === '='){ e.preventDefault(); lightboxZoomBy_(1.25); }
+    if (key === '-'){ e.preventDefault(); lightboxZoomBy_(0.8); }
+    return;
+  }
+  if (document.querySelector('.modal-backdrop')) return;
+
+  if (key === '/' && !rvMode_){
+    e.preventDefault();
+    document.getElementById('topSearchInput')?.focus();
+    return;
+  }
+  if (key === '?'){ e.preventDefault(); openHelpModal(); return; }
+  if (!currentGameId) return;
+
+  if (currentMode === 'photo'){
+    if (key === 'ArrowLeft'){ e.preventDefault(); prevPhoto(); return; }
+    if (key === 'ArrowRight'){ e.preventDefault(); nextPhoto(); return; }
+    if (key === 'f' || key === 'F'){ e.preventDefault(); openLightbox_(); return; }
+    if ((key === 'Delete' || key === 'Backspace') && editing && editSelection_){
+      e.preventDefault();
+      const sel = editSelection_;
+      if (sel.type === 'marker') removeMarkerCase(sel.idx);
+      else { deleteLabel(sel.idx); editSelection_ = null; redrawCurrentPhoto_(); }
+      setTimeout(noteChange_, 0);
+      return;
+    }
+  }
+});
+
+/**
+ * ============================================================
+ * 반납대 가이드 "① 필수 구성품 확인" 체크 · 누락 신고
+ * ============================================================
+ * 반납된 게임을 정리하면서 필수 구성품 카드를 눌러 하나씩 확인합니다. 체크 상태는 이 화면을
+ * 보는 동안만 기억하고(게임마다 따로), 같은 게임을 QR로 다시 스캔하면 새 반납으로 보고 비웁니다.
+ * 빠진 구성품이 있으면 "누락 신고"로 게임 문서(missingReports)에 1건을 추가해서 편집자가 확인합니다.
+ */
+let returnCheck_ = {}; // gameId -> Set(필수 구성품 번호)
+
+function returnCheckSet_(gameId){
+  const k = String(gameId);
+  if (!returnCheck_[k]) returnCheck_[k] = new Set();
+  return returnCheck_[k];
+}
+function clearReturnCheck_(gameId){ delete returnCheck_[String(gameId)]; }
+
+function returnCheckBarHtml_(g, rg){
+  const total = rg.requiredItems.length;
+  if (!total) return '';
+  const set = returnCheckSet_(g.id);
+  [...set].forEach(i => { if (i >= total) set.delete(i); }); // 가이드가 바뀌어 없어진 항목의 체크는 버립니다
+  const done = set.size;
+  const pct = Math.round(done/total*100);
+  return `
+    <div class="dash-progress-bar-track"><div class="dash-progress-bar-fill" style="width:${pct}%; background:${done===total?'#2E8B4A':'var(--accent)'};"></div><div class="dash-progress-bar-label">${done} / ${total} 확인</div></div>
+    ${done ? `<button class="btn btn-ghost2" style="width:auto; padding:5px 10px; font-size:12px;" onclick="resetReturnCheck_()">초기화</button>` : ''}`;
+}
+function returnCheckActionsHtml_(g, rg){
+  const total = rg.requiredItems.length;
+  const done = total ? returnCheckSet_(g.id).size : 0;
+  const myEmail = auth.currentUser?.email?.toLowerCase();
+  const alreadyDone = !!myEmail && (g.completedBy||[]).includes(myEmail);
+  return `
+    ${total && done === total
+      ? `<button class="btn btn-primary2" onclick="markWorkDoneFromCheck_()" ${alreadyDone?'disabled':''}>${alreadyDone ? '✅ 작업 완료로 체크됨' : '✅ 모두 확인됨 · 작업 완료로 체크'}</button>`
+      : ''}
+    <button class="btn btn-ghost2" onclick="submitMissingReport_()">⚠ 누락·파손 신고${total && done < total ? ` (미확인 ${total-done}개)` : ''}</button>`;
+}
+/** 체크할 때마다 반납대 가이드 전체를 다시 그리면 사진 미리보기까지 다시 만들어지므로,
+ *  카드 표시와 진행 막대만 바꿔줍니다. */
+function refreshReturnCheckUI_(){
+  const g = currentGame_(); if (!g) return;
+  const rg = ensureReturnGuide_(g);
+  const set = returnCheckSet_(g.id);
+  document.querySelectorAll('.rg-item-card[data-check-idx]').forEach(el=>{
+    const on = set.has(Number(el.dataset.checkIdx));
+    el.classList.toggle('checked', on);
+    const box = el.querySelector('.rg-check-box');
+    if (box) box.textContent = on ? '✓' : '';
+  });
+  const bar = document.getElementById('rgCheckBar');
+  if (bar) bar.innerHTML = returnCheckBarHtml_(g, rg);
+  const actions = document.getElementById('rgCheckActions');
+  if (actions) actions.innerHTML = returnCheckActionsHtml_(g, rg);
+}
+function toggleReturnCheck_(idx){
+  const g = currentGame_(); if (!g) return;
+  const set = returnCheckSet_(g.id);
+  if (set.has(idx)) set.delete(idx); else set.add(idx);
+  refreshReturnCheckUI_();
+}
+function resetReturnCheck_(){
+  const g = currentGame_(); if (!g) return;
+  clearReturnCheck_(g.id);
+  refreshReturnCheckUI_();
+}
+async function markWorkDoneFromCheck_(){
+  const g = currentGame_(); if (!g) return;
+  const myEmail = auth.currentUser?.email?.toLowerCase();
+  if ((g.completedBy||[]).includes(myEmail)){ toast_('이미 작업 완료로 체크되어 있습니다'); return; }
+  const ok = await toggleWorkComplete(g.id, true, null);
+  if (ok === false) return;
+  refreshReturnCheckUI_();
+  toast_('작업 완료로 체크했습니다 ✓');
+}
+
+async function submitMissingReport_(){
+  const g = currentGame_(); if (!g) return;
+  const rg = ensureReturnGuide_(g);
+  const set = returnCheckSet_(g.id);
+  const missing = rg.requiredItems
+    .map((it, i) => ({ i, name: it.name || '', qty: Number(it.qty) || 0 }))
+    .filter(m => !set.has(m.i))
+    .map(({ name, qty }) => ({ name, qty }));
+  const preview = missing.length
+    ? `체크하지 않은 필수 구성품 ${missing.length}개를 누락으로 신고합니다.\n\n` +
+      missing.slice(0, 10).map(m=>`· ${m.name}${m.qty?` ${m.qty}개`:''}`).join('\n') + (missing.length > 10 ? `\n… 외 ${missing.length-10}개` : '') +
+      `\n\n추가로 남길 내용(파손·오염 등)이 있으면 적어주세요 (선택):`
+    : `누락·파손·오염 등 편집자에게 알릴 내용을 적어주세요:`;
+  const memo = prompt(preview, '');
+  if (memo === null) return;
+  if (!missing.length && !memo.trim()){ alert('신고할 내용을 적어주세요.'); return; }
+  const report = {
+    id: `${Date.now()}_${Math.random().toString(36).slice(2,7)}`,
+    at: Date.now(),
+    email: auth.currentUser?.email?.toLowerCase() || '',
+    name: (myProfile_ && myProfile_.name) || '',
+    storeCode: activeStoreCode_ || (myProfile_ && myProfile_.storeCode) || '',
+    items: missing,
+    memo: memo.trim(),
+    resolved: false
+  };
+  try{
+    // 문서 전체가 아니라 missingReports에 1건만 추가합니다 (매장 뷰어도 이 필드만 바꿀 수 있도록 Firestore 규칙에서 허용).
+    await updateDoc(doc(db, 'games', g.id), { missingReports: arrayUnion(report) });
+    g.missingReports = [...(g.missingReports||[]), report];
+    refreshReportBanner_();
+    toast_('누락 신고를 접수했습니다');
+  }catch(e){
+    alert('누락 신고를 저장하지 못했습니다: ' + e.message);
+  }
+}
+
+function storeNameOf_(code){ return (storeList_.find(s=>s.code===code) || {}).name || code || ''; }
+
+function renderReportBanner_(g){
+  const open = openReportsOf_(g);
+  if (!open.length) return '';
+  const editable = currentRole === 'editor' && !rvMode_;
+  return `<details class="report-banner" ${editable?'open':''}>
+    <summary>⚠ 미해결 누락 신고 ${open.length}건${editable ? '' : ' (편집자가 확인 중입니다)'}</summary>
+    ${open.slice().sort((a,b)=>b.at-a.at).map(r=>`
+      <div class="report-item">
+        <div style="flex:1; min-width:200px;">
+          <div style="font-weight:700;">${formatHistoryDate_(r.at)} · ${escHtml_(r.name || r.email)}${r.storeCode ? ` · ${escHtml_(storeNameOf_(r.storeCode))}` : ''}</div>
+          ${(r.items||[]).length ? `<div>${r.items.map(it=>`${escHtml_(it.name)}${it.qty?` ${it.qty}개`:''}`).join(', ')}</div>` : ''}
+          ${r.memo ? `<div style="margin-top:2px; font-style:italic;">“${escHtml_(r.memo)}”</div>` : ''}
+        </div>
+        ${editable ? `<button class="btn btn-ghost2" style="width:auto; padding:4px 10px; font-size:12px;" onclick="resolveReport_('${escHtml_(jsq_(r.id))}')">해결됨</button>` : ''}
+      </div>`).join('')}
+  </details>`;
+}
+function refreshReportBanner_(){
+  const slot = document.getElementById('reportBannerSlot');
+  const g = currentGame_();
+  if (slot && g) slot.innerHTML = renderReportBanner_(g);
+}
+async function resolveReport_(reportId){
+  const g = currentGame_(); if (!g) return;
+  const gameRef = doc(db, 'games', g.id);
+  try{
+    const updated = await runTransaction(db, async (tx)=>{
+      const snap = await tx.get(gameRef);
+      const list = ((snap.data()||{}).missingReports || []).map(r => r.id === reportId
+        ? { ...r, resolved: true, resolvedAt: Date.now(), resolvedBy: auth.currentUser?.email?.toLowerCase() || '' } : r);
+      tx.update(gameRef, { missingReports: list });
+      return list;
+    });
+    g.missingReports = updated;
+    refreshReportBanner_();
+  }catch(e){
+    alert('처리하지 못했습니다: ' + e.message);
+  }
+}
+
+/**
+ * ============================================================
+ * QR 보조 기능 (공유, 인쇄용 QR 이미지, 목록에서 고른 게임을 QR 라벨 인쇄로 넘기기)
+ * ============================================================
+ */
+async function shareGameQrLink_(gameId){
+  const g = games.find(x=>String(x.id)===String(gameId));
+  if (!g || !navigator.share) return;
+  try{ await navigator.share({ title: `${g.name || ''} 반납대 가이드`, url: buildGameDeepLink_(g.id, 'return') }); }catch(e){}
+}
+
+/** 주어진 주소의 QR코드를 PNG 이미지(data URL)로 만듭니다 (화면 밖에서 잠깐 그려서 꺼냅니다). */
+async function makeQrDataUrl_(text, size){
+  const QRCode = await loadQRCodeLib_();
+  const probe = document.createElement('div');
+  probe.style.position = 'absolute';
+  probe.style.left = '-9999px';
+  document.body.appendChild(probe);
+  try{
+    new QRCode(probe, { text, width: size || 240, height: size || 240, correctLevel: QRCode.CorrectLevel.M });
+    await new Promise(r=>setTimeout(r, 30)); // 캔버스가 그려질 시간을 잠깐 줍니다.
+    const qrCanvas = probe.querySelector('canvas');
+    const qrImgEl = probe.querySelector('img');
+    return qrCanvas ? qrCanvas.toDataURL('image/png') : (qrImgEl ? qrImgEl.src : null);
+  }finally{
+    probe.remove();
+  }
+}
+
+/** 목록에서 체크한 게임들을 "QR 라벨 인쇄" 화면에 담아서 엽니다 (게임 박스에 붙일 QR 일괄 인쇄). */
+function printSelectedQr_(){
+  listSelectedIds_.forEach(id=>{ if (!qrPrintSelected_.has(String(id))) qrPrintSelected_.set(String(id), 1); });
+  openQrPrintTool_();
+}
+
+/**
+ * ============================================================
+ * 인쇄 (게임 가이드 1부: 사진 + 체크리스트 표 + 반납대 필수 구성품 + QR)
+ * ============================================================
+ */
+function printHtml_(html){
+  const area = document.getElementById('printArea');
+  area.innerHTML = html;
+  const imgs = [...area.querySelectorAll('img')];
+  Promise.all(imgs.map(im => im.complete ? null : new Promise(r=>{ im.onload = im.onerror = r; }))).then(()=>{
+    document.body.classList.add('printing-guide');
+    const cleanup = ()=>{
+      document.body.classList.remove('printing-guide');
+      area.innerHTML = '';
+      window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
+    window.print();
+    setTimeout(()=>{ if (document.body.classList.contains('printing-guide')) cleanup(); }, 1000);
+  });
+}
+
+async function printGameGuide_(){
+  const g = currentGame_(); if (!g) return;
+  noteChange_();
+  toast_('인쇄 준비 중...', 4000);
+  const refWidth = getPhotoStageRefWidth_();
+  const photoImgs = [];
+  for (const photo of (g.photos||[])){
+    try{
+      const { canvas } = await renderPhotoToCanvas_(g, photo, refWidth);
+      photoImgs.push(`<img class="print-photo" src="${canvas.toDataURL('image/jpeg', 0.92)}">`);
+    }catch(e){ console.error('인쇄용 사진 만들기 실패', e); }
+  }
+  let qrSrc = null;
+  try{ qrSrc = await makeQrDataUrl_(buildGameDeepLink_(g.id, 'return'), 240); }catch(e){}
+
+  const cases = g.cases || [];
+  const rows = casesInTypeOrder_(cases).map(ci=>{
+    const c = cases[ci];
+    const items = (c.items && c.items.length) ? c.items : [{name:'', qty:0}];
+    return items.map((it, ii)=>`<tr>
+      ${ii===0 ? `<td rowspan="${items.length}" style="font-weight:800; color:${caseColor_(c.caseType)};">${escHtml_(typeLabel_(c.caseType))}${CASE_SIZES[c.caseType] && CASE_SIZES[c.caseType] !== '-' ? `<div style="font-weight:400; font-size:10px; color:#555;">${CASE_SIZES[c.caseType]}mm</div>` : ''}</td>` : ''}
+      <td>${escHtml_(it.name||'')}</td>
+      <td style="text-align:center;">${it.qty||''}</td>
+      <td style="text-align:center;"><span class="print-check"></span></td>
+      ${ii===0 ? `<td rowspan="${items.length}" style="white-space:pre-wrap;">${escHtml_(c.note||'')}</td>` : ''}
+    </tr>`).join('');
+  }).join('');
+  const required = (g.returnGuide && g.returnGuide.published && g.returnGuide.requiredItems) || [];
+
+  const today = new Date();
+  printHtml_(`
+    <div class="print-page">
+      <div class="print-head">
+        <div>
+          <h1>${escHtml_(g.name || '')}</h1>
+          <div class="print-meta">ID ${escHtml_(g.id)} · 케이스 ${cases.length}개 · 인쇄 ${today.getFullYear()}.${today.getMonth()+1}.${today.getDate()}</div>
+          ${g.note ? `<div style="margin-top:6px; font-size:12px; white-space:pre-wrap;">${escHtml_(g.note)}</div>` : ''}
+        </div>
+        ${qrSrc ? `<div class="print-qr"><img src="${qrSrc}" alt=""></div>` : ''}
+      </div>
+      ${photoImgs.join('')}
+      ${cases.length ? `
+      <table class="print-table">
+        <thead><tr><th style="width:60px;">케이스</th><th>구성품</th><th style="width:40px;">수량</th><th style="width:36px;">확인</th><th>비고</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>` : ''}
+      ${required.length ? `
+      <table class="print-table" style="margin-top:10px;">
+        <thead><tr><th>반납대 필수 구성품</th><th style="width:50px;">수량</th><th style="width:36px;">확인</th><th>확인 방법</th></tr></thead>
+        <tbody>${required.map(it=>`<tr><td>${escHtml_(it.name||'')}</td><td style="text-align:center;">${it.qty||''}</td><td style="text-align:center;"><span class="print-check"></span></td><td>${escHtml_(it.note||'')}</td></tr>`).join('')}</tbody>
+      </table>` : ''}
+    </div>`);
+}
+
+/** 표 탭과 같은 순서(케이스 종류별)로 정렬한 케이스 번호 목록 */
+function casesInTypeOrder_(cases){
+  return cases.map((c, i) => i).sort((a, b) => {
+    const ia = SELECTABLE_TYPES.indexOf(cases[a].caseType), ib = SELECTABLE_TYPES.indexOf(cases[b].caseType);
+    return ia !== ib ? ia - ib : a - b;
+  });
+}
+
+/**
+ * ============================================================
+ * 사진 크게 보기 (두 손가락으로 확대·이동, 마우스 휠 확대, 두 번 탭해서 확대/원래대로)
+ * ============================================================
+ * 사진 탭의 "🔍 크게 보기"(마커·라벨까지 그린 가이드 사진, ◀ ▶로 넘기기)와, 구성품·반납대 사진
+ * 썸네일을 눌렀을 때(openPhotoLightbox_) 모두 이 화면 하나로 보여줍니다.
+ */
+let lightbox_ = null; // { idx, el, img, scale, tx, ty, minScale }
+
+/** 게임 사진(idx번째)을 마커·텍스트박스·라벨까지 그린 모습으로 크게 봅니다. */
+async function openLightbox_(idx){
+  const g = currentGame_(); if (!g || !(g.photos||[]).length) return;
+  if (idx === undefined) idx = currentPhotoIdx;
+  const el = showLightboxShell_(g.photos.length > 1 ? { idx, count: g.photos.length } : null);
+  let src;
+  try{
+    const { canvas } = await renderPhotoToCanvas_(g, g.photos[idx], getPhotoStageRefWidth_());
+    src = canvas.toDataURL('image/jpeg', 0.92);
+  }catch(e){
+    try{ src = await resolvePhotoUrl_(g.photos[idx].storagePath); }catch(e2){ src = null; }
+  }
+  setLightboxImage_(el, src);
+}
+
+/** 작은 썸네일(구성품 사진, 상태 기준 사진, 반납대 가이드 사진 등)을 눌렀을 때 크게 봅니다. */
+function openPhotoLightbox_(url){
+  if (!url) return;
+  setLightboxImage_(showLightboxShell_(null), url);
+}
+
+function showLightboxShell_(nav){
+  closeLightbox_();
+  const el = document.createElement('div');
+  el.className = 'lightbox';
+  el.innerHTML = `
+    <div class="lightbox-bar">
+      ${nav ? `<button onclick="lightboxStep_(-1)" title="이전 사진">◀</button><button onclick="lightboxStep_(1)" title="다음 사진">▶</button>` : ''}
+      <button onclick="lightboxZoomBy_(1.4)" title="확대">＋</button>
+      <button onclick="lightboxZoomBy_(1/1.4)" title="축소">－</button>
+      <button onclick="lightboxFit_()" title="화면에 맞추기">맞춤</button>
+      <button onclick="closeLightbox_()" title="닫기 (Esc)">✕</button>
+    </div>
+    <div class="lightbox-hint">두 손가락으로 벌리거나 휠로 확대 · 끌어서 이동 · 두 번 탭하면 확대/원래대로 · 빈 곳을 누르면 닫기${nav ? ` · 사진 ${nav.idx+1}/${nav.count}` : ''}</div>
+    <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#ccc; font-size:13px; pointer-events:none;" id="lightboxLoading">불러오는 중...</div>`;
+  document.body.appendChild(el);
+  lightbox_ = { idx: nav ? nav.idx : null, el, img:null, scale:1, tx:0, ty:0, minScale:1 };
+  setupLightboxGestures_(el);
+  return el;
+}
+function setLightboxImage_(el, src){
+  if (!lightbox_ || lightbox_.el !== el) return; // 그 사이 닫혔거나 다른 사진으로 넘어감
+  el.querySelector('#lightboxLoading')?.remove();
+  if (!src){ el.insertAdjacentHTML('beforeend', '<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#ccc; pointer-events:none;">사진을 불러오지 못했습니다</div>'); return; }
+  const img = new Image();
+  img.draggable = false;
+  img.onload = ()=>{
+    if (!lightbox_ || lightbox_.el !== el) return;
+    lightbox_.img = img;
+    el.appendChild(img);
+    lightboxFit_();
+  };
+  img.src = src;
+}
+function closeLightbox_(){
+  if (lightbox_ && lightbox_.el) lightbox_.el.remove();
+  document.querySelectorAll('.lightbox').forEach(x=>x.remove());
+  lightbox_ = null;
+}
+function lightboxStep_(d){
+  const g = currentGame_(); if (!g || !lightbox_ || lightbox_.idx == null) return;
+  const n = (g.photos||[]).length;
+  const next = lightbox_.idx + d;
+  if (next < 0 || next >= n) return;
+  openLightbox_(next);
+}
+function applyLightboxTransform_(){
+  const L = lightbox_; if (!L || !L.img) return;
+  L.img.style.transform = `translate(${L.tx}px, ${L.ty}px) scale(${L.scale})`;
+}
+function lightboxFit_(){
+  const L = lightbox_; if (!L || !L.img) return;
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const s = Math.min(vw / L.img.naturalWidth, vh / L.img.naturalHeight);
+  L.minScale = s; L.scale = s;
+  L.tx = (vw - L.img.naturalWidth*s)/2;
+  L.ty = (vh - L.img.naturalHeight*s)/2;
+  applyLightboxTransform_();
+}
+/** 화면의 (cx, cy) 지점을 기준으로 확대/축소합니다 (그 지점이 손가락/커서 아래에 그대로 머물게). */
+function lightboxZoomAt_(factor, cx, cy){
+  const L = lightbox_; if (!L || !L.img) return;
+  const newScale = Math.max(L.minScale * 0.8, Math.min(L.minScale * 8, L.scale * factor));
+  const f = newScale / L.scale;
+  L.tx = cx - (cx - L.tx) * f;
+  L.ty = cy - (cy - L.ty) * f;
+  L.scale = newScale;
+  applyLightboxTransform_();
+}
+function lightboxZoomBy_(factor){ lightboxZoomAt_(factor, window.innerWidth/2, window.innerHeight/2); }
+
+function setupLightboxGestures_(el){
+  const pointers = new Map();
+  let lastDist = 0, lastMid = null, lastTap = 0, downAt = null, moved = false;
+  el.addEventListener('wheel', (e)=>{
+    e.preventDefault();
+    lightboxZoomAt_(e.deltaY < 0 ? 1.15 : 1/1.15, e.clientX, e.clientY);
+  }, { passive:false });
+  el.addEventListener('pointerdown', (e)=>{
+    if (e.target.closest('.lightbox-bar')) return;
+    el.setPointerCapture(e.pointerId);
+    pointers.set(e.pointerId, { x:e.clientX, y:e.clientY });
+    if (pointers.size === 1){ downAt = { x:e.clientX, y:e.clientY, onImg: e.target.tagName === 'IMG' }; moved = false; }
+    if (pointers.size === 2){
+      const [a, b] = [...pointers.values()];
+      lastDist = Math.hypot(a.x-b.x, a.y-b.y);
+      lastMid = { x:(a.x+b.x)/2, y:(a.y+b.y)/2 };
+      moved = true;
+    }
+    // 두 번 탭(또는 더블클릭): 확대 ↔ 화면 맞춤
+    if (pointers.size === 1){
+      const now = Date.now();
+      if (now - lastTap < 300){
+        const L = lightbox_;
+        if (L && L.scale > L.minScale * 1.05) lightboxFit_();
+        else lightboxZoomAt_(2.5, e.clientX, e.clientY);
+        lastTap = 0;
+        moved = true; // 두 번째 탭으로 창이 닫히지 않게
+      } else lastTap = now;
+    }
+  });
+  el.addEventListener('pointermove', (e)=>{
+    if (!pointers.has(e.pointerId) || !lightbox_) return;
+    const prev = pointers.get(e.pointerId);
+    pointers.set(e.pointerId, { x:e.clientX, y:e.clientY });
+    if (downAt && Math.hypot(e.clientX-downAt.x, e.clientY-downAt.y) > 6) moved = true;
+    if (pointers.size === 1){
+      lightbox_.tx += e.clientX - prev.x;
+      lightbox_.ty += e.clientY - prev.y;
+      applyLightboxTransform_();
+    } else if (pointers.size === 2){
+      const [a, b] = [...pointers.values()];
+      const dist = Math.hypot(a.x-b.x, a.y-b.y);
+      const mid = { x:(a.x+b.x)/2, y:(a.y+b.y)/2 };
+      if (lastDist){
+        lightbox_.tx += mid.x - lastMid.x;
+        lightbox_.ty += mid.y - lastMid.y;
+        lightboxZoomAt_(dist / lastDist, mid.x, mid.y);
+      }
+      lastDist = dist; lastMid = mid;
+    }
+  });
+  const end = (e)=>{
+    if (!pointers.has(e.pointerId)) return;
+    pointers.delete(e.pointerId);
+    if (pointers.size < 2) lastDist = 0;
+    // 사진 바깥 빈 곳을 (끌지 않고) 한 번 누르면 닫습니다. 두 번 탭 확대와 겹치지 않도록 잠깐 기다립니다.
+    if (e.type === 'pointerup' && !pointers.size && downAt && !downAt.onImg && !moved){
+      const tapAt = lastTap;
+      setTimeout(()=>{ if (lastTap === tapAt && lightbox_ && lightbox_.el === el) closeLightbox_(); }, 310);
+    }
+    if (!pointers.size) downAt = null;
+  };
+  el.addEventListener('pointerup', end);
+  el.addEventListener('pointercancel', end);
+}
+
+/**
+ * ============================================================
+ * 목록용 사진 썸네일 (작은 사진을 따로 만들어 두면 목록이 빠르고 데이터도 적게 씀)
+ * ============================================================
+ */
+const THUMB_MAX_W_ = 480;
+function makeThumbBlob_(source){
+  const w = source.naturalWidth || source.width, h = source.naturalHeight || source.height;
+  const scale = Math.min(1, THUMB_MAX_W_ / w);
+  const c = document.createElement('canvas');
+  c.width = Math.round(w*scale); c.height = Math.round(h*scale);
+  c.getContext('2d').drawImage(source, 0, 0, c.width, c.height);
+  return new Promise(res => c.toBlob(res, 'image/jpeg', 0.8));
+}
+
+/** 썸네일이 없는 기존 게임들의 첫 번째 사진으로 썸네일을 만들어 둡니다 (편집자용 일괄 작업). */
+async function generateMissingThumbs_(){
+  const targets = games.filter(g => (g.photos||[]).length && !g.photos[0].thumbPath);
+  const log = (m)=> bulkLog_(m);
+  const logEl = document.getElementById('bulkDownloadLog');
+  if (logEl) logEl.textContent = '';
+  if (!targets.length){ log('모든 게임에 이미 썸네일이 있습니다.'); return; }
+  log(`썸네일이 없는 게임 ${targets.length}개의 썸네일을 만드는 중...\n`);
+  let ok = 0;
+  for (const g of targets){
+    try{
+      const photo = g.photos[0];
+      const url = await resolvePhotoUrl_(photo.storagePath);
+      const img = await new Promise((resolve, reject)=>{
+        const im = new Image();
+        im.crossOrigin = 'anonymous';
+        im.onload = ()=>resolve(im);
+        im.onerror = ()=>reject(new Error('사진을 불러오지 못했습니다'));
+        im.src = url;
+      });
+      const blob = await makeThumbBlob_(img);
+      const thumbPath = photo.storagePath.replace(/\.[a-z0-9]+$/i, '') + '_thumb.jpg';
+      await uploadBytes(ref(storage, thumbPath), blob);
+      // 다른 편집자의 작업과 겹치지 않도록, 서버의 최신 내용에서 첫 사진에만 썸네일 경로를 붙입니다.
+      // (게임 내용이 바뀐 게 아니므로 수정 시각(updatedAt)은 그대로 둡니다)
+      const gameRef = doc(db, 'games', g.id);
+      await runTransaction(db, async (tx)=>{
+        const snap = await tx.get(gameRef);
+        const photos = ((snap.data()||{}).photos || []).slice();
+        if (photos[0] && photos[0].storagePath === photo.storagePath){
+          photos[0] = { ...photos[0], thumbPath };
+          tx.update(gameRef, { photos });
+        }
+      });
+      photo.thumbPath = thumbPath;
+      ok++;
+      log(`  (${ok}/${targets.length}) ${g.name} 완료`);
+    }catch(e){
+      log(`  ❌ ${g.name} 실패: ${e.message}`);
+    }
+  }
+  log(`\n✅ 썸네일 ${ok}개를 만들었습니다.`);
+}
+
+/**
+ * ============================================================
+ * 이전 버전 미리보기 · 현재와 비교
+ * ============================================================
+ */
+function caseSummaryText_(c){
+  if (!c) return '';
+  return `${typeLabel_(c.caseType)} [${(c.items||[]).map(it=>`${it.name||''}${it.qty?` ${it.qty}개`:''}`).join(', ')}]${c.note ? ` (${c.note})` : ''}`;
+}
+/** 현재 내용(cur)을 과거 버전(old)으로 되돌리면 무엇이 바뀌는지 목록으로 만듭니다. */
+function diffGames_(cur, old){
+  const out = [];
+  const cc = cur.cases || [], oc = old.cases || [];
+  const n = Math.max(cc.length, oc.length);
+  for (let i=0; i<n; i++){
+    const a = caseSummaryText_(cc[i]), b = caseSummaryText_(oc[i]);
+    if (a === b) continue;
+    if (!cc[i]) out.push({ kind:'add', text:`케이스 ${i+1} 다시 생김: ${b}` });
+    else if (!oc[i]) out.push({ kind:'del', text:`케이스 ${i+1} 없어짐: ${a}` });
+    else out.push({ kind:'chg', text:`케이스 ${i+1}: ${a} → ${b}` });
+  }
+  const cp = cur.photos || [], op = old.photos || [];
+  if (cp.length !== op.length) out.push({ kind:'chg', text:`사진 ${cp.length}장 → ${op.length}장` });
+  const pn = Math.min(cp.length, op.length);
+  for (let i=0; i<pn; i++){
+    if (cp[i].storagePath !== op[i].storagePath){ out.push({ kind:'chg', text:`사진 ${i+1}: 다른 사진으로 바뀜` }); continue; }
+    if (JSON.stringify(cp[i].markers||[]) !== JSON.stringify(op[i].markers||[])) out.push({ kind:'chg', text:`사진 ${i+1}: 마커 ${(cp[i].markers||[]).length}개 → ${(op[i].markers||[]).length}개 (위치·연결 포함 변경)` });
+    if (JSON.stringify(cp[i].labels||[]) !== JSON.stringify(op[i].labels||[])) out.push({ kind:'chg', text:`사진 ${i+1}: 라벨 ${(cp[i].labels||[]).length}개 → ${(op[i].labels||[]).length}개 (내용·위치 포함 변경)` });
+  }
+  if ((cur.note||'') !== (old.note||'')) out.push({ kind:'chg', text:`게임 메모: "${cur.note||''}" → "${old.note||''}"` });
+  if ((cur.name||'') !== (old.name||'')) out.push({ kind:'chg', text:`이름: ${cur.name||''} → ${old.name||''}` });
+  const rgA = normReturnGuide_(cur.returnGuide), rgB = normReturnGuide_(old.returnGuide);
+  if (JSON.stringify(rgA) !== JSON.stringify(rgB)){
+    out.push({ kind:'chg', text:`반납대 가이드: 필수 구성품 ${rgA.requiredItems.length}종 → ${rgB.requiredItems.length}종, 정리 방법 ${rgA.sortingSteps.length}개 → ${rgB.sortingSteps.length}개${rgA.published !== rgB.published ? `, 게시 ${rgA.published?'켜짐':'꺼짐'} → ${rgB.published?'켜짐':'꺼짐'}` : ''} (내용 포함 변경)` });
+  }
+  ['markerSize','lineWidth','annoScale'].forEach(k=>{
+    if ((cur[k]??null) !== (old[k]??null)) out.push({ kind:'chg', text:`표시 설정(${k==='markerSize'?'마커 크기':k==='lineWidth'?'연결선 굵기':'텍스트박스 크기'}): ${cur[k]??'기본'} → ${old[k]??'기본'}` });
+  });
+  return out;
+}
+
+async function showHistoryPreview_(gameId, historyId){
+  const slot = document.getElementById(`historyPreview_${historyId}`);
+  if (!slot) return;
+  if (slot.dataset.open === '1'){ slot.innerHTML = ''; slot.dataset.open = ''; return; }
+  slot.dataset.open = '1';
+  slot.innerHTML = '<div class="history-preview">불러오는 중...</div>';
+  const item = (historyItems_ || []).find(h=>h.id===historyId);
+  const cur = games.find(x=>x.id===gameId);
+  if (!item || !cur){ slot.innerHTML = '<div class="history-preview">불러오지 못했습니다.</div>'; return; }
+  const old = { id: gameId, cases: [], photos: [], ...item.snapshot };
+  const diffs = diffGames_(cur, old);
+  let imgHtml = '';
+  if ((old.photos||[]).length){
+    try{
+      const { canvas } = await renderPhotoToCanvas_(old, old.photos[0], GUIDE_EXPORT_DEFAULT_REF_WIDTH);
+      imgHtml = `<img src="${canvas.toDataURL('image/jpeg', 0.85)}" alt="이 버전의 첫 번째 사진">`;
+    }catch(e){}
+  }
+  if (slot.dataset.open !== '1') return;
+  slot.innerHTML = `<div class="history-preview">
+    ${imgHtml}
+    <div style="font-size:12px; font-weight:700; margin-bottom:4px;">이 버전으로 되돌리면 바뀌는 내용 (${diffs.length}건)</div>
+    ${diffs.length ? `<ul class="diff-list">${diffs.map(d=>`<li class="diff-${d.kind}">${escHtml_(d.text)}</li>`).join('')}</ul>` : '<p style="font-size:12px;">현재 내용과 같습니다.</p>'}
+  </div>`;
 }
 
 // ============================================================
@@ -5401,7 +6838,9 @@ let pageReloader_ = null;
 let lastScanLoggedAt_ = {};
 
 function jsq_(v){ return String(v==null?'':v).replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
-function escHtml_(v){ return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+/** 사용자가 입력한 글자(게임 이름, 구성품, 메모 등)를 화면 HTML에 넣기 전에 특수문자를 바꿔서,
+ *  이름에 < 나 따옴표가 들어가도 화면이 깨지거나 엉뚱한 코드가 실행되지 않게 합니다. */
+function escHtml_(v){ return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 function pad2_(n){ return String(n).padStart(2,'0'); }
 function dayKey_(ms){ const d=new Date(ms); return `${d.getFullYear()}-${pad2_(d.getMonth()+1)}-${pad2_(d.getDate())}`; }
 function startOfDayMs_(ms){ const d=new Date(ms); d.setHours(0,0,0,0); return d.getTime(); }
@@ -5494,13 +6933,17 @@ function noStoreHtml_(){
     : `<div class="empty">등록된 매장이 없습니다. 관리자 메뉴의 "권한 관리"에서 매장을 먼저 추가해주세요.</div>`;
 }
 
+/** 다른 화면으로 넘어가기 전 공통 준비. 게임 화면에 저장 안 한 변경사항이 있어 사용자가 "머무르기"를
+ *  고르면 false를 돌려주며, 그때는 화면을 바꾸지 않습니다. */
 function prepPage_(navKey, reloader){
+  if (!confirmLeaveDetail_()) return false;
   leavePresence_();
   currentGameId = null;
   pageReloader_ = reloader || null;
   closeMoreMenu_();
   setNavActive_(navKey);
   if (location.search) history.replaceState(null, '', location.pathname + location.hash);
+  return true;
 }
 
 // ---------- 하단 내비게이션 ----------
@@ -5553,6 +6996,7 @@ function getOwnedColors_(gameId){
  *  색상 칩이 바로 보이도록 currentScan_은 즉시(동기적으로) 만들고, 저장은 이어서 비동기로 처리합니다. */
 function logQrScan_(g){
   const id = String(g.id);
+  clearReturnCheck_(id); // 새로 스캔했으면 새로 반납된 것이므로 이전 구성품 체크는 비웁니다
   currentScan_ = { gameId:id, scanId:null, color:null, ready:Promise.resolve() };
   if (!activeStoreCode_) return;
   const now = Date.now();
@@ -5617,7 +7061,7 @@ function pageHeadHtml_(title, desc){
 // ---------- 히스토리 ----------
 let histRangeDays_ = 7;
 async function openScanHistory_(){
-  prepPage_('history', openScanHistory_);
+  if (!prepPage_('history', openScanHistory_)) return;
   appEl.innerHTML = `
     ${pageHeadHtml_('🕓 스캔 히스토리', '날짜별로 QR로 찍힌 게임 기록입니다. 항목을 누르면 그 게임의 가이드로 이동합니다.')}
     <div class="st-bar">
@@ -5682,7 +7126,7 @@ function computeRankSpan_(){
   return { from: startOfDayMs_(now - 6*86400000), to: now };
 }
 async function openScanRanking_(){
-  prepPage_('more', openScanRanking_);
+  if (!prepPage_('more', openScanRanking_)) return;
   const dayStr = dayKey_(Date.now());
   if (!rankFrom_) rankFrom_ = dayKey_(Date.now()-6*86400000);
   if (!rankTo_) rankTo_ = dayStr;
@@ -5778,7 +7222,7 @@ function getMaintRows_(){
 }
 
 async function openMaintenance_(){
-  prepPage_('maint', openMaintenance_);
+  if (!prepPage_('maint', openMaintenance_)) return;
   appEl.innerHTML = `${pageHeadHtml_('🔧 정기 점검', `마지막 점검 이후 QR로 ${MAINT_THRESHOLD_}회 이상 찍힌 게임이 자동으로 점검 대상이 되고, 많이 찍힌 순서로 정렬됩니다. 게임을 누르면 메모와 점검 이력이 보입니다.`)}
     <div class="st-bar">${storeBarHtml_()}</div><div id="maintBody"><p style="padding:20px 4px;">불러오는 중...</p></div>`;
   if (!activeStoreCode_){ document.getElementById('maintBody').innerHTML = noStoreHtml_(); return; }
@@ -5886,7 +7330,7 @@ let ownedPickerFor_ = null;
 function setOwnedSearch_(v){ ownedSearch_ = v; renderOwnedList_(); }
 
 async function openOwnedGames_(){
-  prepPage_('more', openOwnedGames_);
+  if (!prepPage_('more', openOwnedGames_)) return;
   ownedSearch_ = ''; ownedPickerFor_ = null;
   appEl.innerHTML = `${pageHeadHtml_('🗂️ 보유 게임 관리', '이 매장에서 보유한 게임을 켜고, 같은 게임을 여러 개 운영하면 식별 스티커 색상을 추가하세요. 추가한 색상이 반납대 가이드에서 스캔 후 선택 칩으로 나타납니다.')}
     <div class="st-bar">${storeBarHtml_()}<input type="text" class="pg-search" style="margin:0; flex:1; min-width:160px;" placeholder="게임 이름 검색 (초성 가능)" oninput="setOwnedSearch_(this.value)"></div>
@@ -5977,7 +7421,7 @@ function optHtml_(opts, sel, ph){
 }
 
 function openGameDbAdmin_(){
-  prepPage_('more', openGameDbAdmin_);
+  if (!prepPage_('more', openGameDbAdmin_)) return;
   if (currentRole !== 'editor'){ appEl.innerHTML = `<div class="empty">편집자 권한이 필요한 메뉴입니다.</div>`; return; }
   gdbParsed_ = null; gdbSearch_ = '';
   appEl.innerHTML = `
@@ -6042,8 +7486,8 @@ async function addSingleGame_(){
   const id = document.getElementById('gdbId').value.trim();
   const name = document.getElementById('gdbName').value.trim();
   if (!id || !name){ alert('게임 ID와 게임 이름을 입력해주세요.'); return; }
-  if (/[\/]/.test(id)){ alert('게임 ID에는 "/"를 쓸 수 없습니다.'); return; }
-  if (games.some(x=>String(x.id)===id)){ alert(`ID "${id}"는 이미 사용 중입니다.`); return; }
+  if (!isValidGameId_(id)){ alert('게임 ID에는 공백이나 따옴표, 슬래시(/), #, ?, % 같은 특수문자를 쓸 수 없습니다.'); return; }
+  if (isGameIdTaken_(id)){ alert(`ID "${id}"는 이미 사용 중입니다${trashedGames_.some(x=>String(x.id)===id) ? ' (휴지통에 있는 게임)' : ''}.`); return; }
   const data = {
     name, cases: [], guideDone: false, completedBy: [], note: '', updatedAt: Date.now(),
     intro: document.getElementById('gdbIntro').value, difficulty: document.getElementById('gdbDiff').value, displayGrade: document.getElementById('gdbGrade').value,
@@ -6097,8 +7541,9 @@ async function parseGameXlsx_(file){
       const intro = normalizeOpt_(introRaw, INTRO_OPTS_), diff = normalizeOpt_(diffRaw, DIFF_OPTS_), grade = normalizeOpt_(gradeRaw.toUpperCase(), GRADE_OPTS_);
       row.intro = intro.v; row.difficulty = diff.v; row.displayGrade = grade.v;
       if (!id) row.msgs.push('게임 ID가 비어 있습니다');
-      else if (/[\/]/.test(id)) row.msgs.push('게임 ID에 "/"를 쓸 수 없습니다');
+      else if (!isValidGameId_(id)) row.msgs.push('게임 ID에 공백이나 따옴표, /, #, ?, % 같은 특수문자를 쓸 수 없습니다');
       else if (seen.has(id)) row.msgs.push(`파일 안에서 ID "${id}"가 중복됩니다`);
+      else if (trashedGames_.some(g=>String(g.id)===id)) row.msgs.push(`ID "${id}"는 휴지통에 있는 게임입니다 (먼저 복구하거나 영구 삭제해주세요)`);
       if (!name) row.msgs.push('게임 이름이 비어 있습니다');
       if (!intro.ok) row.msgs.push(`도입 분류 "${intro.v}"는 허용값이 아닙니다 (필수/권장/선택)`);
       if (!diff.ok) row.msgs.push(`난이도 "${diff.v}"는 허용값이 아닙니다 (${DIFF_OPTS_.join(', ')})`);
@@ -6191,9 +7636,17 @@ Object.assign(window, {
   openBulkDownloadTool, toggleBulkDownloadGameSelect_, selectAllGuideDoneGames_, selectAllBulkDownloadGames_, deselectAllBulkDownloadGames_, startBulkDownload_,
   openConditionStandardsAdmin_, addConditionStandard_, deleteConditionStandard_, updateStandardGrade_, updateStandardDetail_,
   triggerStandardPhotoUpload_, removeStandardPhoto_,
-  openGameQrModal_, downloadGameQr_, copyGameQrLink_, toggleNavDropdown_, closeAllNavDropdowns_,
+  openGameQrModal_, downloadGameQr_, copyGameQrLink_, shareGameQrLink_, toggleNavDropdown_, closeAllNavDropdowns_,
   toggleQrScanMode_, openQrPrintTool_, toggleQrPrintGameSelect_, updateQrPrintQty_, removeQrPrintGame_, generateQrLabelsPdf_,
-  openHelpModal
+  openHelpModal,
+  cycleTheme_, toggleFavorite_, setDashboardStore_,
+  setPurchaseStock_, setPurchasePrice_, clearPurchaseStock_, copyPurchaseList_,
+  renderTrash_, restoreGame_, purgeGame_,
+  undo_, redo_, setAutosave_,
+  toggleReturnCheck_, resetReturnCheck_, markWorkDoneFromCheck_, submitMissingReport_, resolveReport_,
+  printSelectedQr_, printGameGuide_,
+  openLightbox_, closeLightbox_, lightboxStep_, lightboxZoomBy_, lightboxFit_,
+  generateMissingThumbs_, showHistoryPreview_
 });
 
 // ============================================================
