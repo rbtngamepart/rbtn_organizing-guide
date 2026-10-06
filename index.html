@@ -86,15 +86,7 @@
   .game-card.no-guide .name{color:var(--ink-soft); font-weight:700;}
   .game-card.work-done{background:#EAF6EC; border-color:#B9DFC0;}
   .game-card.work-done:hover{border-color:#7FBE8B;}
-  .card-select{width:15px; height:15px; accent-color:var(--accent); cursor:pointer; flex-shrink:0;}
 
-  .selection-panel{background:var(--surface); border:1px solid var(--accent); border-radius:12px; padding:14px 16px; margin-bottom:16px;}
-  .selection-head{display:flex; align-items:center; justify-content:space-between; font-size:13px; font-weight:700; margin-bottom:10px; flex-wrap:wrap; gap:8px;}
-  .selection-games{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px;}
-  .sel-chip{display:inline-flex; align-items:center; gap:5px; font-size:12px; padding:4px 6px 4px 9px; border-radius:999px; background:var(--bg); border:1px solid var(--line); color:var(--ink-soft);}
-  .sel-chip button{border:none; background:none; color:var(--ink-soft); cursor:pointer; font-size:11px; padding:0;}
-  .sel-chip button:hover{color:var(--danger);}
-  .selection-totals{display:flex; flex-wrap:wrap; gap:8px; padding-top:12px; border-top:1px solid var(--line);}
   .empty{text-align:center; padding:60px 20px; color:var(--ink-soft); border:1px dashed var(--line); border-radius:12px; font-size:14px;}
 
   .back{background:none; border:none; color:var(--ink-soft); font-size:13px; cursor:pointer; padding:0; margin-bottom:14px; font-family:var(--sans);}
@@ -573,7 +565,7 @@
     .btn-ghost2, .btn-primary2{min-height:40px;}
     .tabs button{min-height:40px;}
     .marker::after{content:''; position:absolute; inset:-10px;}
-    .card-select, .game-card input[type=checkbox]{width:20px; height:20px;}
+    .game-card input[type=checkbox]{width:20px; height:20px;}
     .fav-btn{font-size:20px; padding:4px;}
   }
   @media (max-width: 640px){
@@ -606,7 +598,7 @@
 
 <div id="appRoot" style="display:none;">
   <div class="topbar">
-    <div class="brand" style="margin:0;">RED BUTTON<span class="r-mark">®</span></div>
+    <div class="brand" style="margin:0; cursor:pointer;" onclick="exitReturnViewer_(); renderList()" title="게임 목록으로">RED BUTTON<span class="r-mark">®</span></div>
     <input type="text" id="topSearchInput" placeholder="게임 이름 검색 (초성 가능)" oninput="onTopSearchInput(this.value)"
       style="width:190px; padding:8px 12px; border:1px solid var(--line); border-radius:8px; font-size:13px; font-family:var(--sans);">
     <button class="btn btn-ghost2" onclick="renderList()">← 목록</button>
@@ -2455,10 +2447,12 @@ function openQrPrintTool_(){
     <div class="pg-head">
       <h2>🖨️ QR 라벨 인쇄</h2>
       <p class="pg-desc">
-        게임을 검색해서 선택하고 필요한 수량을 입력한 뒤 PDF를 만들면, A4 용지·20×20mm·한 장 104칸(8×13) 기준의
-        인쇄용 QR 라벨 PDF가 만들어집니다. 같은 게임의 QR은 게임을 다시 만들거나 가이드를 수정해도 항상 그대로이므로,
-        한 번 인쇄해서 붙여두면 계속 같은 QR을 씁니다. 실제 라벨지에 인쇄하기 전에 일반 A4 용지로 먼저 뽑아서
-        칸 위치가 맞는지 확인해보시길 권장합니다 (인쇄 배율은 "100%" 또는 "실제 크기"로, "페이지에 맞춤"은 꺼주세요).
+        게임을 검색해서 선택하고 필요한 수량을 입력하세요. A4·20×20mm·한 장 104칸(8×13) 라벨지 기준입니다.
+        라벨지 칸에는 게임 이름을 넣을 자리가 없어서, <b>라벨은 QR만 꽉 차게</b> 인쇄하고
+        <b>어느 칸이 어떤 게임인지는 "부착 안내" 용지</b>(라벨지와 똑같은 칸 배치, 일반 A4)로 따로 뽑습니다.
+        라벨지 옆에 부착 안내를 나란히 두고 같은 위치의 라벨을 떼어 붙이면 됩니다.
+        같은 게임의 QR은 가이드를 수정해도 항상 그대로입니다.
+        인쇄 배율은 "100%"(실제 크기)로, "페이지에 맞춤"은 꺼주세요. 처음에는 일반 A4로 먼저 뽑아 칸 위치를 확인하세요.
       </p>
     </div>
     <div class="pg-body">
@@ -2470,11 +2464,21 @@ function openQrPrintTool_(){
       <div class="pg-panel">
         <h3 id="qrPrintSelectedTitle">선택한 게임</h3>
         <div id="qrPrintSelectedList" style="margin-bottom:14px;"></div>
-        <label style="display:flex; align-items:center; gap:6px; font-size:12.5px; margin-bottom:14px; cursor:pointer;">
-          <input type="checkbox" id="qrPrintShowName" checked> 라벨에 게임명(축약) 표시
-        </label>
+        <div style="display:flex; flex-direction:column; gap:8px; font-size:12.5px; margin-bottom:14px;">
+          <label style="display:flex; align-items:center; gap:6px;">
+            시작 칸 <input type="number" id="qrPrintStartCell" min="1" max="${QR_LABELS_PER_PAGE}" value="1" style="width:64px; padding:4px 6px; border:1px solid var(--line); border-radius:6px;" oninput="renderQrPrintSelectedList_()">
+            <span style="color:var(--ink-soft);">이미 몇 칸 쓴 라벨지를 이어 쓸 때 (1 = 첫 칸, 왼쪽 위부터 →방향)</span>
+          </label>
+          <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+            <input type="checkbox" id="qrPrintNewRow" onchange="renderQrPrintSelectedList_()"> 게임이 바뀔 때마다 새 줄에서 시작
+            <span style="color:var(--ink-soft);">(라벨은 조금 더 쓰지만 줄 단위로 구분돼 붙이기 쉬움)</span>
+          </label>
+        </div>
         <p id="qrPrintTotalInfo" style="font-size:12.5px; color:var(--ink-soft); margin-bottom:14px;"></p>
-        <button class="btn btn-primary2" style="width:auto;" onclick="generateQrLabelsPdf_()">PDF 생성 및 다운로드</button>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="btn btn-primary2" style="width:auto;" onclick="generateQrLabelsPdf_()">① QR 라벨 PDF (라벨지에 인쇄)</button>
+          <button class="btn btn-ghost2" style="width:auto;" onclick="generateQrGuidePdf_()">② 부착 안내 PDF (일반 A4)</button>
+        </div>
         <div id="qrPrintStatus" style="margin-top:12px; font-size:12.5px; color:var(--ink-soft); white-space:pre-wrap;"></div>
       </div>
     </div>
@@ -2566,8 +2570,9 @@ function renderQrPrintSelectedList_(){
   }
 
   const total = ids.reduce((sum,id)=> sum + (qrPrintSelected_.get(id)||0), 0);
-  const pages = total ? Math.ceil(total / QR_LABELS_PER_PAGE) : 0;
-  if (infoEl) infoEl.textContent = total ? `총 라벨 수: ${total}개 · 예상 용지: ${pages}장 (한 장당 ${QR_LABELS_PER_PAGE}칸 기준)` : '';
+  const slots = qrLabelSlots_();
+  const pages = slots.length ? Math.floor(slots[slots.length-1].cell / QR_LABELS_PER_PAGE) + 1 : 0;
+  if (infoEl) infoEl.textContent = total ? `총 라벨 수: ${total}개 · 라벨지 ${pages}장 (한 장당 ${QR_LABELS_PER_PAGE}칸 기준)` : '';
 }
 
 /** jsPDF를 처음 쓸 때만 CDN에서 불러옵니다 (QR 라벨 PDF 생성용). */
@@ -2585,36 +2590,51 @@ function loadJsPDF_(){
   return jspdfLoadPromise_;
 }
 
-/** 게임 이름이 라벨에 다 안 들어갈 만큼 길면 뒷부분을 줄여서 표시합니다. */
-function abbreviateGameName_(name, maxLen){
-  const s = String(name||'').trim();
-  return s.length <= maxLen ? s : s.slice(0, maxLen-1) + '…';
+/**
+ * 라벨지의 칸마다 어떤 게임의 몇 번째 라벨이 들어가는지 정합니다. 라벨 PDF와 부착 안내 PDF가
+ * 반드시 같은 배치를 쓰도록 이 함수 하나로 계산합니다. cell은 첫 장 왼쪽 위 칸부터 0,1,2… 로 이어지는 번호입니다.
+ */
+function qrLabelSlots_(){
+  const start = Math.max(1, Math.min(QR_LABELS_PER_PAGE, parseInt(document.getElementById('qrPrintStartCell')?.value, 10) || 1)) - 1;
+  const newRow = !!document.getElementById('qrPrintNewRow')?.checked;
+  const slots = [];
+  let cell = start;
+  [...qrPrintSelected_.keys()].forEach((id, gi)=>{
+    const g = games.find(x=>String(x.id)===id);
+    if (!g) return;
+    const qty = qrPrintSelected_.get(id) || 0;
+    if (!qty) return;
+    if (newRow && slots.length && cell % QR_LABEL_COLS) cell += QR_LABEL_COLS - (cell % QR_LABEL_COLS);
+    for (let i=0; i<qty; i++) slots.push({ cell: cell++, game: g, n: i+1, qty, group: gi });
+  });
+  return slots;
 }
 
-/** QR코드와 (필요하면) 축약된 게임명을 정사각형 캔버스 하나에 함께 그려, 라벨 한 칸 전체를
- *  이미지 한 장으로 만듭니다. jsPDF의 기본 글꼴은 한글이 없어 텍스트로 찍으면 깨지므로,
- *  게임명은 항상 이 캔버스에 브라우저 글꼴로 그려서 이미지로 굳혀 PDF에 넣습니다. */
-function buildQrLabelImage_(qrDataUrl, gameName, showName){
+function qrCellPosMm_(cell){
+  const gridW = QR_LABEL_MM * QR_LABEL_COLS, gridH = QR_LABEL_MM * QR_LABEL_ROWS;
+  const posInPage = cell % QR_LABELS_PER_PAGE;
+  return {
+    page: Math.floor(cell / QR_LABELS_PER_PAGE),
+    x: (QR_PAGE_W_MM - gridW) / 2 + (posInPage % QR_LABEL_COLS) * QR_LABEL_MM,
+    y: (QR_PAGE_H_MM - gridH) / 2 + Math.floor(posInPage / QR_LABEL_COLS) * QR_LABEL_MM,
+  };
+}
+
+/** QR만 라벨 한 칸(정사각형)을 꽉 채우도록 그립니다. 라벨지 칸에는 글자를 넣을 단차가 없으므로
+ *  게임 이름은 넣지 않고(부착 안내 PDF로 대신 안내), 스캔이 잘 되도록 둘레에 얇은 흰 여백만 둡니다. */
+function buildQrLabelImage_(qrDataUrl){
   return new Promise((resolve, reject)=>{
     const img = new Image();
     img.onload = ()=>{
-      const SIZE = 240; // px, 라벨 한 칸(정사각형)과 같은 비율
-      const nameBand = showName ? 46 : 0;
-      const qrPx = SIZE - nameBand - 6;
+      const SIZE = 480, pad = 22; // 20mm 칸 기준 약 0.9mm 여백
       const canvas = document.createElement('canvas');
       canvas.width = SIZE;
       canvas.height = SIZE;
       const ctx = canvas.getContext('2d');
       ctx.fillStyle = '#fff';
       ctx.fillRect(0, 0, SIZE, SIZE);
-      ctx.drawImage(img, (SIZE-qrPx)/2, 3, qrPx, qrPx);
-      if (showName){
-        ctx.fillStyle = '#000';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.font = "700 22px 'Malgun Gothic', sans-serif";
-        ctx.fillText(abbreviateGameName_(gameName, 10), SIZE/2, qrPx + 6 + nameBand/2);
-      }
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(img, pad, pad, SIZE - pad*2, SIZE - pad*2);
       resolve(canvas.toDataURL('image/png'));
     };
     img.onerror = ()=>reject(new Error('QR 이미지를 불러오지 못했습니다'));
@@ -2622,68 +2642,118 @@ function buildQrLabelImage_(qrDataUrl, gameName, showName){
   });
 }
 
+function qrPrintStatus_(msg){ const el = document.getElementById('qrPrintStatus'); if (el) el.textContent = msg; }
+
 async function generateQrLabelsPdf_(){
-  const ids = [...qrPrintSelected_.keys()];
-  if (!ids.length){ alert('인쇄할 게임을 먼저 선택해주세요.'); return; }
-
-  const statusEl = document.getElementById('qrPrintStatus');
-  const showName = document.getElementById('qrPrintShowName')?.checked;
-  const setStatus = (msg)=>{ if (statusEl) statusEl.textContent = msg; };
-
-  setStatus('QR코드를 만드는 중...');
+  const slots = qrLabelSlots_();
+  if (!slots.length){ alert('인쇄할 게임을 먼저 선택해주세요.'); return; }
+  qrPrintStatus_('QR코드를 만드는 중...');
   let jsPDF;
   try{
     [, jsPDF] = await Promise.all([loadQRCodeLib_(), loadJsPDF_()]);
-  }catch(e){
-    setStatus('❌ ' + e.message);
-    return;
-  }
+  }catch(e){ qrPrintStatus_('❌ ' + e.message); return; }
 
-  // 같은 게임의 라벨(QR + 게임명을 한 장의 이미지로 합친 것)은 한 번만 만들어서 필요한 수량만큼
-  // 재사용합니다. jsPDF의 기본 글꼴은 한글을 지원하지 않아 doc.text()로 한글을 찍으면 글자가
-  // 깨지므로, 게임명은 캔버스에 직접 그려서(브라우저 글꼴 사용) 이미지 형태로 PDF에 넣습니다.
-  const labelImgByGame = {};
-  for (const id of ids){
-    const g = games.find(x=>String(x.id)===id);
-    if (!g) continue;
-    const qrSrc = await makeQrDataUrl_(buildGameDeepLink_(g.id, 'return'), 240);
-    if (!qrSrc) continue;
+  // 같은 게임의 라벨 이미지는 한 번만 만들어서 필요한 수량만큼 재사용합니다.
+  const imgByGame = {};
+  for (const sl of slots){
+    const id = String(sl.game.id);
+    if (id in imgByGame) continue;
+    imgByGame[id] = null;
     try{
-      labelImgByGame[id] = await buildQrLabelImage_(qrSrc, g.name, showName);
-    }catch(e){ /* 실패하면 이 게임은 건너뜁니다 */ }
+      const qrSrc = await makeQrDataUrl_(buildGameDeepLink_(sl.game.id, 'return'), 480);
+      if (qrSrc) imgByGame[id] = await buildQrLabelImage_(qrSrc);
+    }catch(e){ /* 실패하면 이 게임은 빈 칸으로 둡니다 */ }
   }
+  const failed = Object.keys(imgByGame).filter(id=>!imgByGame[id]);
 
-  // 선택한 순서대로, 게임별 필요 수량만큼 라벨을 나열합니다.
-  const labels = [];
-  ids.forEach(id=>{
-    const g = games.find(x=>String(x.id)===id);
-    if (!g || !labelImgByGame[id]) return;
-    const qty = qrPrintSelected_.get(id) || 0;
-    for (let i=0; i<qty; i++) labels.push({ game: g, img: labelImgByGame[id] });
-  });
-
-  if (!labels.length){ setStatus('❌ 생성할 라벨이 없습니다. QR코드를 만드는 데 실패했을 수 있습니다.'); return; }
-
-  setStatus(`PDF를 만드는 중... (라벨 ${labels.length}개)`);
-
-  const cellW = QR_LABEL_MM, cellH = QR_LABEL_MM;
-  const gridW = cellW * QR_LABEL_COLS, gridH = cellH * QR_LABEL_ROWS;
-  const marginX = (QR_PAGE_W_MM - gridW) / 2;
-  const marginY = (QR_PAGE_H_MM - gridH) / 2;
-
+  qrPrintStatus_(`PDF를 만드는 중... (라벨 ${slots.length}개)`);
   const doc = new jsPDF({ unit:'mm', format:'a4' });
-  labels.forEach((lbl, i)=>{
-    const posInPage = i % QR_LABELS_PER_PAGE;
-    if (posInPage === 0 && i !== 0) doc.addPage();
-    const col = posInPage % QR_LABEL_COLS;
-    const row = Math.floor(posInPage / QR_LABEL_COLS);
-    const x = marginX + col*cellW;
-    const y = marginY + row*cellH;
-    doc.addImage(lbl.img, 'PNG', x, y, cellW, cellH);
+  let curPage = 0;
+  slots.forEach(sl=>{
+    const pos = qrCellPosMm_(sl.cell);
+    while (curPage < pos.page){ doc.addPage(); curPage++; }
+    const img = imgByGame[String(sl.game.id)];
+    if (img) doc.addImage(img, 'PNG', pos.x, pos.y, QR_LABEL_MM, QR_LABEL_MM);
   });
-
   doc.save(`QR라벨_${new Date().toISOString().slice(0,10)}.pdf`);
-  setStatus(`✅ 완료! 라벨 ${labels.length}개 · ${Math.ceil(labels.length/QR_LABELS_PER_PAGE)}장짜리 PDF를 다운로드했습니다.\n실제 라벨지에 인쇄하기 전, 일반 A4 용지로 먼저 뽑아 칸 위치를 확인해보시길 권장합니다.`);
+  qrPrintStatus_(`✅ 라벨 ${slots.length}개 · ${curPage+1}장짜리 PDF를 다운로드했습니다.` +
+    (failed.length ? `\n⚠ QR을 만들지 못한 게임 ${failed.length}개는 빈 칸으로 남겼습니다.` : '') +
+    `\n붙일 때는 "② 부착 안내 PDF"를 일반 용지로 뽑아 라벨지 옆에 두세요 (같은 칸 = 같은 게임).`);
+}
+
+/** 칸이 좁아서 띄어쓰기 없는 긴 이름도 글자 단위로 줄을 나눕니다 (띄어쓰기가 있으면 그 자리를 우선). */
+function wrapCanvasTextByChar_(ctx, text, maxWidth){
+  const lines = [];
+  wrapCanvasText_(ctx, text, maxWidth).forEach(line=>{
+    let cur = '';
+    for (const ch of line){
+      if (cur && ctx.measureText(cur + ch).width > maxWidth){ lines.push(cur.trimEnd()); cur = ch.trimStart(); }
+      else cur += ch;
+    }
+    if (cur) lines.push(cur);
+  });
+  return lines.length ? lines : [''];
+}
+
+/**
+ * 부착 안내 PDF: 라벨지와 똑같은 칸 배치에 게임 이름·ID·"n/수량"을 적어 일반 A4로 인쇄합니다.
+ * 같은 게임 묶음은 같은 바탕색으로, 게임이 바뀌면 바탕색이 번갈아 바뀌어 경계가 바로 보입니다.
+ * jsPDF 기본 글꼴은 한글이 없어서, 각 장을 캔버스에 그린 뒤 이미지로 PDF에 넣습니다.
+ */
+async function generateQrGuidePdf_(){
+  const slots = qrLabelSlots_();
+  if (!slots.length){ alert('인쇄할 게임을 먼저 선택해주세요.'); return; }
+  let jsPDF;
+  try{ jsPDF = await loadJsPDF_(); }catch(e){ qrPrintStatus_('❌ ' + e.message); return; }
+  qrPrintStatus_('부착 안내를 만드는 중...');
+
+  const PX = 6; // 1mm = 6px (약 150dpi)
+  const pageCount = Math.floor(slots[slots.length-1].cell / QR_LABELS_PER_PAGE) + 1;
+  const doc = new jsPDF({ unit:'mm', format:'a4' });
+  const shades = ['#FFFFFF', '#E9EEF6'];
+  for (let p=0; p<pageCount; p++){
+    if (p) doc.addPage();
+    const canvas = document.createElement('canvas');
+    canvas.width = QR_PAGE_W_MM*PX; canvas.height = QR_PAGE_H_MM*PX;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const pageSlots = slots.filter(sl => Math.floor(sl.cell / QR_LABELS_PER_PAGE) === p);
+    const byCell = new Map(pageSlots.map(sl=>[sl.cell % QR_LABELS_PER_PAGE, sl]));
+
+    // 위쪽 여백에 제목
+    const top = qrCellPosMm_(p*QR_LABELS_PER_PAGE).y;
+    ctx.fillStyle = '#000'; ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
+    ctx.font = `700 ${5*PX}px sans-serif`;
+    ctx.fillText(`QR 라벨 부착 안내 · ${p+1} / ${pageCount}장`, qrCellPosMm_(0).x*PX, (top-7)*PX);
+    ctx.font = `${3.2*PX}px sans-serif`; ctx.fillStyle = '#444';
+    ctx.fillText('라벨지 옆에 두고, 같은 위치의 라벨을 떼어 해당 게임에 붙이세요. 바탕색이 바뀌는 곳이 게임이 바뀌는 곳입니다.', qrCellPosMm_(0).x*PX, (top-2.5)*PX);
+
+    for (let c=0; c<QR_LABELS_PER_PAGE; c++){
+      const pos = qrCellPosMm_(p*QR_LABELS_PER_PAGE + c);
+      const x = pos.x*PX, y = pos.y*PX, w = QR_LABEL_MM*PX;
+      const sl = byCell.get(c);
+      ctx.fillStyle = sl ? shades[sl.group % 2] : '#F4F4F4';
+      ctx.fillRect(x, y, w, w);
+      ctx.strokeStyle = '#999'; ctx.lineWidth = 1; ctx.strokeRect(x+0.5, y+0.5, w-1, w-1);
+      if (!sl){ continue; }
+      // 게임 이름 (최대 3줄, 넘치면 …)
+      ctx.fillStyle = '#000'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      const fs = 3*PX;
+      ctx.font = `700 ${fs}px sans-serif`;
+      let lines = wrapCanvasTextByChar_(ctx, sl.game.name || '', w - 1.6*PX);
+      if (lines.length > 3){ lines = lines.slice(0, 3); lines[2] = lines[2].replace(/.$/, '…'); }
+      const lineH = fs*1.15;
+      const blockTop = y + 1.5*PX;
+      lines.forEach((ln, i)=> ctx.fillText(ln, x + w/2, blockTop + i*lineH));
+      ctx.font = `${2.4*PX}px sans-serif`; ctx.fillStyle = '#555'; ctx.textBaseline = 'bottom';
+      ctx.fillText(`ID ${sl.game.id}`, x + w/2, y + w - 4.2*PX);
+      ctx.font = `700 ${2.6*PX}px sans-serif`; ctx.fillStyle = '#C1440E';
+      ctx.fillText(`${sl.n} / ${sl.qty}`, x + w/2, y + w - 1.2*PX);
+    }
+    doc.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, QR_PAGE_W_MM, QR_PAGE_H_MM);
+  }
+  doc.save(`QR라벨_부착안내_${new Date().toISOString().slice(0,10)}.pdf`);
+  qrPrintStatus_(`✅ 부착 안내 ${pageCount}장을 다운로드했습니다. 라벨 PDF와 같은 칸 배치입니다.`);
 }
 
 async function startBulkDownload_(){
@@ -2784,14 +2854,13 @@ function openHelpModal(){
 
       <h4 style="font-size:13px; margin:16px 0 8px;">🙋 뷰어(매장) 안내</h4>
       <ul class="help-list">
-        <li><b>게임 찾기</b> — 목록 상단 검색창에 이름(초성도 가능)을 입력하면 바로 필터링됩니다.</li>
+        <li><b>게임 찾기</b> — 목록 상단 검색창에 이름(초성도 가능)을 입력하면 바로 필터링됩니다. 왼쪽 위 RED BUTTON 로고를 누르면 언제든 목록으로 돌아옵니다.</li>
         <li><b>사진 탭</b> — 실제 사진 위에 케이스종류(알파벳)와 위치가 표시됩니다. 점선으로 표시된 라벨은 실제 라벨기 인쇄 모습입니다. 사진이 여러 장이면 좌우를 클릭하거나 화면을 좌우로 밀어서 넘길 수 있습니다.</li>
         <li><b>표 탭</b> — 케이스종류·구성품·수량·비고를 표로 확인할 수 있습니다.</li>
-        <li><b>작업 완료 체크</b> — 목록 카드에서 체크하면 내 계정 기준으로 완료 여부가 저장됩니다.</li>
         <li><b>구매 가이드</b> — 상단 "🛠️ 도구 → 🛒 구매 가이드"에서 필요한 케이스 수량과 구매 링크를 확인할 수 있습니다. "보유 재고"를 넣으면 더 사야 할 수량만, 단가를 넣으면 예상 금액도 계산합니다.</li>
         <li><b>⭐ 즐겨찾기 · 최근 본 게임</b> — 카드나 게임 제목 옆의 ☆을 누르면 즐겨찾기에 추가됩니다. 목록 맨 위에 즐겨찾기와 최근 본 게임이 바로가기로 나옵니다 (이 기기에만 저장).</li>
         <li><b>⚠ 누락·파손 신고</b> — 반납대 가이드 "① 필수 구성품 확인" 제목 옆의 "⚠ 누락·파손 신고"를 누르고 내용을 적으면 편집자에게 전달됩니다.</li>
-        <li><b>🔗 링크 · QR</b> — 게임 화면의 🔗(편집자는 "📱 QR코드")에서 이 게임의 반납대 가이드로 바로 들어오는 링크를 복사·공유하거나 QR 이미지를 저장할 수 있습니다. 목록에서 여러 게임을 체크하고 "QR 라벨 인쇄"를 누르면 선택한 게임이 담긴 채로 QR 라벨 인쇄 화면이 열립니다.</li>
+        <li><b>🔗 링크 · QR</b> — 게임 화면의 🔗(편집자는 "📱 QR코드")에서 이 게임의 반납대 가이드로 바로 들어오는 링크를 복사·공유하거나 QR 이미지를 저장할 수 있습니다. 여러 게임의 QR 라벨은 "🛠️ 도구 → 🖨️ QR 인쇄"에서 한 번에 만듭니다. 라벨에는 QR만 인쇄되고, 어느 칸이 어떤 게임인지는 함께 뽑는 "부착 안내" 용지(같은 칸 배치)로 확인합니다.</li>
         <li><b>🔍 크게 보기 · 🖨️ 인쇄</b> — 사진 탭의 "크게 보기"나 구성품·반납대 사진을 누르면 화면 가득 띄워 두 손가락(또는 휠)으로 확대할 수 있습니다. 🖨️ 인쇄는 사진과 체크리스트 표, 반납대 필수 구성품, QR을 한 장으로 정리해 인쇄합니다.</li>
         <li><b>🌓 화면 테마</b> — 상단의 🌓 버튼으로 자동(기기 설정) · 밝게 · 어둡게를 바꿀 수 있습니다.</li>
         <li><b>⌨️ 단축키</b> — <span class="kbd">/</span> 검색, <span class="kbd">←</span><span class="kbd">→</span> 사진 넘기기, <span class="kbd">F</span> 크게 보기, <span class="kbd">Esc</span> 창 닫기·선택 해제, <span class="kbd">?</span> 이 도움말.</li>
@@ -2800,6 +2869,7 @@ function openHelpModal(){
       ${currentRole === 'editor' ? `
       <h4 style="font-size:13px; margin:16px 0 8px;">✏️ 편집자 안내</h4>
       <ul class="help-list">
+        <li><b>작업 완료 체크</b> — 목록 카드에서 체크하면 내 계정 기준으로 완료 여부가 저장되고, "작업 미완료/작업 완료"로 골라볼 수 있습니다 (편집자 전용).</li>
         <li><b>새 게임 추가</b> — 상단 "+ 새 게임"으로 이름을 입력해 생성합니다.</li>
         <li><b>사진 업로드</b> — 사진 탭에서 파일 선택 후 자르기·회전(90도씩)·전체 축소(여백 포함) 편집창이 뜹니다. 실제 저장될 모습을 미리 볼 수 있습니다. 사진 영역에 파일을 끌어다 놓아도 업로드됩니다.</li>
         <li><b>여러 장의 사진</b> — 사진을 여러 장 올린 경우 "◀ 순서"/"순서 ▶"로 순서를 바꿀 수 있습니다.</li>
@@ -2970,9 +3040,8 @@ async function toggleGuideDoneFor(checkbox, gameId){
 
 let listSearch_ = '';
 let listSort_ = 'name'; // 'name' | 'updated'
-let listWorkFilter_ = 'all'; // 'all' | 'done' | 'undone' | 'fav' (작업 완료 여부 / 즐겨찾기 기준)
+let listWorkFilter_ = 'all'; // 'all' | 'done' | 'undone' | 'fav' (작업 완료 여부는 편집자만 / 즐겨찾기 기준)
 let listEditFilter_ = 'all'; // 편집자용 "편집 상태" 필터: 'all' | 'noPhoto' | 'noMarker' | 'mismatch' | 'reports' | 'noGuide'
-let listSelectedIds_ = new Set(); // 목록에서 체크한 게임들 (필요 케이스 합계 확인용)
 
 /** 편집 상태 판단: 표에는 있는데 어느 사진에도 마커가 없는 케이스 수 */
 function unplacedCaseCount_(g){
@@ -3005,6 +3074,8 @@ function renderList(){
   }
   showDashboard_ = false;
   const editable = currentRole === 'editor';
+  // 작업 완료 체크·필터와 편집 상태 필터는 편집자 전용입니다 (매장 뷰어는 가이드 열람만).
+  if (!editable && (listWorkFilter_ === 'done' || listWorkFilter_ === 'undone')) listWorkFilter_ = 'all';
 
   appEl.innerHTML = `
     <div class="list-toolbar">
@@ -3014,8 +3085,9 @@ function renderList(){
       </select>
       <div class="tabs" id="listWorkFilterTabs" style="margin-bottom:0;">
         <button data-v="all" class="${listWorkFilter_==='all'?'active':''}" onclick="setListWorkFilter_('all')">전체</button>
+        ${editable ? `
         <button data-v="undone" class="${listWorkFilter_==='undone'?'active':''}" onclick="setListWorkFilter_('undone')">작업 미완료</button>
-        <button data-v="done" class="${listWorkFilter_==='done'?'active':''}" onclick="setListWorkFilter_('done')">작업 완료</button>
+        <button data-v="done" class="${listWorkFilter_==='done'?'active':''}" onclick="setListWorkFilter_('done')">작업 완료</button>` : ''}
         <button data-v="fav" class="${listWorkFilter_==='fav'?'active':''}" onclick="setListWorkFilter_('fav')">⭐ 즐겨찾기</button>
       </div>
       ${editable ? `
@@ -3026,7 +3098,6 @@ function renderList(){
       ` : ''}
     </div>
     <div id="listQuickSlot"></div>
-    <div id="listSelectionSlot"></div>
     <div id="listCountSlot" style="font-size:12px; color:var(--ink-soft); margin-bottom:8px;"></div>
     <div class="game-list" id="gameListResults"></div>
   `;
@@ -3079,7 +3150,6 @@ function renderListQuickRows_(){
 
 function renderGameListResults_(){
   const container = document.getElementById('gameListResults');
-  const selectionSlot = document.getElementById('listSelectionSlot');
   if (!container) return;
   const editable = currentRole === 'editor';
   const myEmail = auth.currentUser?.email?.toLowerCase();
@@ -3088,7 +3158,7 @@ function renderGameListResults_(){
   let filtered = games.filter(g => !listSearch_ || (g.name||'').includes(listSearch_) || String(g.id) === listSearch_.trim() || (isChosungOnly(listSearch_) && getChosung(g.name||'').includes(listSearch_)));
   if (listWorkFilter_ === 'fav'){
     filtered = filtered.filter(g => favs.has(String(g.id)));
-  } else if (listWorkFilter_ !== 'all'){
+  } else if (editable && listWorkFilter_ !== 'all'){
     filtered = filtered.filter(g=>{
       const isDone = myEmail && (g.completedBy||[]).includes(myEmail);
       return listWorkFilter_ === 'done' ? isDone : !isDone;
@@ -3103,39 +3173,37 @@ function renderGameListResults_(){
   });
 
   renderListQuickRows_();
-  if (selectionSlot) selectionSlot.innerHTML = listSelectedIds_.size > 0 ? renderListSelectionSummary_() : '';
   const countSlot = document.getElementById('listCountSlot');
   if (countSlot) countSlot.textContent = filtered.length !== games.length ? `${filtered.length}개 게임 (전체 ${games.length}개)` : `전체 ${games.length}개 게임`;
 
   container.innerHTML = filtered.length ? filtered.map(g=>{
-    const done = myEmail && (g.completedBy||[]).includes(myEmail);
-    const checked = listSelectedIds_.has(String(g.id));
+    const done = editable && myEmail && (g.completedBy||[]).includes(myEmail);
     const fav = favs.has(String(g.id));
     const thumbPath = (g.photos||[])[0]?.thumbPath;
     const reports = openReportsOf_(g).length;
     const badges = [];
-    if (reports) badges.push(`<span class="mini-badge warn">누락 신고 ${reports}</span>`);
     if (editable){
+      if (reports) badges.push(`<span class="mini-badge warn">누락 신고 ${reports}</span>`);
       if (!(g.photos||[]).length) badges.push('<span class="mini-badge">사진 없음</span>');
       else if (!markerCount_(g)) badges.push('<span class="mini-badge">마커 없음</span>');
       else { const n = unplacedCaseCount_(g); if (n) badges.push(`<span class="mini-badge">마커 없는 케이스 ${n}</span>`); }
     }
     return `
-    <div class="game-card ${g.guideDone ? '' : 'no-guide'} ${done ? 'work-done' : ''}" style="position:relative;">
+    <div class="game-card ${g.guideDone ? '' : 'no-guide'} ${done ? 'work-done' : ''}" style="position:relative; cursor:pointer;" onclick="openGame('${g.id}')">
       <div style="display:flex; align-items:center; gap:7px; margin-bottom:2px;">
-        <input type="checkbox" class="card-select" ${checked?'checked':''} onclick="event.stopPropagation();" onchange="toggleGameSelect_('${g.id}')" title="선택해서 필요 케이스 모아보기">
         <div class="meta" style="flex:1;">ID ${escHtml_(g.id)}</div>
         <button class="fav-btn ${fav?'on':''}" onclick="event.stopPropagation(); toggleFavorite_('${g.id}')" title="${fav?'즐겨찾기 해제':'즐겨찾기에 추가'}" style="${editable?'margin-right:18px;':''}">${fav?'★':'☆'}</button>
       </div>
-      <div onclick="openGame('${g.id}')" style="cursor:pointer;">
+      <div>
         ${thumbPath ? `<div class="card-thumb" data-thumb-path="${escHtml_(thumbPath)}"></div>` : ''}
         <div class="name">${escHtml_(g.name || '(이름 없음)')}</div>
         <div class="meta">케이스 ${(g.cases||[]).length}개${g.guideDone ? '' : ' · 가이드 준비중'}</div>
         ${badges.length ? `<div class="card-badges">${badges.join('')}</div>` : ''}
       </div>
-      <label style="display:flex; align-items:center; gap:5px; margin-top:8px; font-size:11.5px; color:var(--ink-soft); cursor:pointer;">
+      ${editable ? `
+      <label style="display:flex; align-items:center; gap:5px; margin-top:8px; font-size:11.5px; color:var(--ink-soft); cursor:pointer;" onclick="event.stopPropagation();">
         <input type="checkbox" ${done?'checked':''} onclick="event.stopPropagation(); toggleWorkComplete('${g.id}', this.checked, this)"> 작업 완료
-      </label>
+      </label>` : ''}
       ${editable ? `<button onclick="event.stopPropagation(); deleteGame('${g.id}')" style="position:absolute; top:12px; right:12px; border:none; background:none; color:var(--ink-soft); cursor:pointer;" title="휴지통으로 이동">✕</button>` : ''}
     </div>
   `;}).join('') : '<div class="empty">검색 결과가 없습니다.</div>';
@@ -3159,44 +3227,6 @@ function observeCardThumbs_(container){
     entries.forEach(en=>{ if (en.isIntersecting){ thumbObserver_.unobserve(en.target); load(en.target); } });
   }, { rootMargin: '200px' });
   els.forEach(el=>thumbObserver_.observe(el));
-}
-
-/** 목록 카드의 체크박스로 게임을 선택/해제하고, 선택된 게임들의 필요 케이스 합계를 갱신합니다. */
-function toggleGameSelect_(id){
-  id = String(id);
-  if (listSelectedIds_.has(id)) listSelectedIds_.delete(id);
-  else listSelectedIds_.add(id);
-  renderGameListResults_();
-}
-
-function clearListSelection_(){
-  listSelectedIds_.clear();
-  renderGameListResults_();
-}
-
-function renderListSelectionSummary_(){
-  const selected = games.filter(g => listSelectedIds_.has(String(g.id)));
-  const counts = {};
-  selected.forEach(g => (g.cases||[]).forEach(c => { counts[c.caseType] = (counts[c.caseType]||0) + 1; }));
-  const types = PURCHASE_TYPES.filter(t=>counts[t]); // 실제 정해진 케이스가 필요한 종류만 (구성품/지퍼백은 제외)
-
-  return `<div class="selection-panel">
-    <div class="selection-head">
-      <span>${selected.length}개 게임 선택됨 · 필요한 케이스 합계</span>
-      <span style="display:flex; gap:6px; flex-wrap:wrap;">
-        <button class="btn btn-ghost2" style="width:auto; padding:4px 10px; font-size:12px;" onclick="printSelectedQr_()" title="선택한 게임들을 QR 라벨 인쇄 화면에 담습니다 (게임 박스에 붙여두기용)">🖨️ QR 라벨 인쇄</button>
-        <button class="btn btn-ghost2" style="width:auto; padding:4px 10px; font-size:12px;" onclick="clearListSelection_()">선택 해제</button>
-      </span>
-    </div>
-    <div class="selection-games">
-      ${selected.map(g=>`<span class="sel-chip">${escHtml_(g.name)}<button onclick="toggleGameSelect_('${g.id}')">✕</button></span>`).join('')}
-    </div>
-    <div class="selection-totals">
-      ${types.length
-        ? types.map(t=>`<span class="case-badge case-${t}">${typeLabel_(t)} · ${counts[t]}개</span>`).join('')
-        : '<span style="color:var(--ink-soft); font-size:13px;">선택한 게임에 등록된 케이스가 없습니다.</span>'}
-    </div>
-  </div>`;
 }
 
 async function toggleWorkComplete(gameId, checked, checkboxEl){
@@ -3236,7 +3266,6 @@ async function deleteGame(gameId){
     alert('휴지통으로 옮기지 못했습니다: ' + e.message);
     return;
   }
-  listSelectedIds_.delete(String(gameId));
   await loadGames();
   renderList();
 }
@@ -6387,11 +6416,6 @@ async function makeQrDataUrl_(text, size){
   }
 }
 
-/** 목록에서 체크한 게임들을 "QR 라벨 인쇄" 화면에 담아서 엽니다 (게임 박스에 붙일 QR 일괄 인쇄). */
-function printSelectedQr_(){
-  listSelectedIds_.forEach(id=>{ if (!qrPrintSelected_.has(String(id))) qrPrintSelected_.set(String(id), 1); });
-  openQrPrintTool_();
-}
 
 /**
  * ============================================================
@@ -7581,7 +7605,7 @@ Object.assign(window, {
   createLabelFromMarker, changeLabelFontSize, rotateLabel, deleteLabel, duplicateLabel,
   rotateCrop_, closeCropModal_, applyCropAndUpload_,
   showHistoryModal_, restoreHistory_,
-  toggleWorkComplete, deleteGame, toggleGameSelect_, clearListSelection_, setListWorkFilter_, onTopSearchInput,
+  toggleWorkComplete, deleteGame, setListWorkFilter_, onTopSearchInput,
   toggleGuideDone, updateGameNote, changeGameName_, changeGameId_,
   openDashboard, closeDashboard, setDashboardFilter, toggleGuideDoneFor,
   openAccessManagement, approveRequest, rejectRequest, addDirectAccess, removeAccess, addStore, removeStore,
@@ -7592,14 +7616,14 @@ Object.assign(window, {
   openConditionStandardsAdmin_, addConditionStandard_, deleteConditionStandard_, updateStandardGrade_, updateStandardDetail_,
   triggerStandardPhotoUpload_, removeStandardPhoto_,
   openGameQrModal_, downloadGameQr_, copyGameQrLink_, shareGameQrLink_, toggleNavDropdown_, closeAllNavDropdowns_,
-  toggleQrScanMode_, openQrPrintTool_, toggleQrPrintGameSelect_, updateQrPrintQty_, removeQrPrintGame_, generateQrLabelsPdf_,
+  toggleQrScanMode_, openQrPrintTool_, toggleQrPrintGameSelect_, updateQrPrintQty_, removeQrPrintGame_, generateQrLabelsPdf_, generateQrGuidePdf_, renderQrPrintSelectedList_,
   openHelpModal,
   cycleTheme_, toggleFavorite_, setDashboardStore_,
   setPurchaseStock_, setPurchasePrice_, clearPurchaseStock_, copyPurchaseList_,
   renderTrash_, restoreGame_, purgeGame_,
   undo_, redo_, setAutosave_,
   submitMissingReport_, resolveReport_,
-  printSelectedQr_, printGameGuide_,
+  printGameGuide_,
   openLightbox_, closeLightbox_, lightboxStep_, lightboxZoomBy_, lightboxFit_,
   generateMissingThumbs_, showHistoryPreview_
 });
