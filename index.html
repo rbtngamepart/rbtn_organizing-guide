@@ -323,7 +323,7 @@
   .bn-ic{font-size:20px; line-height:1; position:relative;}
   .bn-lb, .bn-scan-lb{font-size:11px; font-weight:700; color:var(--ink-soft);}
   .bn-item.active .bn-lb{color:var(--accent);}
-  .bn-badge{position:absolute; top:-6px; right:-12px; background:var(--accent); color:#fff; font-size:10px; font-weight:800; min-width:17px; height:17px; border-radius:999px; display:flex; align-items:center; justify-content:center; padding:0 4px; font-family:var(--sans);}
+  .bn-badge{position:absolute; top:-9px; right:-16px; background:var(--accent); color:#fff; font-size:11.5px; font-weight:800; min-width:21px; height:21px; border-radius:999px; display:flex; align-items:center; justify-content:center; padding:0 5px; font-family:var(--sans); box-shadow:0 0 0 2px #fff, 0 0 0 3.5px var(--accent); line-height:1;}
   .bn-pill{width:40px; height:23px; border-radius:999px; background:#d6d6d0; position:relative; transition:background .15s;}
   .bn-knob{position:absolute; top:2.5px; left:2.5px; width:18px; height:18px; border-radius:50%; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.3); transition:left .15s;}
   .bn-scan.qr-scan-active .bn-pill{background:#1F7A5C;}
@@ -5440,6 +5440,18 @@ function closeMoreMenu_(){ const m=document.getElementById('moreMenu'); if (m) m
 document.addEventListener('click', (e)=>{
   if (!e.target.closest('#moreMenu') && !e.target.closest('#bnMore')) closeMoreMenu_();
 });
+// 다른 기기에서 쌓인 스캔도 반영되도록, 화면으로 돌아오거나 5분마다 점검 대상 수를 새로 불러옵니다.
+async function refreshMaintBadge_(){
+  if (!activeStoreCode_ || document.hidden) return;
+  try{
+    const st = await getDocs(collection(db, 'stores', activeStoreCode_, 'gameStats'));
+    const m = new Map(); st.forEach(d=>m.set(d.id, d.data()));
+    gameStatsMap_ = m;
+    updateMaintBadge_();
+  }catch(e){}
+}
+document.addEventListener('visibilitychange', ()=>{ if (!document.hidden) refreshMaintBadge_(); });
+setInterval(refreshMaintBadge_, 5*60*1000);
 function updateMaintBadge_(){
   const el = document.getElementById('maintBadge');
   if (!el) return;
