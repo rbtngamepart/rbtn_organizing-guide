@@ -515,6 +515,27 @@
   .report-item{display:flex; justify-content:space-between; gap:10px; align-items:flex-start; padding:8px 0; border-top:1px dashed var(--warn-line); flex-wrap:wrap;}
   .report-item:first-of-type{margin-top:8px;}
 
+  /* ---- 반납대 가이드 편집자 화면 (뷰어와 같은 좌/우 카드 배치) ---- */
+  .rg-edit-bar{display:flex; align-items:center; gap:10px 14px; flex-wrap:wrap; margin-bottom:10px; padding:8px 12px; background:var(--surface); border:1px solid var(--line); border-radius:12px; font-size:13px;}
+  .rg-edit-toggle{display:inline-flex; align-items:center; gap:6px; font-weight:800; cursor:pointer; padding:4px 10px; border-radius:999px; background:var(--bg); color:var(--ink-soft);}
+  .rg-edit-toggle.on{background:var(--done-bg); color:#1F7A5C;}
+  .rg-edit-min{display:inline-flex; align-items:center; gap:6px; font-weight:700;}
+  .rg-edit-min input{width:60px; padding:5px 8px; border:1px solid var(--line); border-radius:6px; font-size:13px;}
+  .rg-card-hint{font-size:11px; font-weight:400; color:var(--ink-soft);}
+  .rg-in{width:100%; box-sizing:border-box; padding:6px 8px; border:1px solid var(--line); border-radius:6px; font-size:13px; font-family:var(--sans); resize:vertical;}
+  .rg-in-name{font-weight:700;}
+  .rg-items-edit{grid-template-columns:repeat(auto-fill, minmax(260px,1fr));}
+  .rg-edit-card{flex-wrap:wrap; align-items:center; position:relative; padding-right:26px;}
+  .rg-edit-card .rg-item-main{display:flex; flex-direction:column; gap:4px;}
+  .rg-qty-edit{display:inline-flex; align-items:center; gap:2px;}
+  .rg-qty-edit input{width:58px; text-align:right; color:var(--accent); font-weight:800; font-family:var(--mono);}
+  .rg-edit-row{flex-wrap:wrap; position:relative; padding-right:26px;}
+  .rg-edit-fields{flex:1; min-width:0; display:flex; flex-direction:column; gap:4px;}
+  .rg-del{position:absolute; top:6px; right:4px; width:20px; height:20px; border:none; border-radius:50%; background:transparent; color:var(--ink-soft); cursor:pointer; font-size:12px; padding:0;}
+  .rg-del:hover{background:var(--accent-soft); color:var(--accent);}
+  .rg-pane .rg-card .anno-additem{margin-top:6px;}
+  .rg-edit-card .anno-item-photo-btn, .rg-edit-row .anno-item-photo-btn{width:64px; height:64px; flex:0 0 64px; border-radius:8px; background:var(--stage-bg); display:flex; align-items:center; justify-content:center; font-size:11.5px;}
+
   /* ---- 반납대 가이드: 누락·파손 신고 버튼 (① 제목 줄 오른쪽, 화면을 늘리지 않게 작게) ---- */
   .rg-report-btn{margin-left:auto; border:1px solid var(--line-strong); background:var(--surface); color:var(--ink-mid); border-radius:999px; padding:3px 10px; font-size:11.5px; font-weight:700; cursor:pointer; font-family:var(--sans); white-space:nowrap;}
   .rg-report-btn:hover{color:var(--accent); border-color:var(--accent);}
@@ -5510,6 +5531,9 @@ function renderReturnGuideTab(){
   const editable = currentRole === 'editor' && !rvMode_;
   const rg = ensureReturnGuide_(g);
   const body = document.getElementById('tabBody');
+  // 항목 추가·삭제로 다시 그려도 보고 있던 스크롤 위치가 맨 위로 튀지 않게 기억해둡니다.
+  const prevScroll = [...body.querySelectorAll('.rg-pane-body')].map(el=>el.scrollTop);
+  const prevPageY = window.scrollY;
 
   if (editable){
     body.innerHTML = renderReturnGuideEditor_(g, rg);
@@ -5529,6 +5553,8 @@ function renderReturnGuideTab(){
   });
   if (document.getElementById('rgPhotoCell0')) populateReturnGuidePhotoGrid_(g);
   fitReturnSplit_();
+  body.querySelectorAll('.rg-pane-body').forEach((el, i)=>{ if (prevScroll[i]) el.scrollTop = prevScroll[i]; });
+  if (prevScroll.length) window.scrollTo(0, prevPageY);
 }
 
 function rgPhotoControl_(section, idx, photo){
@@ -5645,20 +5671,6 @@ function openConditionPopup_(itemName, standardIds){
   });
 }
 
-/** "사진" 탭에 이미 정리된 자료(마커·텍스트박스·라벨 포함)를 보여줍니다. 사진이 1~2장이면
- *  크게 나란히, 3장 이상이면 촘촘한 격자로 자동 전환됩니다. 어느 쪽이든 탭하면 원래
- *  크기로 확대해서 봅니다 (라이트박스). */
-function renderReturnGuidePhotoGridHtml_(g){
-  if (!g.photos || !g.photos.length) return '';
-  const sizeClass = g.photos.length <= 2 ? 'rg-photo-large' : 'rg-photo-compact';
-  return `
-    <h3 style="font-size:14px; margin:0 0 10px;">📷 정리된 사진 (탭하면 크게 볼 수 있습니다)</h3>
-    <div class="rg-photo-grid ${sizeClass}">
-      ${g.photos.map((p,i)=>`<div class="rg-photo-cell" id="rgPhotoCell${i}"><span class="rg-photo-loading">불러오는 중...</span></div>`).join('')}
-    </div>
-  `;
-}
-
 /** "사진" 탭과 정확히 같은 비율로 보이도록, 지금 화면(탭바디)의 실제 폭을 기준 삼습니다.
  *  반납대 가이드 탭에서는 실제 .photo-stage가 화면에 없으므로, 같은 자리(#tabBody)의 폭을
  *  그대로 기준 폭으로 사용합니다 (사진 탭이든 반납대 가이드 탭이든 #tabBody 폭은 동일합니다). */
@@ -5672,6 +5684,7 @@ function getPhotoStageRefWidth_(){
  *  동일한 기준 폭으로 각 사진의 축소 미리보기를 만들어 격자 칸에 채워 넣습니다. 실제 사진과 완전히
  *  같은 비율로 보이고, 텍스트박스 위치에는 클릭 가능한 투명 영역을 겹쳐서 그 구성품 사진을 크게
  *  볼 수 있는 팝업을 띄웁니다. */
+const rgPhotoCache_ = new Map(); // (게임·사진 내용·기준 폭) → 만들어 둔 미리보기 (편집 중 다시 그릴 때 재사용)
 async function populateReturnGuidePhotoGrid_(g){
   if (!g.photos) return;
   const refWidth = getPhotoStageRefWidth_();
@@ -5679,8 +5692,14 @@ async function populateReturnGuidePhotoGrid_(g){
     if (!document.getElementById(`rgPhotoCell${i}`)) continue; // 그 사이 다른 탭으로 이동했으면 중단
     try{
       // 라벨만 얹은 원본 비율 사진 (텍스트박스·연결선·마커 없음, 축소 여백 없음)
-      const { canvas } = await renderPhotoToCanvas_(g, g.photos[i], refWidth, { labelOnly: true });
-      const url = canvas.toDataURL('image/jpeg', 0.92);
+      const key = `${g.id}|${Math.round(refWidth)}|${JSON.stringify(g.photos[i])}`;
+      let url = rgPhotoCache_.get(key);
+      if (!url){
+        const { canvas } = await renderPhotoToCanvas_(g, g.photos[i], refWidth, { labelOnly: true });
+        url = canvas.toDataURL('image/jpeg', 0.92);
+        if (rgPhotoCache_.size > 60) rgPhotoCache_.clear();
+        rgPhotoCache_.set(key, url);
+      }
       const cell = document.getElementById(`rgPhotoCell${i}`);
       if (!cell) continue;
       cell.innerHTML = '';
@@ -5741,79 +5760,116 @@ function openReturnGuideCasePopup_(gameId, caseIdx){
 }
 
 function renderReturnGuideEditor_(g, rg){
+  // 뷰어 화면과 같은 좌/우 구성으로 편집합니다. 좌: 상세 관리 내용(①~⑥ 카드, 바로 수정), 우: 정리된 사진(읽기 전용).
+  // 이렇게 하면 편집하면서 매장에서 실제로 보일 배치를 그대로 확인할 수 있습니다.
+  const hasPhotos = !!(g.photos && g.photos.length);
+  const del = (section, idx)=> `<button class="rg-del" title="삭제" onclick="deleteGuideItem_('${section}',${idx})">✕</button>`;
+  const addBtn = (section, defaults, label)=> `<button class="anno-additem" onclick="addGuideItem_('${section}',${defaults})">${label}</button>`;
+  const empty = (t)=> `<p style="color:var(--ink-soft); font-size:12.5px; margin:0 0 4px;">${t}</p>`;
+
+  const reqCard = (it, idx)=>`
+    <div class="rg-item-card rg-edit-card">
+      ${rgPhotoControl_('requiredItems', idx, it.photo)}
+      <div class="rg-item-main">
+        <input type="text" class="rg-in rg-in-name" placeholder="구성품명" value="${escHtml_(it.name||'')}" onchange="updateGuideItem_('requiredItems',${idx},'name',this.value)">
+        <input type="text" class="rg-in" placeholder="확인 방법 (선택)" value="${escHtml_(it.note||'')}" onchange="updateGuideItem_('requiredItems',${idx},'note',this.value)">
+      </div>
+      <label class="rg-item-qty rg-qty-edit"><input type="number" min="0" class="rg-in" value="${it.qty||0}" onchange="updateGuideItem_('requiredItems',${idx},'qty',this.value,true)">개</label>
+      ${del('requiredItems', idx)}
+      ${rgStandardsControl_('requiredItems', idx, it.standardIds)}
+    </div>`;
+
+  const cards = [];
+  cards.push(`
+    <div class="rg-card">
+      <h3>① 필수 구성품 확인 <span class="case-badge case-ITEM" style="font-size:10.5px; padding:2px 8px;">${rg.requiredItems.length}종</span>
+        <span class="rg-card-hint">반납될 때마다 정확한 수량을 확인해야 하는 구성품</span></h3>
+      ${rg.requiredItems.length ? `<div class="rg-items rg-items-edit">${rg.requiredItems.map(reqCard).join('')}</div>` : empty('등록된 필수 구성품이 없습니다.')}
+      ${addBtn('requiredItems', "{name:'',qty:1,note:'',photo:null,standardIds:[]}", '+ 필수 구성품 추가')}
+    </div>`);
+  cards.push(`
+    <div class="rg-card">
+      <h3>② 정리 방법 <span class="rg-card-hint">반드시 지켜야 하는 분류·수납 방법</span></h3>
+      ${rg.sortingSteps.map((it,idx)=>`
+        <div class="rg-view-row rg-edit-row">
+          ${rgPhotoControl_('sortingSteps', idx, it.photo)}
+          <div class="rg-edit-fields">
+            <input type="text" class="rg-in rg-in-name" placeholder="제목" value="${escHtml_(it.title||'')}" onchange="updateGuideItem_('sortingSteps',${idx},'title',this.value)">
+            <textarea class="rg-in" placeholder="설명" rows="2" onchange="updateGuideItem_('sortingSteps',${idx},'desc',this.value)">${escHtml_(it.desc||'')}</textarea>
+          </div>
+          ${del('sortingSteps', idx)}
+        </div>`).join('') || empty('등록된 정리 방법이 없습니다.')}
+      ${addBtn('sortingSteps', "{title:'',desc:'',photo:null}", '+ 정리 방법 추가')}
+    </div>`);
+  cards.push(`
+    <div class="rg-card">
+      <h3>③ 수량 확인 없이 정리 <span class="rg-card-hint">수량을 세지 않고 종류에 맞게 정리만 하면 되는 구성품</span></h3>
+      ${rg.noCountItems.map((it,idx)=>`
+        <div class="rg-view-row rg-edit-row">
+          ${rgPhotoControl_('noCountItems', idx, it.photo)}
+          <div class="rg-edit-fields">
+            <input type="text" class="rg-in rg-in-name" placeholder="구성품명" value="${escHtml_(it.name||'')}" onchange="updateGuideItem_('noCountItems',${idx},'name',this.value)">
+            <textarea class="rg-in" placeholder="설명 (선택)" rows="2" onchange="updateGuideItem_('noCountItems',${idx},'desc',this.value)">${escHtml_(it.desc||'')}</textarea>
+          </div>
+          ${del('noCountItems', idx)}
+          ${rgStandardsControl_('noCountItems', idx, it.standardIds)}
+        </div>`).join('') || empty('등록된 항목이 없습니다.')}
+      ${addBtn('noCountItems', "{name:'',desc:'',photo:null,standardIds:[]}", '+ 항목 추가')}
+    </div>`);
+  cards.push(`
+    <div class="rg-card">
+      <h3>④ 게임별 기타사항 <span class="rg-card-hint">이 게임에만 해당하는 특수한 작업</span></h3>
+      ${rg.otherNotes.map((it,idx)=>`
+        <div class="rg-view-row rg-edit-row">
+          <textarea class="rg-in" placeholder="예: 단어 타일의 보드마카 흔적 지우기" rows="1" onchange="updateGuideItem_('otherNotes',${idx},'text',this.value)">${escHtml_(it.text||'')}</textarea>
+          ${del('otherNotes', idx)}
+        </div>`).join('') || empty('등록된 기타사항이 없습니다.')}
+      ${addBtn('otherNotes', "{text:''}", '+ 기타사항 추가')}
+    </div>`);
+
   return `
-    <div style="margin-bottom:18px; padding:12px 14px; background:var(--surface); border:1px solid var(--line); border-radius:10px;">
-      <label style="display:flex; align-items:center; gap:8px; font-size:13px; font-weight:700; cursor:pointer;">
-        <input type="checkbox" ${rg.published?'checked':''} onchange="toggleGuidePublished_(this.checked)"> 반납대 가이드 게시 (체크해야 뷰어에게 보입니다)
+    <div class="rg-edit-bar">
+      <label class="rg-edit-toggle ${rg.published?'on':''}">
+        <input type="checkbox" ${rg.published?'checked':''} onchange="toggleGuidePublished_(this.checked)"> ${rg.published ? '게시 중 (매장에 보임)' : '미게시 (매장에 안 보임)'}
       </label>
-      <p style="margin-top:6px;">필수 구성품 ${rg.requiredItems.length}종</p>
-      <label style="display:flex; align-items:center; gap:8px; margin-top:10px; font-size:13px; font-weight:700;">
-        ⏱ 반납 관리 예상 소요 시간
-        <input type="number" min="0" step="1" inputmode="numeric" value="${rg.estMinutes ?? ''}" placeholder="예: 3" onchange="updateEstMinutes_(this.value)" style="width:80px; padding:5px 8px;"> 분
-        <span style="font-weight:400; font-size:11.5px; color:var(--ink-soft);">비워두면 뷰어에 표시되지 않습니다</span>
+      <label class="rg-edit-min">⏱ 예상 소요
+        <input type="number" min="0" step="1" inputmode="numeric" value="${rg.estMinutes ?? ''}" placeholder="-" onchange="updateEstMinutes_(this.value)"> 분
       </label>
+      <span class="rg-card-hint" style="margin-left:auto;">매장 화면과 같은 배치입니다 · 수정 후 💾 저장</span>
     </div>
-
-    ${g.photos && g.photos.length ? `
-      <p style="font-size:11.5px; color:var(--ink-soft); margin:0 0 10px;">아래는 "사진" 탭에 정리된 자료를 그대로 가져온 미리보기입니다 (읽기 전용 — 고치려면 사진 탭에서 수정하세요).</p>
-      ${renderReturnGuidePhotoGridHtml_(g)}
-    ` : ''}
-
-    <h3 style="font-size:14px; margin:0 0 8px;">① 필수 구성품 확인 <span style="font-weight:400; color:var(--ink-soft);">— 반납될 때마다 정확한 수량을 확인해야 하는 구성품</span></h3>
-    ${rg.requiredItems.map((it,idx)=>`
-      <div class="rg-row">
-        ${rgPhotoControl_('requiredItems', idx, it.photo)}
-        <input type="text" placeholder="구성품명" value="${it.name||''}" onchange="updateGuideItem_('requiredItems',${idx},'name',this.value)" style="flex:1; min-width:100px;">
-        <input type="number" placeholder="필수 수량" value="${it.qty||0}" onchange="updateGuideItem_('requiredItems',${idx},'qty',this.value,true)" style="width:80px;">
-        <input type="text" placeholder="확인 방법 (선택)" value="${it.note||''}" onchange="updateGuideItem_('requiredItems',${idx},'note',this.value)" style="flex:1; min-width:100px;">
-        <button class="btn btn-ghost2" style="width:auto; padding:5px 10px; font-size:12px;" onclick="deleteGuideItem_('requiredItems',${idx})">✕</button>
-        ${rgStandardsControl_('requiredItems', idx, it.standardIds)}
+    <div class="rg-split ${hasPhotos?'':'no-photos'}" id="rgSplit">
+      <div class="rg-pane">
+        <div class="rg-pane-head">📋 상세 관리 내용 <span class="rg-card-hint">편집</span></div>
+        <div class="rg-pane-body">
+          <div class="rg-stack">
+            ${cards.join('')}
+            <div class="rg-card">
+              <h3>⑤ 관리 정보 <span class="rg-card-hint">프로텍터 규격 등 참고정보</span></h3>
+              <textarea class="rg-in" placeholder="예: 프로텍터 63.5×88 / 77×112" rows="2" onchange="updateProtectorInfo_(this.value)">${escHtml_(rg.protectorInfo||'')}</textarea>
+            </div>
+            <div class="rg-notice" style="margin-top:0;">
+              <b>⑥ 공통 안내</b> <span class="rg-card-hint">모든 게임에 공통 · 한 줄에 한 항목 · 바로 저장됨</span>
+              <textarea class="rg-in" rows="4" style="margin-top:8px;" onchange="updateReturnGuideCommonNotice_(this.value)">${escHtml_(returnGuideCommonNotice_||'')}</textarea>
+            </div>
+          </div>
+        </div>
       </div>
-    `).join('') || '<p style="color:var(--ink-soft); font-size:12.5px;">등록된 필수 구성품이 없습니다.</p>'}
-    <button class="anno-additem" onclick="addGuideItem_('requiredItems',{name:'',qty:1,note:'',photo:null,standardIds:[]})">+ 필수 구성품 추가</button>
-
-    <h3 style="font-size:14px; margin:22px 0 8px;">② 정리 방법 <span style="font-weight:400; color:var(--ink-soft);">— 반드시 지켜야 하는 분류·수납 방법</span></h3>
-    ${rg.sortingSteps.map((it,idx)=>`
-      <div class="rg-row" style="align-items:flex-start;">
-        ${rgPhotoControl_('sortingSteps', idx, it.photo)}
-        <input type="text" placeholder="제목" value="${it.title||''}" onchange="updateGuideItem_('sortingSteps',${idx},'title',this.value)" style="flex:1; min-width:100px;">
-        <textarea placeholder="설명" rows="2" style="flex:2; min-width:140px;" onchange="updateGuideItem_('sortingSteps',${idx},'desc',this.value)">${it.desc||''}</textarea>
-        <button class="btn btn-ghost2" style="width:auto; padding:5px 10px; font-size:12px;" onclick="deleteGuideItem_('sortingSteps',${idx})">✕</button>
-      </div>
-    `).join('') || '<p style="color:var(--ink-soft); font-size:12.5px;">등록된 정리 방법이 없습니다.</p>'}
-    <button class="anno-additem" onclick="addGuideItem_('sortingSteps',{title:'',desc:'',photo:null})">+ 정리 방법 추가</button>
-
-    <h3 style="font-size:14px; margin:22px 0 8px;">③ 수량 확인 없이 정리 <span style="font-weight:400; color:var(--ink-soft);">— 수량을 세지 않고 종류에 맞게 정리만 하면 되는 구성품</span></h3>
-    ${rg.noCountItems.map((it,idx)=>`
-      <div class="rg-row" style="align-items:flex-start;">
-        ${rgPhotoControl_('noCountItems', idx, it.photo)}
-        <input type="text" placeholder="구성품명" value="${it.name||''}" onchange="updateGuideItem_('noCountItems',${idx},'name',this.value)" style="flex:1; min-width:100px;">
-        <textarea placeholder="설명 (선택)" rows="2" style="flex:2; min-width:140px;" onchange="updateGuideItem_('noCountItems',${idx},'desc',this.value)">${it.desc||''}</textarea>
-        <button class="btn btn-ghost2" style="width:auto; padding:5px 10px; font-size:12px;" onclick="deleteGuideItem_('noCountItems',${idx})">✕</button>
-        ${rgStandardsControl_('noCountItems', idx, it.standardIds)}
-      </div>
-    `).join('') || '<p style="color:var(--ink-soft); font-size:12.5px;">등록된 항목이 없습니다.</p>'}
-    <button class="anno-additem" onclick="addGuideItem_('noCountItems',{name:'',desc:'',photo:null,standardIds:[]})">+ 항목 추가</button>
-
-    <h3 style="font-size:14px; margin:22px 0 8px;">④ 게임별 기타사항 <span style="font-weight:400; color:var(--ink-soft);">— 이 게임에만 해당하는 특수한 작업</span></h3>
-    ${rg.otherNotes.map((it,idx)=>`
-      <div class="rg-row">
-        <textarea placeholder="예: 단어 타일의 보드마카 흔적 지우기" rows="1" style="flex:1;" onchange="updateGuideItem_('otherNotes',${idx},'text',this.value)">${it.text||''}</textarea>
-        <button class="btn btn-ghost2" style="width:auto; padding:5px 10px; font-size:12px;" onclick="deleteGuideItem_('otherNotes',${idx})">✕</button>
-      </div>
-    `).join('') || '<p style="color:var(--ink-soft); font-size:12.5px;">등록된 기타사항이 없습니다.</p>'}
-    <button class="anno-additem" onclick="addGuideItem_('otherNotes',{text:''})">+ 기타사항 추가</button>
-
-    <h3 style="font-size:14px; margin:22px 0 8px;">⑤ 관리 정보 <span style="font-weight:400; color:var(--ink-soft);">— 프로텍터 규격 등 참고정보</span></h3>
-    <textarea placeholder="예: 프로텍터 63.5×88 / 77×112" rows="2" style="width:100%; box-sizing:border-box; padding:6px 8px; border:1px solid var(--line); border-radius:6px; font-size:13px; font-family:var(--sans); resize:vertical;"
-      onchange="updateProtectorInfo_(this.value)">${rg.protectorInfo||''}</textarea>
-
-    <div class="rg-notice">
-      <b>⑥ 공통 안내</b> <span style="font-weight:400; color:var(--ink-soft);">— 모든 게임의 반납대 가이드 맨 아래에 공통으로 표시됩니다. 한 줄에 한 항목씩 적어주세요.</span>
-      <textarea rows="4" style="width:100%; box-sizing:border-box; margin-top:8px; padding:8px 10px; border:1px solid var(--line); border-radius:6px; font-size:12.5px; font-family:var(--sans); resize:vertical;"
-        onchange="updateReturnGuideCommonNotice_(this.value)">${returnGuideCommonNotice_||''}</textarea>
+      ${hasPhotos ? rgPhotoPaneHtml_(g, '사진 탭에서 수정') : ''}
     </div>
   `;
+}
+
+/** 반납대 가이드 오른쪽 "정리된 사진" 영역 (뷰어·편집자 공통). 사진은 populateReturnGuidePhotoGrid_가 채웁니다. */
+function rgPhotoPaneHtml_(g, note){
+  return `
+      <div class="rg-pane">
+        <div class="rg-pane-head">📷 정리된 사진 <span style="font-size:11px; font-weight:600; color:var(--ink-soft);">${note}</span></div>
+        <div class="rg-pane-body">
+          <div class="rg-photo-stack">
+            ${g.photos.map((p,i)=>`<div class="rg-photo-full" id="rgPhotoCell${i}"><span class="rg-photo-loading">불러오는 중...</span></div>`).join('')}
+          </div>
+        </div>
+      </div>`;
 }
 
 function renderReturnGuideViewer_(g, rg){
@@ -5885,15 +5941,7 @@ function renderReturnGuideViewer_(g, rg){
           </div>
         </div>
       </div>
-      ${hasPhotos ? `
-      <div class="rg-pane">
-        <div class="rg-pane-head">📷 정리된 사진 <span style="font-size:11px; font-weight:600; color:var(--ink-soft);">탭하면 크게</span></div>
-        <div class="rg-pane-body">
-          <div class="rg-photo-stack">
-            ${g.photos.map((p,i)=>`<div class="rg-photo-full" id="rgPhotoCell${i}"><span class="rg-photo-loading">불러오는 중...</span></div>`).join('')}
-          </div>
-        </div>
-      </div>` : ''}
+      ${hasPhotos ? rgPhotoPaneHtml_(g, '탭하면 크게') : ''}
     </div>
   `;
 }
