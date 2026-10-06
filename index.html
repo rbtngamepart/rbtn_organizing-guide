@@ -329,6 +329,18 @@
   .bn-scan.qr-scan-active .bn-pill{background:#1F7A5C;}
   .bn-scan.qr-scan-active .bn-knob{left:19.5px;}
   .bn-scan.qr-scan-active .bn-scan-lb{color:#1F7A5C;}
+  /* ---- 반납대 가이드 뷰어 모드: 헤더·탭·뒤로가기 등 불필요한 요소 제거 ---- */
+  body.rv-mode .topbar{display:none;}
+  body.rv-mode .viewer-back, body.rv-mode .viewer-head .tabs{display:none;}
+  body.rv-mode .app{padding-top:10px; padding-bottom:84px;}
+  body.rv-mode .viewer-head{margin-bottom:8px;}
+  .bn-scan.rv-on .bn-ic{filter:none;}
+  .bn-scan.rv-on .bn-scan-lb{color:#1F7A5C;}
+  .bn-scan.rv-on{background:#e8f4ee;}
+  .rv-standby{max-width:420px; margin:12vh auto 0; text-align:center; color:var(--ink-mid);}
+  .rv-standby .big{font-size:56px; margin-bottom:12px;}
+  .rv-standby h2{font-size:22px; margin:0 0 8px; color:var(--ink);}
+  .rv-standby p{font-size:14px; margin:0;}
   .more-menu{position:fixed; right:10px; bottom:calc(72px + env(safe-area-inset-bottom,0px)); z-index:45; background:var(--surface); border:1px solid var(--line); border-radius:12px; box-shadow:0 10px 28px rgba(0,0,0,.16); padding:6px; min-width:240px; display:none; flex-direction:column;}
   .more-menu.open{display:flex;}
   .more-menu button{all:unset; box-sizing:border-box; padding:12px 12px; border-radius:8px; font-size:13.5px; font-weight:600; cursor:pointer; color:var(--ink-mid); font-family:var(--sans);}
@@ -389,7 +401,10 @@
   .rg-pane .rg-card h3{font-size:14px;}
   .rg-pane .rg-view-row{font-size:16px;}
   .rg-pane .case-photo-wrap{background:#fff;}
-  .rg-item-main{font-size:16px; line-height:1.35;}
+  /* ①②③ 모두 같은 글자 크기: 이름/제목 16px 굵게, 설명·비고 14px */
+  .rg-pane .rg-item-main, .rg-pane .rg-view-row{font-size:16px; line-height:1.4;}
+  .rg-pane .rg-item-main > div:first-child, .rg-pane .rg-view-row > div > div:first-child, .rg-pane .rg-item-name{font-size:16px; font-weight:700; color:var(--ink);}
+  .rg-pane .rg-item-main > div:not(:first-child), .rg-pane .rg-view-row > div > div:not(:first-child){font-size:14px; font-weight:400; color:var(--ink-soft);}
   @media (max-width:480px){
     .rg-item-card .case-photo-wrap.mini, .rg-item-photo-empty{width:52px; height:52px; flex-basis:52px;}
   }
@@ -477,10 +492,10 @@
     <button id="moreMenuGameDb" onclick="closeMoreMenu_(); openGameDbAdmin_();">➕ 게임 DB 관리 · 엑셀 업로드 <span class="more-adm">관리자</span></button>
   </div>
   <nav class="bottom-nav" id="bottomNav">
-    <button class="bn-item" id="bnHome" onclick="renderList()"><span class="bn-ic">📋</span><span class="bn-lb">가이드</span></button>
-    <button class="bn-item" id="bnHistory" onclick="openScanHistory_()"><span class="bn-ic">🕓</span><span class="bn-lb">히스토리</span></button>
-    <button class="bn-scan" id="qrScanToggleBtn" onclick="toggleQrScanMode_()"><span class="bn-pill"><span class="bn-knob"></span></span><span class="bn-scan-lb" id="qrScanLabel">스캔 OFF</span></button>
-    <button class="bn-item" id="bnMaint" onclick="openMaintenance_()"><span class="bn-ic">🔧<span class="bn-badge" id="maintBadge" style="display:none;">0</span></span><span class="bn-lb">정기 점검</span></button>
+    <button class="bn-item" id="bnHome" onclick="exitReturnViewer_(); renderList()"><span class="bn-ic">📋</span><span class="bn-lb">가이드</span></button>
+    <button class="bn-item" id="bnHistory" onclick="exitReturnViewer_(); openScanHistory_()"><span class="bn-ic">🕓</span><span class="bn-lb">히스토리</span></button>
+    <button class="bn-scan" id="qrScanToggleBtn" onclick="toggleReturnViewer_()" title="누르면 스캔 모드가 켜지고 반납대 가이드 전용 화면으로 바뀝니다"><span class="bn-ic">📷</span><span class="bn-scan-lb" id="qrScanLabel">반납대 뷰어</span></button>
+    <button class="bn-item" id="bnMaint" onclick="exitReturnViewer_(); openMaintenance_()"><span class="bn-ic">🔧<span class="bn-badge" id="maintBadge" style="display:none;">0</span></span><span class="bn-lb">정기 점검</span></button>
     <button class="bn-item" id="bnMore" onclick="toggleMoreMenu_()"><span class="bn-ic">⋯</span><span class="bn-lb">더보기</span></button>
   </nav>
 </div>
@@ -741,7 +756,9 @@ function renderGuideAccessError_(message){
     <div style="max-width:380px; margin:70px auto; text-align:center;">
       <div style="font-size:38px; margin-bottom:14px;">⚠️</div>
       <p style="font-size:15px; font-weight:700; margin-bottom:20px;">${message}</p>
-      <button class="btn btn-primary2" style="width:auto; padding:9px 22px;" onclick="renderList()">← 게임 목록으로</button>
+      ${rvMode_
+        ? `<p style="font-size:13px; color:var(--ink-soft);">다른 게임의 QR코드를 스캔해주세요.</p>`
+        : `<button class="btn btn-primary2" style="width:auto; padding:9px 22px;" onclick="renderList()">← 게임 목록으로</button>`}
     </div>
   `;
 }
@@ -2000,8 +2017,49 @@ function updateQrScanIndicator_(){
   const btn = document.getElementById('qrScanToggleBtn');
   if (!btn) return;
   btn.classList.toggle('qr-scan-active', qrScanActive_);
+  btn.classList.toggle('rv-on', rvMode_);
   const lb = document.getElementById('qrScanLabel');
-  if (lb) lb.textContent = qrScanActive_ ? '스캔 ON' : '스캔 OFF';
+  if (lb) lb.textContent = rvMode_ ? '뷰어 ON · 나가기' : '반납대 뷰어';
+}
+
+// ============================================================
+// 반납대 가이드 뷰어 모드 (하단 가운데 버튼): 스캔 자동 ON + 헤더 없는 전용 화면
+// ============================================================
+let rvMode_ = false;
+function toggleReturnViewer_(){
+  if (rvMode_) exitReturnViewer_(); else enterReturnViewer_();
+}
+function enterReturnViewer_(){
+  if (rvMode_) return;
+  rvMode_ = true;
+  closeMoreMenu_();
+  document.body.classList.add('rv-mode');
+  activateQrScan_();
+  updateQrScanIndicator_();
+  setNavActive_('none');
+  if (currentGameId && games.some(x=>x.id===currentGameId)){
+    currentMode = 'return';
+    renderDetail();
+  } else {
+    renderReturnViewerStandby_();
+  }
+}
+function exitReturnViewer_(){
+  if (!rvMode_) return;
+  rvMode_ = false;
+  document.body.classList.remove('rv-mode');
+  deactivateQrScan_();
+  updateQrScanIndicator_();
+}
+function renderReturnViewerStandby_(){
+  leavePresence_();
+  currentGameId = null;
+  appEl.innerHTML = `
+    <div class="rv-standby">
+      <div class="big">📷</div>
+      <h2>게임 QR코드를 스캔하세요</h2>
+      <p>스캔하면 해당 게임의 반납대 가이드가 바로 표시됩니다.</p>
+    </div>`;
 }
 
 /** 스캐너가 보내온 문자열에서 게임 ID를 뽑아냅니다. QR에 전체 주소가 담겨 있어도,
@@ -2701,11 +2759,11 @@ async function createNewGame(){
 async function openGame(id, mode){
   leavePresence_(); // 이전 게임에 있던 접속/잠금 정리
   currentGameId = id;
-  currentMode = mode || 'photo';
+  currentMode = rvMode_ ? 'return' : (mode || 'photo');
   currentPhotoIdx = 0;
   renderDetail();
 
-  if (currentRole === 'editor'){
+  if (currentRole === 'editor' && !rvMode_){
     const gotLock = await ensureEditLockForGame_(id);
     if (!gotLock){
       currentRole = 'viewer';
@@ -2720,8 +2778,9 @@ async function openGame(id, mode){
 function renderDetail(){
   const g = games.find(x=>x.id===currentGameId);
   if (!g){ renderList(); return; }
-  const editable = currentRole === 'editor';
-  setNavActive_('home');
+  if (rvMode_) currentMode = 'return';
+  const editable = currentRole === 'editor' && !rvMode_;
+  setNavActive_(rvMode_ ? 'none' : 'home');
 
   if (editable){
     // 편집자 화면: 이름·ID 변경, QR코드, 가이드완료, 메모 등 관리용 도구를 모두 보여줍니다.
@@ -4862,7 +4921,7 @@ function ensureReturnGuide_(g){
 
 function renderReturnGuideTab(){
   const g = games.find(x=>x.id===currentGameId);
-  const editable = currentRole === 'editor';
+  const editable = currentRole === 'editor' && !rvMode_;
   const rg = ensureReturnGuide_(g);
   const body = document.getElementById('tabBody');
 
@@ -4988,6 +5047,8 @@ function openConditionPopup_(itemName, standardIds){
       </div>
     </div>
   `;
+  // 어두운 바깥 영역을 누르면 팝업이 닫힙니다.
+  backdrop.addEventListener('click', (e)=>{ if (e.target === backdrop) backdrop.remove(); });
   document.body.appendChild(backdrop);
   backdrop.querySelectorAll('.case-photo-wrap[data-photo]').forEach(wrap=>{
     const path = wrap.dataset.photo;
@@ -5176,7 +5237,7 @@ function renderReturnGuideViewer_(g, rg){
         ${it.photo ? thumb(it.photo) : `<div class="rg-item-photo-empty"></div>`}
         <div class="rg-item-main">
           ${rgClickableName_(it.name, it.standardIds)}
-          ${it.note ? `<div style="font-size:13px; color:var(--ink-soft); font-weight:400;">${it.note}</div>` : ''}
+          ${it.note ? `<div>${it.note}</div>` : ''}
         </div>
         <div class="rg-item-qty">${it.qty||0}개</div>
       </div>`;
@@ -5434,6 +5495,7 @@ function toggleMoreMenu_(){
   if (!m) return;
   const gameDb = document.getElementById('moreMenuGameDb');
   if (gameDb) gameDb.style.display = currentRole==='editor' ? 'block' : 'none';
+  exitReturnViewer_();
   m.classList.toggle('open');
 }
 function closeMoreMenu_(){ const m=document.getElementById('moreMenu'); if (m) m.classList.remove('open'); }
@@ -6081,6 +6143,7 @@ async function applyGameXlsx_(){
 
 // 전역에 노출 (onclick에서 호출하기 위함 - type="module"은 기본적으로 전역 스코프가 아니라서 필요)
 Object.assign(window, {
+  toggleReturnViewer_, enterReturnViewer_, exitReturnViewer_,
   switchStore_, toggleMoreMenu_, closeMoreMenu_, pickScanColor_, openScanHistory_, setHistRange_, openGameFromHistory_,
   openScanRanking_, setRankRange_, setRankCustom_, selectRankGame_, openMaintenance_, toggleMaintShowAll_, toggleMaintDetail_,
   saveMaintMemo_, completeMaint_, printMaintenance_, openOwnedGames_, toggleOwnedGame_, toggleOwnedPicker_, addOwnedColor_, removeOwnedColor_,
