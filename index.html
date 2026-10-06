@@ -381,11 +381,15 @@
   .rg-item-card .case-photo-wrap.mini{width:64px; height:64px; flex:0 0 64px; margin-bottom:0; border-radius:8px;}
   .rg-item-photo-empty{width:64px; height:64px; flex:0 0 64px; border-radius:8px; background:#EDEDE8; border:1px dashed var(--line-strong);}
   .rg-item-main{min-width:0; flex:1;}
-  .rg-item-qty{font-weight:800; color:var(--accent); font-family:var(--mono); font-size:13px; white-space:nowrap;}
+  .rg-item-qty{font-weight:800; color:var(--accent); font-family:var(--mono); font-size:15px; white-space:nowrap;}
   .rg-photo-stack{display:flex; flex-direction:column; gap:12px;}
   .rg-photo-full{position:relative; border-radius:8px; overflow:hidden; border:1px solid var(--line); background:#EDEDE8; min-height:60px; display:flex; align-items:center; justify-content:center; cursor:zoom-in;}
   .rg-photo-full img{width:100%; height:auto; display:block;}
-  .rg-rest{margin-top:12px; display:flex; flex-direction:column; gap:10px;}
+  .rg-stack{display:flex; flex-direction:column; gap:10px;}
+  .rg-pane .rg-card h3{font-size:14px;}
+  .rg-pane .rg-view-row{font-size:16px;}
+  .rg-pane .case-photo-wrap{background:#fff;}
+  .rg-item-main{font-size:16px; line-height:1.35;}
   @media (max-width:480px){
     .rg-item-card .case-photo-wrap.mini, .rg-item-photo-empty{width:52px; height:52px; flex-basis:52px;}
   }
@@ -3788,9 +3792,36 @@ function wrapCanvasText_(ctx, text, maxWidth){
   return lines.length ? lines : [''];
 }
 
+/** 업로드 시 "전체 축소"를 쓰면 사진 둘레에 단색 여백(#F6F6F3)이 구워져 저장됩니다.
+ *  그 여백을 뺀 실제 사진 영역을 비율(0~1)로 돌려줍니다. 여백이 없거나 못 찾으면 null. */
+function detectContentBox_(img){
+  const sc = Math.min(1, 600 / Math.max(img.width, img.height));
+  const w = Math.max(1, Math.round(img.width*sc)), h = Math.max(1, Math.round(img.height*sc));
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const cx = c.getContext('2d', { willReadFrequently:true });
+  cx.drawImage(img, 0, 0, w, h);
+  const d = cx.getImageData(0, 0, w, h).data;
+  const bg = [246,246,243], tol = 22;
+  const colCnt = new Array(w).fill(0), rowCnt = new Array(h).fill(0);
+  for (let y=0; y<h; y++){
+    for (let x=0; x<w; x++){
+      const i = (y*w + x)*4;
+      if (Math.abs(d[i]-bg[0])>tol || Math.abs(d[i+1]-bg[1])>tol || Math.abs(d[i+2]-bg[2])>tol){ colCnt[x]++; rowCnt[y]++; }
+    }
+  }
+  const need = 3; // 잡티 한두 픽셀에 속지 않도록 최소 개수
+  let x0 = colCnt.findIndex(v=>v>=need), y0 = rowCnt.findIndex(v=>v>=need);
+  let x1 = w-1 - [...colCnt].reverse().findIndex(v=>v>=need), y1 = h-1 - [...rowCnt].reverse().findIndex(v=>v>=need);
+  if (x0 < 0 || y0 < 0 || x1 <= x0 || y1 <= y0) return null;
+  const fx = x0/w, fy = y0/h, fw = (x1+1-x0)/w, fh = (y1+1-y0)/h;
+  if (fx < 0.01 && fy < 0.01 && fw > 0.98 && fh > 0.98) return null; // 여백 없음
+  return { x:fx, y:fy, w:fw, h:fh };
+}
+
 async function renderPhotoToCanvas_(g, photo, refWidth, opts){
   const labelOnly = !!(opts && opts.labelOnly); // true면 마커·연결선·텍스트박스 없이 라벨만, 사진은 원본 비율 그대로
   let imgRect = null;
+  const labelBounds = [];
   // 마커/텍스트박스/라벨의 px 크기(패딩·폰트 등)는 실제 화면의 사진 영역 폭을 기준으로 정해져 있으므로,
   // 지금 화면에 실제로 그려진 사진 영역 폭을 그대로 기준 삼아야 화면에서 보는 비율과 똑같이 나옵니다.
   const k = GUIDE_EXPORT_W / (refWidth || GUIDE_EXPORT_DEFAULT_REF_WIDTH);
@@ -3820,6 +3851,13 @@ async function renderPhotoToCanvas_(g, photo, refWidth, opts){
       const dx = (canvas.width-dw)/2, dy = (canvas.height-dh)/2;
       ctx.drawImage(img, dx, dy, dw, dh);
       imgRect = { dx, dy, dw, dh };
+      if (labelOnly){
+        // 업로드할 때 "전체 축소"로 사진 둘레에 넣어둔 여백을 찾아내 걷어냅니다 → 사진 원본 비율만 남음
+        try{
+          const bb = detectContentBox_(img);
+          if (bb) imgRect = { dx: dx + bb.x*dw, dy: dy + bb.y*dh, dw: bb.w*dw, dh: bb.h*dh };
+        }catch(e){ /* 감지 실패 시 전체를 그대로 사용 */ }
+      }
     }catch(e){
       console.error('가이드 이미지 내보내기: 사진 로드 실패 (Storage 버킷의 CORS 설정이 필요할 수 있습니다)', e);
       ctx.fillStyle = '#999';
@@ -4017,6 +4055,7 @@ async function renderPhotoToCanvas_(g, photo, refWidth, opts){
     }
     const left = (lbl.x/100)*canvas.width, top = (lbl.y/100)*canvas.height;
     const pivotX = left + w/2, pivotY = top + h/2;
+    { const rad=(lbl.rotation||0)*Math.PI/180; const bw=Math.abs(w*Math.cos(rad))+Math.abs(h*Math.sin(rad)), bh=Math.abs(w*Math.sin(rad))+Math.abs(h*Math.cos(rad)); labelBounds.push({x0:pivotX-bw/2, y0:pivotY-bh/2, x1:pivotX+bw/2, y1:pivotY+bh/2}); }
     ctx.save();
     ctx.translate(pivotX, pivotY);
     ctx.rotate((lbl.rotation||0) * Math.PI/180);
@@ -4046,6 +4085,10 @@ async function renderPhotoToCanvas_(g, photo, refWidth, opts){
   });
 
   if (labelOnly && imgRect){
+    // 라벨이 사진 가장자리 밖으로 걸쳐 있으면 잘리지 않도록 잘라낼 영역을 라벨까지 넓힙니다.
+    let r0 = imgRect.dx, r1 = imgRect.dx + imgRect.dw, q0 = imgRect.dy, q1 = imgRect.dy + imgRect.dh;
+    labelBounds.forEach(l=>{ r0=Math.min(r0,Math.max(0,l.x0)); r1=Math.max(r1,Math.min(canvas.width,l.x1)); q0=Math.min(q0,Math.max(0,l.y0)); q1=Math.max(q1,Math.min(canvas.height,l.y1)); });
+    imgRect = { dx:r0, dy:q0, dw:r1-r0, dh:q1-q0 };
     // 사진 영역만 잘라내서(4:3 여백 제거) 원본 비율 그대로 돌려줍니다.
     const out = document.createElement('canvas');
     out.width = Math.round(imgRect.dw);
@@ -5122,47 +5165,53 @@ function renderReturnGuideEditor_(g, rg){
 }
 
 function renderReturnGuideViewer_(g, rg){
-  // 좌: 필수 구성품(기본 2열, 이름이 길면 2열을 차지) + 나머지 안내 / 우: 정리된 사진(라벨만, 원본 비율).
-  // 두 영역은 각각 독립적으로 스크롤됩니다 (높이는 fitReturnSplit_()가 화면에 맞춥니다).
+  // 좌: "상세 관리 내용"(① 필수 구성품 확인 · ② 정리 방법 · ③ 수량 확인 없이 정리 · ④ 기타사항 … 모두 같은 카드 형식)
+  // 우: 정리된 사진(라벨만, 사진 원본 비율). 두 영역은 각각 독립적으로 스크롤됩니다 (높이는 fitReturnSplit_()가 맞춥니다).
   const hasPhotos = !!(g.photos && g.photos.length);
+  const thumb = (photo)=> photo ? `<div class="case-photo-wrap mini" data-photo="${photo}"><img class="case-photo-thumb" alt="" onclick="event.stopPropagation(); openPhotoLightbox_(this.src)"></div>` : '';
   const itemCard = (it)=>{
     const long = String(it.name||'').length > 11 || !!it.note;
     return `
       <div class="rg-item-card ${long?'wide':''}">
-        ${it.photo ? `<div class="case-photo-wrap mini checkerboard-bg" data-photo="${it.photo}"><img class="case-photo-thumb" alt="" onclick="event.stopPropagation(); openPhotoLightbox_(this.src)"></div>` : `<div class="rg-item-photo-empty"></div>`}
+        ${it.photo ? thumb(it.photo) : `<div class="rg-item-photo-empty"></div>`}
         <div class="rg-item-main">
           ${rgClickableName_(it.name, it.standardIds)}
-          ${it.note ? `<div style="font-size:11.5px; color:var(--ink-soft);">${it.note}</div>` : ''}
+          ${it.note ? `<div style="font-size:13px; color:var(--ink-soft); font-weight:400;">${it.note}</div>` : ''}
         </div>
         <div class="rg-item-qty">${it.qty||0}개</div>
       </div>`;
   };
-  const rest = [];
-  if (rg.sortingSteps.length) rest.push(`
+  const cards = [];
+  cards.push(`
+    <div class="rg-card">
+      <h3>① 필수 구성품 확인 <span class="case-badge case-ITEM" style="font-size:10.5px; padding:2px 8px;">${rg.requiredItems.length}종</span></h3>
+      ${rg.requiredItems.length ? `<div class="rg-items">${rg.requiredItems.map(itemCard).join('')}</div>` : `<p style="color:var(--ink-soft); font-size:13px;">필수 수량 확인 없음</p>`}
+    </div>`);
+  if (rg.sortingSteps.length) cards.push(`
     <div class="rg-card">
       <h3>② 정리 방법</h3>
       ${rg.sortingSteps.map(it=>`
         <div class="rg-view-row" style="align-items:flex-start;">
-          ${it.photo ? `<div class="case-photo-wrap mini checkerboard-bg" data-photo="${it.photo}"><img class="case-photo-thumb" alt="" onclick="event.stopPropagation(); openPhotoLightbox_(this.src)"></div>` : ''}
+          ${thumb(it.photo)}
           <div>
             <div style="font-weight:700;">${it.title||''}</div>
-            <div style="font-size:12px; color:var(--ink-soft); white-space:pre-wrap;">${it.desc||''}</div>
+            <div style="font-size:14px; color:var(--ink-soft); white-space:pre-wrap;">${it.desc||''}</div>
           </div>
         </div>`).join('')}
     </div>`);
-  if (rg.noCountItems.length) rest.push(`
+  if (rg.noCountItems.length) cards.push(`
     <div class="rg-card">
       <h3>③ 수량 확인 없이 정리</h3>
       ${rg.noCountItems.map(it=>`
         <div class="rg-view-row" style="align-items:flex-start;">
-          ${it.photo ? `<div class="case-photo-wrap mini checkerboard-bg" data-photo="${it.photo}"><img class="case-photo-thumb" alt="" onclick="event.stopPropagation(); openPhotoLightbox_(this.src)"></div>` : ''}
+          ${thumb(it.photo)}
           <div>
             ${rgClickableName_(it.name, it.standardIds)}
-            ${it.desc ? `<div style="font-size:12px; color:var(--ink-soft); white-space:pre-wrap;">${it.desc}</div>` : ''}
+            ${it.desc ? `<div style="font-size:14px; color:var(--ink-soft); white-space:pre-wrap;">${it.desc}</div>` : ''}
           </div>
         </div>`).join('')}
     </div>`);
-  if (rg.otherNotes.length) rest.push(`
+  if (rg.otherNotes.length) cards.push(`
     <div class="rg-card">
       <h3>④ 게임별 기타사항</h3>
       ${rg.otherNotes.map(it=>`<div class="rg-view-row">${it.text||''}</div>`).join('')}
@@ -5171,12 +5220,11 @@ function renderReturnGuideViewer_(g, rg){
   return `
     <div class="rg-split ${hasPhotos?'':'no-photos'}" id="rgSplit">
       <div class="rg-pane">
-        <div class="rg-pane-head">① 필수 구성품 확인 <span class="case-badge case-ITEM" style="font-size:10.5px; padding:2px 8px;">${rg.requiredItems.length}종</span></div>
+        <div class="rg-pane-head">📋 상세 관리 내용</div>
         <div class="rg-pane-body">
-          ${rg.requiredItems.length ? `<div class="rg-items">${rg.requiredItems.map(itemCard).join('')}</div>` : `<p style="color:var(--ink-soft); font-size:12.5px;">필수 수량 확인 없음</p>`}
-          <div class="rg-rest">
-            ${rest.join('')}
-            ${rg.protectorInfo ? `<p style="font-size:12px; color:var(--ink-soft);"><b>관리 정보</b> — ${rg.protectorInfo}</p>` : ''}
+          <div class="rg-stack">
+            ${cards.join('')}
+            ${rg.protectorInfo ? `<p style="font-size:13px; color:var(--ink-soft);"><b>관리 정보</b> — ${rg.protectorInfo}</p>` : ''}
             <div class="rg-notice" style="margin-top:0;">
               <b>공통 안내</b>
               <ul>${getReturnGuideCommonNoticeLines_().map(t=>`<li>${t}</li>`).join('')}</ul>
