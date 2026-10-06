@@ -515,18 +515,9 @@
   .report-item{display:flex; justify-content:space-between; gap:10px; align-items:flex-start; padding:8px 0; border-top:1px dashed var(--warn-line); flex-wrap:wrap;}
   .report-item:first-of-type{margin-top:8px;}
 
-  /* ---- 반납대 가이드: 필수 구성품 확인 체크 ---- */
-  .rg-check-bar{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:0 0 10px;}
-  .rg-check-bar .dash-progress-bar-track{flex:1; min-width:140px; height:16px; margin:0;}
-  .rg-check-actions{display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;}
-  .rg-check-actions .btn{width:auto; padding:7px 12px; font-size:12.5px;}
-  .rg-item-card.checkable{cursor:pointer; user-select:none; -webkit-tap-highlight-color:transparent;}
-  .rg-item-card.checkable:hover{border-color:var(--line-strong);}
-  .rg-item-card.checked{background:var(--done-bg); border-color:var(--done-line-strong);}
-  .rg-item-card.checked .rg-item-qty{color:#2E8B4A;}
-  .rg-check-box{flex:0 0 22px; width:22px; height:22px; border-radius:6px; border:2px solid var(--line-strong); background:var(--surface); display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:800; color:#fff;}
-  .rg-item-card.checked .rg-check-box{background:#2E8B4A; border-color:#2E8B4A;}
-  @media (max-width:560px){ .rg-items{grid-template-columns:minmax(0,1fr);} .rg-item-card.wide{grid-column:auto;} }
+  /* ---- 반납대 가이드: 누락·파손 신고 버튼 (① 제목 줄 오른쪽, 화면을 늘리지 않게 작게) ---- */
+  .rg-report-btn{margin-left:auto; border:1px solid var(--line-strong); background:var(--surface); color:var(--ink-mid); border-radius:999px; padding:3px 10px; font-size:11.5px; font-weight:700; cursor:pointer; font-family:var(--sans); white-space:nowrap;}
+  .rg-report-btn:hover{color:var(--accent); border-color:var(--accent);}
 
   /* ---- 확대 보기(라이트박스) ---- */
   .lightbox{position:fixed; inset:0; z-index:400; background:rgba(10,10,10,.92); overflow:hidden; touch-action:none;}
@@ -2764,6 +2755,8 @@ function openHelpModal(){
   const backdrop = document.createElement('div');
   backdrop.className = 'modal-backdrop';
   backdrop.id = 'helpBackdrop';
+  // 창 바깥의 어두운 영역을 누르면 닫힙니다.
+  backdrop.addEventListener('click', (e)=>{ if (e.target === backdrop) backdrop.remove(); });
   backdrop.innerHTML = `
     <div class="modal help-modal">
       <h3>이용 방법</h3>
@@ -2776,7 +2769,7 @@ function openHelpModal(){
         <li><b>작업 완료 체크</b> — 목록 카드에서 체크하면 내 계정 기준으로 완료 여부가 저장됩니다.</li>
         <li><b>구매 가이드</b> — 상단 "🛠️ 도구 → 🛒 구매 가이드"에서 필요한 케이스 수량과 구매 링크를 확인할 수 있습니다. "보유 재고"를 넣으면 더 사야 할 수량만, 단가를 넣으면 예상 금액도 계산합니다.</li>
         <li><b>⭐ 즐겨찾기 · 최근 본 게임</b> — 카드나 게임 제목 옆의 ☆을 누르면 즐겨찾기에 추가됩니다. 목록 맨 위에 즐겨찾기와 최근 본 게임이 바로가기로 나옵니다 (이 기기에만 저장).</li>
-        <li><b>✅ 필수 구성품 확인 · 누락 신고</b> — 반납대 가이드의 "① 필수 구성품 확인" 카드를 누르면 하나씩 확인 표시가 됩니다. 다 확인되면 바로 "작업 완료"로 체크할 수 있고, 빠진 게 있거나 파손·오염이 있으면 "누락·파손 신고"로 편집자에게 알립니다. 같은 게임을 다시 스캔하면 체크는 새로 시작됩니다.</li>
+        <li><b>⚠ 누락·파손 신고</b> — 반납대 가이드 "① 필수 구성품 확인" 제목 옆의 "⚠ 누락·파손 신고"를 누르고 내용을 적으면 편집자에게 전달됩니다.</li>
         <li><b>🔗 링크 · QR</b> — 게임 화면의 🔗(편집자는 "📱 QR코드")에서 이 게임의 반납대 가이드로 바로 들어오는 링크를 복사·공유하거나 QR 이미지를 저장할 수 있습니다. 목록에서 여러 게임을 체크하고 "QR 라벨 인쇄"를 누르면 선택한 게임이 담긴 채로 QR 라벨 인쇄 화면이 열립니다.</li>
         <li><b>🔍 크게 보기 · 🖨️ 인쇄</b> — 사진 탭의 "크게 보기"나 구성품·반납대 사진을 누르면 화면 가득 띄워 두 손가락(또는 휠)으로 확대할 수 있습니다. 🖨️ 인쇄는 사진과 체크리스트 표, 반납대 필수 구성품, QR을 한 장으로 정리해 인쇄합니다.</li>
         <li><b>🌓 화면 테마</b> — 상단의 🌓 버튼으로 자동(기기 설정) · 밝게 · 어둡게를 바꿀 수 있습니다.</li>
@@ -5828,14 +5821,10 @@ function renderReturnGuideViewer_(g, rg){
   // 우: 정리된 사진(라벨만, 사진 원본 비율). 두 영역은 각각 독립적으로 스크롤됩니다 (높이는 fitReturnSplit_()가 맞춥니다).
   const hasPhotos = !!(g.photos && g.photos.length);
   const thumb = (photo)=> photo ? `<div class="case-photo-wrap mini" data-photo="${photo}"><img class="case-photo-thumb" alt="" onclick="event.stopPropagation(); openPhotoLightbox_(this.src)"></div>` : '';
-  // 필수 구성품 카드는 눌러서 하나씩 "확인" 체크할 수 있습니다 (반납 정리 중 구성품 점검).
-  const checked = returnCheckSet_(g.id);
-  const itemCard = (it, idx)=>{
+  const itemCard = (it)=>{
     const long = String(it.name||'').length > 11 || !!it.note;
-    const on = checked.has(idx);
     return `
-      <div class="rg-item-card checkable ${long?'wide':''} ${on?'checked':''}" data-check-idx="${idx}" onclick="toggleReturnCheck_(${idx})" title="눌러서 확인 체크">
-        <span class="rg-check-box">${on?'✓':''}</span>
+      <div class="rg-item-card ${long?'wide':''}">
         ${it.photo ? thumb(it.photo) : `<div class="rg-item-photo-empty"></div>`}
         <div class="rg-item-main">
           ${rgClickableName_(it.name, it.standardIds)}
@@ -5847,10 +5836,9 @@ function renderReturnGuideViewer_(g, rg){
   const cards = [];
   cards.push(`
     <div class="rg-card">
-      <h3>① 필수 구성품 확인 <span class="case-badge case-ITEM" style="font-size:10.5px; padding:2px 8px;">${rg.requiredItems.length}종</span></h3>
-      <div class="rg-check-bar" id="rgCheckBar">${returnCheckBarHtml_(g, rg)}</div>
+      <h3>① 필수 구성품 확인 <span class="case-badge case-ITEM" style="font-size:10.5px; padding:2px 8px;">${rg.requiredItems.length}종</span>
+        <button class="rg-report-btn" onclick="submitMissingReport_()" title="빠진 구성품이나 파손·오염을 편집자에게 알립니다">⚠ 누락·파손 신고</button></h3>
       ${rg.requiredItems.length ? `<div class="rg-items">${rg.requiredItems.map(itemCard).join('')}</div>` : `<p style="color:var(--ink-soft); font-size:13px;">필수 수량 확인 없음</p>`}
-      <div class="rg-check-actions" id="rgCheckActions">${returnCheckActionsHtml_(g, rg)}</div>
     </div>`);
   if (rg.sortingSteps.length) cards.push(`
     <div class="rg-card">
@@ -6248,104 +6236,23 @@ document.addEventListener('keydown', (e)=>{
 
 /**
  * ============================================================
- * 반납대 가이드 "① 필수 구성품 확인" 체크 · 누락 신고
+ * 반납대 가이드 누락·파손 신고
  * ============================================================
- * 반납된 게임을 정리하면서 필수 구성품 카드를 눌러 하나씩 확인합니다. 체크 상태는 이 화면을
- * 보는 동안만 기억하고(게임마다 따로), 같은 게임을 QR로 다시 스캔하면 새 반납으로 보고 비웁니다.
- * 빠진 구성품이 있으면 "누락 신고"로 게임 문서(missingReports)에 1건을 추가해서 편집자가 확인합니다.
+ * 반납대에서는 QR 스캔 이후 추가 조작을 최소화해야 하므로 구성품별 체크는 두지 않고,
+ * 문제가 있을 때만 "⚠ 누락·파손 신고" 한 번으로 내용을 적어 게임 문서(missingReports)에 1건을 추가합니다.
  */
-let returnCheck_ = {}; // gameId -> Set(필수 구성품 번호)
-
-function returnCheckSet_(gameId){
-  const k = String(gameId);
-  if (!returnCheck_[k]) returnCheck_[k] = new Set();
-  return returnCheck_[k];
-}
-function clearReturnCheck_(gameId){ delete returnCheck_[String(gameId)]; }
-
-function returnCheckBarHtml_(g, rg){
-  const total = rg.requiredItems.length;
-  if (!total) return '';
-  const set = returnCheckSet_(g.id);
-  [...set].forEach(i => { if (i >= total) set.delete(i); }); // 가이드가 바뀌어 없어진 항목의 체크는 버립니다
-  const done = set.size;
-  const pct = Math.round(done/total*100);
-  return `
-    <div class="dash-progress-bar-track"><div class="dash-progress-bar-fill" style="width:${pct}%; background:${done===total?'#2E8B4A':'var(--accent)'};"></div><div class="dash-progress-bar-label">${done} / ${total} 확인</div></div>
-    ${done ? `<button class="btn btn-ghost2" style="width:auto; padding:5px 10px; font-size:12px;" onclick="resetReturnCheck_()">초기화</button>` : ''}`;
-}
-function returnCheckActionsHtml_(g, rg){
-  const total = rg.requiredItems.length;
-  const done = total ? returnCheckSet_(g.id).size : 0;
-  const myEmail = auth.currentUser?.email?.toLowerCase();
-  const alreadyDone = !!myEmail && (g.completedBy||[]).includes(myEmail);
-  return `
-    ${total && done === total
-      ? `<button class="btn btn-primary2" onclick="markWorkDoneFromCheck_()" ${alreadyDone?'disabled':''}>${alreadyDone ? '✅ 작업 완료로 체크됨' : '✅ 모두 확인됨 · 작업 완료로 체크'}</button>`
-      : ''}
-    <button class="btn btn-ghost2" onclick="submitMissingReport_()">⚠ 누락·파손 신고${total && done < total ? ` (미확인 ${total-done}개)` : ''}</button>`;
-}
-/** 체크할 때마다 반납대 가이드 전체를 다시 그리면 사진 미리보기까지 다시 만들어지므로,
- *  카드 표시와 진행 막대만 바꿔줍니다. */
-function refreshReturnCheckUI_(){
-  const g = currentGame_(); if (!g) return;
-  const rg = ensureReturnGuide_(g);
-  const set = returnCheckSet_(g.id);
-  document.querySelectorAll('.rg-item-card[data-check-idx]').forEach(el=>{
-    const on = set.has(Number(el.dataset.checkIdx));
-    el.classList.toggle('checked', on);
-    const box = el.querySelector('.rg-check-box');
-    if (box) box.textContent = on ? '✓' : '';
-  });
-  const bar = document.getElementById('rgCheckBar');
-  if (bar) bar.innerHTML = returnCheckBarHtml_(g, rg);
-  const actions = document.getElementById('rgCheckActions');
-  if (actions) actions.innerHTML = returnCheckActionsHtml_(g, rg);
-}
-function toggleReturnCheck_(idx){
-  const g = currentGame_(); if (!g) return;
-  const set = returnCheckSet_(g.id);
-  if (set.has(idx)) set.delete(idx); else set.add(idx);
-  refreshReturnCheckUI_();
-}
-function resetReturnCheck_(){
-  const g = currentGame_(); if (!g) return;
-  clearReturnCheck_(g.id);
-  refreshReturnCheckUI_();
-}
-async function markWorkDoneFromCheck_(){
-  const g = currentGame_(); if (!g) return;
-  const myEmail = auth.currentUser?.email?.toLowerCase();
-  if ((g.completedBy||[]).includes(myEmail)){ toast_('이미 작업 완료로 체크되어 있습니다'); return; }
-  const ok = await toggleWorkComplete(g.id, true, null);
-  if (ok === false) return;
-  refreshReturnCheckUI_();
-  toast_('작업 완료로 체크했습니다 ✓');
-}
-
 async function submitMissingReport_(){
   const g = currentGame_(); if (!g) return;
-  const rg = ensureReturnGuide_(g);
-  const set = returnCheckSet_(g.id);
-  const missing = rg.requiredItems
-    .map((it, i) => ({ i, name: it.name || '', qty: Number(it.qty) || 0 }))
-    .filter(m => !set.has(m.i))
-    .map(({ name, qty }) => ({ name, qty }));
-  const preview = missing.length
-    ? `체크하지 않은 필수 구성품 ${missing.length}개를 누락으로 신고합니다.\n\n` +
-      missing.slice(0, 10).map(m=>`· ${m.name}${m.qty?` ${m.qty}개`:''}`).join('\n') + (missing.length > 10 ? `\n… 외 ${missing.length-10}개` : '') +
-      `\n\n추가로 남길 내용(파손·오염 등)이 있으면 적어주세요 (선택):`
-    : `누락·파손·오염 등 편집자에게 알릴 내용을 적어주세요:`;
-  const memo = prompt(preview, '');
+  const memo = prompt(`"${g.name || g.id}"의 빠진 구성품이나 파손·오염 내용을 적어주세요 (예: 귀족 타일 2장 없음):`, '');
   if (memo === null) return;
-  if (!missing.length && !memo.trim()){ alert('신고할 내용을 적어주세요.'); return; }
+  if (!memo.trim()){ alert('신고할 내용을 적어주세요.'); return; }
   const report = {
     id: `${Date.now()}_${Math.random().toString(36).slice(2,7)}`,
     at: Date.now(),
     email: auth.currentUser?.email?.toLowerCase() || '',
     name: (myProfile_ && myProfile_.name) || '',
     storeCode: activeStoreCode_ || (myProfile_ && myProfile_.storeCode) || '',
-    items: missing,
+    items: [],
     memo: memo.trim(),
     resolved: false
   };
@@ -6364,10 +6271,11 @@ function storeNameOf_(code){ return (storeList_.find(s=>s.code===code) || {}).na
 
 function renderReportBanner_(g){
   const open = openReportsOf_(g);
-  if (!open.length) return '';
+  // 반납대(매장) 화면은 한 화면에 모든 내용이 들어가야 하므로, 신고 목록은 편집자 화면에서만 보여줍니다.
   const editable = currentRole === 'editor' && !rvMode_;
+  if (!open.length || !editable) return '';
   return `<details class="report-banner" ${editable?'open':''}>
-    <summary>⚠ 미해결 누락 신고 ${open.length}건${editable ? '' : ' (편집자가 확인 중입니다)'}</summary>
+    <summary>⚠ 미해결 누락 신고 ${open.length}건</summary>
     ${open.slice().sort((a,b)=>b.at-a.at).map(r=>`
       <div class="report-item">
         <div style="flex:1; min-width:200px;">
@@ -6996,7 +6904,6 @@ function getOwnedColors_(gameId){
  *  색상 칩이 바로 보이도록 currentScan_은 즉시(동기적으로) 만들고, 저장은 이어서 비동기로 처리합니다. */
 function logQrScan_(g){
   const id = String(g.id);
-  clearReturnCheck_(id); // 새로 스캔했으면 새로 반납된 것이므로 이전 구성품 체크는 비웁니다
   currentScan_ = { gameId:id, scanId:null, color:null, ready:Promise.resolve() };
   if (!activeStoreCode_) return;
   const now = Date.now();
@@ -7643,7 +7550,7 @@ Object.assign(window, {
   setPurchaseStock_, setPurchasePrice_, clearPurchaseStock_, copyPurchaseList_,
   renderTrash_, restoreGame_, purgeGame_,
   undo_, redo_, setAutosave_,
-  toggleReturnCheck_, resetReturnCheck_, markWorkDoneFromCheck_, submitMissingReport_, resolveReport_,
+  submitMissingReport_, resolveReport_,
   printSelectedQr_, printGameGuide_,
   openLightbox_, closeLightbox_, lightboxStep_, lightboxZoomBy_, lightboxFit_,
   generateMissingThumbs_, showHistoryPreview_
