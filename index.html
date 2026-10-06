@@ -66,7 +66,6 @@
   #roleToggle{display:flex; align-items:center; gap:4px; background:var(--bg); border:1px solid var(--line); border-radius:999px; padding:3px;}
   #roleToggle button{border:none; background:transparent; padding:6px 14px; border-radius:999px; font-size:12.5px; font-weight:700; cursor:pointer; color:var(--ink-soft); font-family:var(--sans);}
   #roleToggle button.active{background:var(--ink); color:#fff;}
-  #qrScanToggleBtn.qr-scan-active{background:#1F7A5C; border-color:#1F7A5C; color:#fff; animation:qrScanPulse 1.4s ease-in-out infinite;}
   @keyframes qrScanPulse{ 0%,100%{opacity:1;} 50%{opacity:.72;} }
 
   .app{max-width:1080px; margin:0 auto; padding:20px 24px 60px;}
@@ -315,6 +314,102 @@
     .tabs button{flex:1; padding:8px 10px; font-size:12.5px;}
     .modal{max-width:none; width:100%;}
   }
+
+  /* ---- 하단 내비게이션 ---- */
+  .app{padding-bottom:96px;}
+  .bottom-nav{position:fixed; left:0; right:0; bottom:0; z-index:40; background:var(--surface); border-top:1px solid var(--line); display:grid; grid-template-columns:repeat(5,1fr); padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px)); box-shadow:0 -2px 12px rgba(0,0,0,.05);}
+  .bn-item, .bn-scan{all:unset; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; padding:6px 2px; border-radius:10px; cursor:pointer; min-height:52px; font-family:var(--sans);}
+  .bn-item:hover, .bn-scan:hover{background:var(--bg);}
+  .bn-ic{font-size:20px; line-height:1; position:relative;}
+  .bn-lb, .bn-scan-lb{font-size:11px; font-weight:700; color:var(--ink-soft);}
+  .bn-item.active .bn-lb{color:var(--accent);}
+  .bn-badge{position:absolute; top:-6px; right:-12px; background:var(--accent); color:#fff; font-size:10px; font-weight:800; min-width:17px; height:17px; border-radius:999px; display:flex; align-items:center; justify-content:center; padding:0 4px; font-family:var(--sans);}
+  .bn-pill{width:40px; height:23px; border-radius:999px; background:#d6d6d0; position:relative; transition:background .15s;}
+  .bn-knob{position:absolute; top:2.5px; left:2.5px; width:18px; height:18px; border-radius:50%; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.3); transition:left .15s;}
+  .bn-scan.qr-scan-active .bn-pill{background:#1F7A5C;}
+  .bn-scan.qr-scan-active .bn-knob{left:19.5px;}
+  .bn-scan.qr-scan-active .bn-scan-lb{color:#1F7A5C;}
+  .more-menu{position:fixed; right:10px; bottom:calc(72px + env(safe-area-inset-bottom,0px)); z-index:45; background:var(--surface); border:1px solid var(--line); border-radius:12px; box-shadow:0 10px 28px rgba(0,0,0,.16); padding:6px; min-width:240px; display:none; flex-direction:column;}
+  .more-menu.open{display:flex;}
+  .more-menu button{all:unset; box-sizing:border-box; padding:12px 12px; border-radius:8px; font-size:13.5px; font-weight:600; cursor:pointer; color:var(--ink-mid); font-family:var(--sans);}
+  .more-menu button:hover{background:var(--bg);}
+  .more-adm{font-size:10px; font-weight:700; background:var(--accent-soft); color:var(--accent); padding:1px 6px; border-radius:999px; margin-left:4px;}
+
+  /* ---- 스캔 색상 칩 / 매장 영역 / 공통 페이지 요소 ---- */
+  .scan-chips{display:flex; align-items:center; gap:8px; flex-wrap:nowrap; overflow-x:auto; max-width:100%;}
+  .scan-chips .sc-lb{font-size:11px; font-weight:700; color:var(--ink-soft); white-space:nowrap;}
+  .sc-chip{width:44px; height:44px; flex:0 0 44px; border-radius:50%; border:3px solid #fff; box-shadow:0 0 0 1.5px var(--line-strong); cursor:pointer; display:flex; align-items:center; justify-content:center; color:#fff; font-size:19px; font-weight:800; padding:0; font-family:var(--sans);}
+  .sc-chip.sel{box-shadow:0 0 0 3px var(--ink);}
+  .sc-chip.light{color:#333;}
+  .st-bar{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:12px;}
+  .st-bar select, .st-bar input[type=date]{padding:8px 10px; border:1px solid var(--line); border-radius:8px; font-size:13px; font-family:var(--sans); background:var(--surface);}
+  .chip-btn{border:1px solid var(--line); background:var(--surface); color:var(--ink-soft); font-size:12.5px; font-weight:700; padding:7px 13px; border-radius:999px; cursor:pointer; font-family:var(--sans);}
+  .chip-btn.on{background:var(--ink); color:#fff; border-color:var(--ink);}
+  .stat-row{display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:8px; margin-bottom:14px;}
+  .stat-box{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:10px 13px;}
+  .stat-box .n{font-size:20px; font-weight:800; color:var(--accent);}
+  .stat-box .l{font-size:11.5px; color:var(--ink-soft);}
+  .row-card{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:10px 13px; margin-bottom:8px;}
+  .row-card.clickable{cursor:pointer;}
+  .row-top{display:flex; align-items:center; gap:10px;}
+  .row-name{font-size:14px; font-weight:700;}
+  .row-sub{font-size:11.5px; color:var(--ink-soft);}
+  .mini-bar{height:5px; background:var(--line); border-radius:3px; overflow:hidden; margin-top:5px;}
+  .mini-bar > i{display:block; height:100%; background:var(--accent);}
+  .day-title{font-size:12.5px; font-weight:800; color:var(--ink-soft); margin:14px 2px 7px;}
+  .cdot{display:inline-block; width:14px; height:14px; border-radius:50%; border:1.5px solid rgba(0,0,0,.18); vertical-align:middle;}
+  .trend{display:flex; align-items:flex-end; gap:3px; height:110px; margin-top:10px; padding-top:6px;}
+  .trend .tb{flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; gap:3px;}
+  .trend .tb i{display:block; width:100%; background:#f2c9c7; border-radius:3px 3px 0 0; min-height:2px;}
+  .trend .tb i.hi{background:var(--accent);}
+  .trend .tb span{font-size:9.5px; color:var(--ink-soft); height:12px; white-space:nowrap;}
+  .btn-sm{width:auto; margin:0; padding:7px 12px; font-size:12.5px;}
+  .xl-table{width:100%; border-collapse:collapse; font-size:12.5px;}
+  .xl-table th, .xl-table td{border:1px solid var(--line); padding:6px 8px; text-align:left;}
+  .xl-table th{background:var(--bg);}
+  .xl-ok{color:#1F7A5C; font-weight:700;} .xl-err{color:var(--accent); font-weight:700;} .xl-warn{color:#b45309; font-weight:700;}
+
+  /* ---- 반납대 가이드: 좌(구성품)/우(정리된 사진) 독립 스크롤 ---- */
+  .rg-split{display:grid; grid-template-columns:minmax(0,1.1fr) minmax(0,1fr); gap:12px; align-items:stretch;}
+  .rg-split.no-photos{grid-template-columns:minmax(0,1fr);}
+  .rg-pane{background:var(--surface); border:1px solid var(--line); border-radius:12px; display:flex; flex-direction:column; min-height:0; overflow:hidden;}
+  .rg-pane-head{padding:10px 13px; border-bottom:1px solid var(--line); font-size:13.5px; font-weight:800; display:flex; align-items:center; gap:7px; flex:0 0 auto;}
+  .rg-pane-body{padding:11px 13px 14px; overflow-y:auto; flex:1; min-height:0; -webkit-overflow-scrolling:touch;}
+  .rg-items{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); grid-auto-flow:dense; gap:8px;}
+  .rg-item-card{display:flex; gap:9px; align-items:center; background:var(--bg); border:1px solid var(--line); border-radius:10px; padding:7px 9px; min-width:0;}
+  .rg-item-card.wide{grid-column:span 2;}
+  .rg-item-card .case-photo-wrap.mini{width:64px; height:64px; flex:0 0 64px; margin-bottom:0; border-radius:8px;}
+  .rg-item-photo-empty{width:64px; height:64px; flex:0 0 64px; border-radius:8px; background:#EDEDE8; border:1px dashed var(--line-strong);}
+  .rg-item-main{min-width:0; flex:1;}
+  .rg-item-qty{font-weight:800; color:var(--accent); font-family:var(--mono); font-size:13px; white-space:nowrap;}
+  .rg-photo-stack{display:flex; flex-direction:column; gap:12px;}
+  .rg-photo-full{position:relative; border-radius:8px; overflow:hidden; border:1px solid var(--line); background:#EDEDE8; min-height:60px; display:flex; align-items:center; justify-content:center; cursor:zoom-in;}
+  .rg-photo-full img{width:100%; height:auto; display:block;}
+  .rg-rest{margin-top:12px; display:flex; flex-direction:column; gap:10px;}
+  @media (max-width:480px){
+    .rg-item-card .case-photo-wrap.mini, .rg-item-photo-empty{width:52px; height:52px; flex-basis:52px;}
+  }
+  @media (max-width:720px){
+    .rg-split{grid-template-columns:1fr; height:auto !important;}
+    .rg-pane{overflow:visible;}
+    .rg-pane-body{overflow:visible;}
+  }
+
+  /* ---- 정기 점검 인쇄 ---- */
+  #printArea{display:none;}
+  @media print{
+    @page{size:A4; margin:12mm;}
+    body.printing-maint #appRoot, body.printing-maint #loginGate{display:none !important;}
+    body.printing-maint{background:#fff;}
+    body.printing-maint #printArea{display:block;}
+    .print-title{font-size:18px; font-weight:800; margin:0 0 4px;}
+    .print-sub{font-size:11px; color:#555; margin:0 0 10px;}
+    .print-table{width:100%; border-collapse:collapse; font-size:12px;}
+    .print-table th, .print-table td{border:1px solid #444; padding:7px 8px; text-align:left; vertical-align:top;}
+    .print-table th{background:#eee;}
+    .print-table tr{page-break-inside:avoid;}
+    .pt-memo{height:42px;}
+  }
 </style>
 </head>
 <body>
@@ -340,8 +435,6 @@
 
     <div class="topbar-spacer"></div>
 
-    <button class="btn btn-ghost2" id="qrScanToggleBtn" onclick="toggleQrScanMode_()">📡 QR 스캔</button>
-
     <div class="nav-dropdown">
       <button class="btn btn-ghost2" onclick="toggleNavDropdown_('toolsMenu')">🛠️ 도구 <span class="nav-caret">▾</span></button>
       <div class="nav-dropdown-menu" id="toolsMenu">
@@ -357,6 +450,7 @@
       <div class="nav-dropdown-menu" id="adminMenu">
         <div class="nav-menu-label">게임 관리</div>
         <button onclick="closeAllNavDropdowns_(); openDashboard();">📊 진행현황</button>
+        <button onclick="closeAllNavDropdowns_(); openGameDbAdmin_();">➕ 게임 DB 관리 · 엑셀 업로드</button>
         <button onclick="closeAllNavDropdowns_(); openMigrationTool();">📥 데이터 가져오기</button>
         <button onclick="closeAllNavDropdowns_(); openBulkDownloadTool();">🖼️ 사진 일괄 다운로드</button>
         <button onclick="closeAllNavDropdowns_(); openConditionStandardsAdmin_();">📋 상태 기준 관리</button>
@@ -372,7 +466,21 @@
     </div>
   </div>
   <div class="app" id="app"></div>
+
+  <div class="more-menu" id="moreMenu">
+    <button onclick="closeMoreMenu_(); openScanRanking_();">🏆 랭킹 · 기간별 인기 게임</button>
+    <button onclick="closeMoreMenu_(); openOwnedGames_();">🗂️ 보유 게임 관리</button>
+    <button id="moreMenuGameDb" onclick="closeMoreMenu_(); openGameDbAdmin_();">➕ 게임 DB 관리 · 엑셀 업로드 <span class="more-adm">관리자</span></button>
+  </div>
+  <nav class="bottom-nav" id="bottomNav">
+    <button class="bn-item" id="bnHome" onclick="renderList()"><span class="bn-ic">📋</span><span class="bn-lb">가이드</span></button>
+    <button class="bn-item" id="bnHistory" onclick="openScanHistory_()"><span class="bn-ic">🕓</span><span class="bn-lb">히스토리</span></button>
+    <button class="bn-scan" id="qrScanToggleBtn" onclick="toggleQrScanMode_()"><span class="bn-pill"><span class="bn-knob"></span></span><span class="bn-scan-lb" id="qrScanLabel">스캔 OFF</span></button>
+    <button class="bn-item" id="bnMaint" onclick="openMaintenance_()"><span class="bn-ic">🔧<span class="bn-badge" id="maintBadge" style="display:none;">0</span></span><span class="bn-lb">정기 점검</span></button>
+    <button class="bn-item" id="bnMore" onclick="toggleMoreMenu_()"><span class="bn-ic">⋯</span><span class="bn-lb">더보기</span></button>
+  </nav>
 </div>
+<div id="printArea"></div>
 
 <!-- Firebase SDK (CDN, 모듈 방식) -->
 <script type="module">
@@ -382,7 +490,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
   getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, addDoc,
-  runTransaction, onSnapshot, query, orderBy, limit
+  runTransaction, onSnapshot, query, orderBy, limit, where, increment
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {
   getStorage, ref, uploadBytes, getDownloadURL, deleteObject
@@ -585,7 +693,7 @@ async function enterApp(email, role){
   }
   updateRoleToggleUI_();
   try{
-    await Promise.all([loadGames(), loadConditionStandards_(), loadReturnGuideCommonNotice_()]);
+    await Promise.all([loadGames(), loadConditionStandards_(), loadReturnGuideCommonNotice_(), loadStoreContext_()]);
   }catch(e){
     console.error('게임 목록을 불러오지 못했습니다', e);
     renderGuideAccessError_('가이드를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
@@ -617,6 +725,7 @@ function openGameFromQr_(gameId, mode){
     renderGuideAccessError_('현재 사용할 수 없는 가이드입니다.');
     return;
   }
+  logQrScan_(target);
   openGame(target.id, wantsReturnGuide ? 'return' : mode);
 }
 
@@ -709,8 +818,8 @@ async function checkAccessAndRender(user){
       getDoc(doc(db, 'pending', email)),
     ]);
 
-    if (editorSnap.exists()) return enterApp(email, 'editor');
-    if (viewerSnap.exists()) return enterApp(email, 'viewer');
+    if (editorSnap.exists()){ myProfile_ = editorSnap.data() || {}; return enterApp(email, 'editor'); }
+    if (viewerSnap.exists()){ myProfile_ = viewerSnap.data() || {}; return enterApp(email, 'viewer'); }
     if (pendingSnap.exists()) return renderPending(email, false);
     return renderProfileForm(email);
   }catch(e){
@@ -1887,7 +1996,8 @@ function updateQrScanIndicator_(){
   const btn = document.getElementById('qrScanToggleBtn');
   if (!btn) return;
   btn.classList.toggle('qr-scan-active', qrScanActive_);
-  btn.textContent = qrScanActive_ ? '🟢 QR 스캔 중 (계속 스캔 가능 · 탭하면 종료)' : '📡 QR 스캔';
+  const lb = document.getElementById('qrScanLabel');
+  if (lb) lb.textContent = qrScanActive_ ? '스캔 ON' : '스캔 OFF';
 }
 
 /** 스캐너가 보내온 문자열에서 게임 ID를 뽑아냅니다. QR에 전체 주소가 담겨 있어도,
@@ -1932,6 +2042,7 @@ function handleQrScanInput_(raw){
     renderGuideAccessError_('현재 사용할 수 없는 가이드입니다.');
     return;
   }
+  logQrScan_(g);
   openGame(g.id, 'return');
 }
 
@@ -2401,6 +2512,9 @@ let listSelectedIds_ = new Set(); // 목록에서 체크한 게임들 (필요 �
 function renderList(){
   leavePresence_();
   currentGameId = null;
+  currentScan_ = null;
+  setNavActive_('home');
+  closeMoreMenu_();
   // QR코드로 특정 게임에 바로 들어왔다가 목록으로 돌아오면, 주소창의 ?game=... 을 지워서
   // 다음에 새로고침해도 다시 그 게임으로 끌려가지 않도록 합니다.
   if (location.search){
@@ -2603,6 +2717,7 @@ function renderDetail(){
   const g = games.find(x=>x.id===currentGameId);
   if (!g){ renderList(); return; }
   const editable = currentRole === 'editor';
+  setNavActive_('home');
 
   if (editable){
     // 편집자 화면: 이름·ID 변경, QR코드, 가이드완료, 메모 등 관리용 도구를 모두 보여줍니다.
@@ -2617,6 +2732,7 @@ function renderDetail(){
             <button class="btn btn-ghost2" style="width:auto; padding:3px 8px; font-size:11px;" onclick="changeGameName_()">이름 변경</button>
             <button class="btn btn-ghost2" style="width:auto; padding:3px 8px; font-size:11px;" onclick="changeGameId_()">ID 변경</button>
             <button class="btn btn-ghost2" style="width:auto; padding:3px 8px; font-size:11px;" onclick="openGameQrModal_('${g.id}')" title="스캔하면 바로 이 게임의 반납대 가이드로 이동하는 QR코드">📱 QR코드</button>
+            <div class="scan-chips" id="scanChipsSlot">${scanChipsHtml_(g)}</div>
           </div>
           <label style="display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--ink-soft); cursor:pointer;">
             <input type="checkbox" ${g.guideDone?'checked':''} onchange="toggleGuideDone(this.checked)"> 가이드 제작 완료
@@ -2646,6 +2762,7 @@ function renderDetail(){
       <div class="viewer-head">
         <button class="viewer-back" onclick="renderList()" title="목록으로">←</button>
         <h2 class="viewer-title">${g.name || ''}</h2>
+        <div class="scan-chips" id="scanChipsSlot">${scanChipsHtml_(g)}</div>
         <div class="tabs" style="margin:0;">
           <button class="${currentMode==='photo'?'active':''}" onclick="switchMode('photo')">사진</button>
           <button class="${currentMode==='table'?'active':''}" onclick="switchMode('table')">표</button>
@@ -3671,7 +3788,9 @@ function wrapCanvasText_(ctx, text, maxWidth){
   return lines.length ? lines : [''];
 }
 
-async function renderPhotoToCanvas_(g, photo, refWidth){
+async function renderPhotoToCanvas_(g, photo, refWidth, opts){
+  const labelOnly = !!(opts && opts.labelOnly); // true면 마커·연결선·텍스트박스 없이 라벨만, 사진은 원본 비율 그대로
+  let imgRect = null;
   // 마커/텍스트박스/라벨의 px 크기(패딩·폰트 등)는 실제 화면의 사진 영역 폭을 기준으로 정해져 있으므로,
   // 지금 화면에 실제로 그려진 사진 영역 폭을 그대로 기준 삼아야 화면에서 보는 비율과 똑같이 나옵니다.
   const k = GUIDE_EXPORT_W / (refWidth || GUIDE_EXPORT_DEFAULT_REF_WIDTH);
@@ -3700,6 +3819,7 @@ async function renderPhotoToCanvas_(g, photo, refWidth){
       const dw = img.width*scale, dh = img.height*scale;
       const dx = (canvas.width-dw)/2, dy = (canvas.height-dh)/2;
       ctx.drawImage(img, dx, dy, dw, dh);
+      imgRect = { dx, dy, dw, dh };
     }catch(e){
       console.error('가이드 이미지 내보내기: 사진 로드 실패 (Storage 버킷의 CORS 설정이 필요할 수 있습니다)', e);
       ctx.fillStyle = '#999';
@@ -3711,7 +3831,7 @@ async function renderPhotoToCanvas_(g, photo, refWidth){
 
   // 텍스트박스 안에 넣을 구성품 사진들을 미리 불러와둡니다 (있는 것만, 실패해도 무시).
   const caseImgCache = {};
-  const photoPaths = [...new Set((photo.markers||[]).flatMap(m=>{
+  const photoPaths = labelOnly ? [] : [...new Set((photo.markers||[]).flatMap(m=>{
     const c = g.cases[m.caseIdx];
     return c ? (c.items||[]).map(it=>it.photo).filter(Boolean) : [];
   }))];
@@ -3733,7 +3853,7 @@ async function renderPhotoToCanvas_(g, photo, refWidth){
   // (연결선이 박스의 왼쪽 가장자리를 향해야 하고, 화살표는 그 반대 방향을 향해야 하므로)
   const thumbSize = 40*k*s;
   const photoLineH = thumbSize + 6*k*s;
-  const boxLayout = (photo.markers||[]).map(m=>{
+  const boxLayout = (labelOnly ? [] : (photo.markers||[])).map(m=>{
     const c = g.cases[m.caseIdx];
     if (!m.box || !c) return null;
     const boxW = 185*k*s;
@@ -3760,7 +3880,7 @@ async function renderPhotoToCanvas_(g, photo, refWidth){
   });
 
   // ---- 연결선 ----
-  (photo.markers||[]).forEach((m, mi)=>{
+  (labelOnly ? [] : (photo.markers||[])).forEach((m, mi)=>{
     const box = boxLayout[mi];
     if (!box) return;
     const c = g.cases[m.caseIdx];
@@ -3775,7 +3895,7 @@ async function renderPhotoToCanvas_(g, photo, refWidth){
   });
 
   // ---- 마커 (원 또는 화살표) ----
-  (photo.markers||[]).forEach((m, mi)=>{
+  (labelOnly ? [] : (photo.markers||[])).forEach((m, mi)=>{
     const c = g.cases[m.caseIdx];
     const x = (m.x/100)*canvas.width, y = (m.y/100)*canvas.height;
     const color = c ? caseColor_(c.caseType) : '#E4141B';
@@ -3817,7 +3937,7 @@ async function renderPhotoToCanvas_(g, photo, refWidth){
   });
 
   // ---- 텍스트박스 ----
-  (photo.markers||[]).forEach((m, mi)=>{
+  (labelOnly ? [] : (photo.markers||[])).forEach((m, mi)=>{
     const box = boxLayout[mi];
     if (!box) return;
     const { x, y, w, h, c, paddingX, paddingY, badgeH, lineH } = box;
@@ -3925,6 +4045,14 @@ async function renderPhotoToCanvas_(g, photo, refWidth){
     };
   });
 
+  if (labelOnly && imgRect){
+    // 사진 영역만 잘라내서(4:3 여백 제거) 원본 비율 그대로 돌려줍니다.
+    const out = document.createElement('canvas');
+    out.width = Math.round(imgRect.dw);
+    out.height = Math.round(imgRect.dh);
+    out.getContext('2d').drawImage(canvas, imgRect.dx, imgRect.dy, imgRect.dw, imgRect.dh, 0, 0, out.width, out.height);
+    return { canvas: out, boxRects: [] };
+  }
   return { canvas, boxRects };
 }
 
@@ -4712,6 +4840,7 @@ function renderReturnGuideTab(){
     }).catch(()=>{});
   });
   if (document.getElementById('rgPhotoCell0')) populateReturnGuidePhotoGrid_(g);
+  fitReturnSplit_();
 }
 
 function rgPhotoControl_(section, idx, photo){
@@ -4859,8 +4988,9 @@ async function populateReturnGuidePhotoGrid_(g){
   for (let i=0; i<g.photos.length; i++){
     if (!document.getElementById(`rgPhotoCell${i}`)) continue; // 그 사이 다른 탭으로 이동했으면 중단
     try{
-      const { canvas, boxRects } = await renderPhotoToCanvas_(g, g.photos[i], refWidth);
-      const url = canvas.toDataURL('image/png');
+      // 라벨만 얹은 원본 비율 사진 (텍스트박스·연결선·마커 없음, 축소 여백 없음)
+      const { canvas } = await renderPhotoToCanvas_(g, g.photos[i], refWidth, { labelOnly: true });
+      const url = canvas.toDataURL('image/jpeg', 0.92);
       const cell = document.getElementById(`rgPhotoCell${i}`);
       if (!cell) continue;
       cell.innerHTML = '';
@@ -4869,21 +4999,6 @@ async function populateReturnGuidePhotoGrid_(g){
       imgEl.src = url;
       imgEl.addEventListener('click', ()=> openPhotoLightbox_(url));
       cell.appendChild(imgEl);
-      (boxRects||[]).forEach(box=>{
-        if (!box) return;
-        const hot = document.createElement('div');
-        hot.className = 'rg-photo-hotspot';
-        hot.style.left = box.leftPct + '%';
-        hot.style.top = box.topPct + '%';
-        hot.style.width = box.widthPct + '%';
-        hot.style.height = box.heightPct + '%';
-        hot.title = '탭하면 이 구성품 사진을 크게 볼 수 있습니다';
-        hot.addEventListener('click', (ev)=>{
-          ev.stopPropagation();
-          openReturnGuideCasePopup_(g.id, box.caseIdx);
-        });
-        cell.appendChild(hot);
-      });
     }catch(e){
       const cell = document.getElementById(`rgPhotoCell${i}`);
       if (cell) cell.innerHTML = '<span class="rg-photo-loading">불러오지 못했습니다</span>';
@@ -5007,25 +5122,23 @@ function renderReturnGuideEditor_(g, rg){
 }
 
 function renderReturnGuideViewer_(g, rg){
-  // 내용이 없는 섹션은 아예 보여주지 않아, QR을 찍고 들어왔을 때 실제로 할 일만 한 화면에
-  // 최대한 담기도록 합니다 (필수 구성품 확인만은 "0종"이어도 그 자체가 안내이므로 항상 보여줍니다).
-  const cards = [];
-  cards.push(`
-    <div class="rg-card">
-      <h3>① 필수 구성품 확인 <span class="case-badge case-ITEM" style="font-size:10.5px; padding:2px 8px;">${rg.requiredItems.length}종</span></h3>
-      ${rg.requiredItems.length ? rg.requiredItems.map(it=>`
-        <div class="rg-view-row">
-          ${it.photo ? `<div class="case-photo-wrap mini checkerboard-bg" data-photo="${it.photo}"><img class="case-photo-thumb" alt="" onclick="event.stopPropagation(); openPhotoLightbox_(this.src)"></div>` : ''}
-          <div style="flex:1;">
-            ${rgClickableName_(it.name, it.standardIds)}
-            ${it.note ? `<div style="font-size:11.5px; color:var(--ink-soft);">${it.note}</div>` : ''}
-          </div>
-          <div style="font-weight:800; color:var(--accent); font-family:var(--mono);">${it.qty||0}개</div>
+  // 좌: 필수 구성품(기본 2열, 이름이 길면 2열을 차지) + 나머지 안내 / 우: 정리된 사진(라벨만, 원본 비율).
+  // 두 영역은 각각 독립적으로 스크롤됩니다 (높이는 fitReturnSplit_()가 화면에 맞춥니다).
+  const hasPhotos = !!(g.photos && g.photos.length);
+  const itemCard = (it)=>{
+    const long = String(it.name||'').length > 11 || !!it.note;
+    return `
+      <div class="rg-item-card ${long?'wide':''}">
+        ${it.photo ? `<div class="case-photo-wrap mini checkerboard-bg" data-photo="${it.photo}"><img class="case-photo-thumb" alt="" onclick="event.stopPropagation(); openPhotoLightbox_(this.src)"></div>` : `<div class="rg-item-photo-empty"></div>`}
+        <div class="rg-item-main">
+          ${rgClickableName_(it.name, it.standardIds)}
+          ${it.note ? `<div style="font-size:11.5px; color:var(--ink-soft);">${it.note}</div>` : ''}
         </div>
-      `).join('') : `<p style="color:var(--ink-soft); font-size:12.5px;">필수 수량 확인 없음</p>`}
-    </div>
-  `);
-  if (rg.sortingSteps.length) cards.push(`
+        <div class="rg-item-qty">${it.qty||0}개</div>
+      </div>`;
+  };
+  const rest = [];
+  if (rg.sortingSteps.length) rest.push(`
     <div class="rg-card">
       <h3>② 정리 방법</h3>
       ${rg.sortingSteps.map(it=>`
@@ -5035,11 +5148,9 @@ function renderReturnGuideViewer_(g, rg){
             <div style="font-weight:700;">${it.title||''}</div>
             <div style="font-size:12px; color:var(--ink-soft); white-space:pre-wrap;">${it.desc||''}</div>
           </div>
-        </div>
-      `).join('')}
-    </div>
-  `);
-  if (rg.noCountItems.length) cards.push(`
+        </div>`).join('')}
+    </div>`);
+  if (rg.noCountItems.length) rest.push(`
     <div class="rg-card">
       <h3>③ 수량 확인 없이 정리</h3>
       ${rg.noCountItems.map(it=>`
@@ -5049,27 +5160,55 @@ function renderReturnGuideViewer_(g, rg){
             ${rgClickableName_(it.name, it.standardIds)}
             ${it.desc ? `<div style="font-size:12px; color:var(--ink-soft); white-space:pre-wrap;">${it.desc}</div>` : ''}
           </div>
-        </div>
-      `).join('')}
-    </div>
-  `);
-  if (rg.otherNotes.length) cards.push(`
+        </div>`).join('')}
+    </div>`);
+  if (rg.otherNotes.length) rest.push(`
     <div class="rg-card">
       <h3>④ 게임별 기타사항</h3>
       ${rg.otherNotes.map(it=>`<div class="rg-view-row">${it.text||''}</div>`).join('')}
-    </div>
-  `);
+    </div>`);
 
   return `
-    ${g.photos && g.photos.length ? renderReturnGuidePhotoGridHtml_(g) : ''}
-    <div class="rg-grid">${cards.join('')}</div>
-    ${rg.protectorInfo ? `<p style="margin-top:10px; font-size:12px; color:var(--ink-soft);"><b>관리 정보</b> — ${rg.protectorInfo}</p>` : ''}
-    <div class="rg-notice">
-      <b>공통 안내</b>
-      <ul>${getReturnGuideCommonNoticeLines_().map(t=>`<li>${t}</li>`).join('')}</ul>
+    <div class="rg-split ${hasPhotos?'':'no-photos'}" id="rgSplit">
+      <div class="rg-pane">
+        <div class="rg-pane-head">① 필수 구성품 확인 <span class="case-badge case-ITEM" style="font-size:10.5px; padding:2px 8px;">${rg.requiredItems.length}종</span></div>
+        <div class="rg-pane-body">
+          ${rg.requiredItems.length ? `<div class="rg-items">${rg.requiredItems.map(itemCard).join('')}</div>` : `<p style="color:var(--ink-soft); font-size:12.5px;">필수 수량 확인 없음</p>`}
+          <div class="rg-rest">
+            ${rest.join('')}
+            ${rg.protectorInfo ? `<p style="font-size:12px; color:var(--ink-soft);"><b>관리 정보</b> — ${rg.protectorInfo}</p>` : ''}
+            <div class="rg-notice" style="margin-top:0;">
+              <b>공통 안내</b>
+              <ul>${getReturnGuideCommonNoticeLines_().map(t=>`<li>${t}</li>`).join('')}</ul>
+            </div>
+          </div>
+        </div>
+      </div>
+      ${hasPhotos ? `
+      <div class="rg-pane">
+        <div class="rg-pane-head">📷 정리된 사진 <span style="font-size:11px; font-weight:600; color:var(--ink-soft);">탭하면 크게</span></div>
+        <div class="rg-pane-body">
+          <div class="rg-photo-stack">
+            ${g.photos.map((p,i)=>`<div class="rg-photo-full" id="rgPhotoCell${i}"><span class="rg-photo-loading">불러오는 중...</span></div>`).join('')}
+          </div>
+        </div>
+      </div>` : ''}
     </div>
   `;
 }
+
+/** 좌/우 영역이 각각 스크롤되도록, 화면 남은 높이(상단 ~ 하단 내비 위)에 맞춰 높이를 정합니다.
+ *  좁은 화면(세로로 쌓이는 경우)에서는 일반 스크롤로 둡니다. */
+function fitReturnSplit_(){
+  const el = document.getElementById('rgSplit');
+  if (!el) return;
+  if (window.innerWidth <= 720){ el.style.height = ''; return; }
+  const top = el.getBoundingClientRect().top;
+  const nav = document.getElementById('bottomNav');
+  const navH = nav ? nav.getBoundingClientRect().height : 0;
+  el.style.height = Math.max(280, window.innerHeight - top - navH - 14) + 'px';
+}
+window.addEventListener('resize', ()=>{ fitReturnSplit_(); });
 
 function addGuideItem_(section, defaults){
   const g = games.find(x=>x.id===currentGameId);
@@ -5108,8 +5247,784 @@ async function saveGame(){
   if (ok) alert('저장되었습니다.');
 }
 
+// ============================================================
+// 매장별 기능: QR 스캔 기록(히스토리·랭킹) · 정기 점검 · 보유 게임 · 게임 DB(엑셀)
+// 데이터 위치: stores/{매장코드}/scans, gameStats, ownedGames  (게임 자체 정보는 기존 games 그대로)
+// ============================================================
+const MAINT_THRESHOLD_ = 20; // 점검 이후 스캔이 이 횟수 이상이면 "점검 대상"
+const STICKER_COLORS_ = [
+  { name:'빨강', hex:'#E4141B' }, { name:'주황', hex:'#F97316' }, { name:'노랑', hex:'#FACC15', light:true },
+  { name:'초록', hex:'#16A34A' }, { name:'하늘', hex:'#38BDF8' }, { name:'파랑', hex:'#2563EB' },
+  { name:'보라', hex:'#7C3AED' }, { name:'분홍', hex:'#EC4899' }, { name:'검정', hex:'#1B1C1A' },
+  { name:'흰색', hex:'#FFFFFF', light:true }, { name:'회색', hex:'#9CA3AF' },
+];
+const INTRO_OPTS_ = ['필수', '권장', '선택'];
+const DIFF_OPTS_ = ['Very Easy', 'Easy', 'Normal', 'Semi-Hard', 'Hard', 'Extreme'];
+const GRADE_OPTS_ = (()=>{ const out=[]; ['S','A','B','C','D','E','F'].forEach(l=>['+','','-'].forEach(m=>out.push(l+m))); return out; })();
+
+let storeList_ = [];
+let myProfile_ = null;
+let activeStoreCode_ = '';
+let ownedGamesMap_ = new Map();   // 게임ID -> { owned, colors[] }  (현재 매장)
+let gameStatsMap_ = new Map();    // 게임ID -> { totalScans, cycleScans, lastCheckedAt, memo, ... } (현재 매장)
+let currentScan_ = null;          // 방금 스캔한 게임 { gameId, scanId, color, ready }
+let pageReloader_ = null;
+let lastScanLoggedAt_ = {};
+
+function jsq_(v){ return String(v==null?'':v).replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
+function escHtml_(v){ return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function pad2_(n){ return String(n).padStart(2,'0'); }
+function dayKey_(ms){ const d=new Date(ms); return `${d.getFullYear()}-${pad2_(d.getMonth()+1)}-${pad2_(d.getDate())}`; }
+function startOfDayMs_(ms){ const d=new Date(ms); d.setHours(0,0,0,0); return d.getTime(); }
+function endOfDayMs_(ms){ const d=new Date(ms); d.setHours(23,59,59,999); return d.getTime(); }
+function fmtDayLabel_(key){
+  const [y,m,d] = key.split('-').map(Number);
+  const dt = new Date(y, m-1, d);
+  const w = ['일','월','화','수','목','금','토'][dt.getDay()];
+  const todayKey = dayKey_(Date.now()), yKey = dayKey_(Date.now()-86400000);
+  const base = `${m}월 ${d}일 (${w})`;
+  return key===todayKey ? `오늘 · ${base}` : key===yKey ? `어제 · ${base}` : base;
+}
+function fmtTime_(ms){ const d=new Date(ms); return `${pad2_(d.getHours())}:${pad2_(d.getMinutes())}`; }
+function fmtShortDate_(ms){ if(!ms) return '-'; const d=new Date(ms); return `${d.getMonth()+1}/${d.getDate()}`; }
+function colorInfo_(name){ return STICKER_COLORS_.find(c=>c.name===name) || { name, hex:'#C7C7BE' }; }
+function colorDotHtml_(name){ if(!name) return ''; const c=colorInfo_(name); return `<span class="cdot" style="background:${c.hex};" title="${escHtml_(name)}"></span>`; }
+function gameNameById_(id, fallback){ const g=games.find(x=>String(x.id)===String(id)); return g ? (g.name||'') : (fallback||`(삭제된 게임 ${id})`); }
+function matchGameSearch_(g, q){
+  if (!q) return true;
+  return (g.name||'').includes(q) || String(g.id).includes(q) || (isChosungOnly(q) && getChosung(g.name||'').includes(q));
+}
+
+// ---------- 매장 컨텍스트 ----------
+async function loadStoreContext_(){
+  storeList_ = [];
+  try{
+    const snap = await getDocs(collection(db, 'stores'));
+    snap.forEach(d => storeList_.push({ code: d.id, name: d.data().name || d.id }));
+    storeList_.sort((a,b)=> String(a.name).localeCompare(String(b.name), 'ko'));
+  }catch(e){ console.warn('매장 목록을 불러오지 못했습니다', e); }
+  let code = (myProfile_ && myProfile_.storeCode) || '';
+  if (canSwitchStore_()){
+    // 본사급 편집자만 매장을 바꿔 볼 수 있습니다 (마지막으로 본 매장을 기억)
+    if (!storeList_.some(s=>s.code===code)){
+      try{ code = localStorage.getItem('rb_active_store') || ''; }catch(e){ code = ''; }
+    }
+    if (!storeList_.some(s=>s.code===code)) code = storeList_.length===1 ? storeList_[0].code : '';
+  }else if (!storeList_.some(s=>s.code===code)){
+    code = ''; // 소속 매장이 지정되지 않은 계정은 어떤 매장 데이터도 볼 수 없습니다
+  }
+  activeStoreCode_ = code;
+  await loadStoreData_();
+}
+
+async function loadStoreData_(){
+  ownedGamesMap_ = new Map();
+  gameStatsMap_ = new Map();
+  if (!activeStoreCode_){ updateMaintBadge_(); return; }
+  try{
+    const [o, st] = await Promise.all([
+      getDocs(collection(db, 'stores', activeStoreCode_, 'ownedGames')),
+      getDocs(collection(db, 'stores', activeStoreCode_, 'gameStats')),
+    ]);
+    o.forEach(d=>ownedGamesMap_.set(d.id, d.data()));
+    st.forEach(d=>gameStatsMap_.set(d.id, d.data()));
+  }catch(e){ console.warn('매장 데이터를 불러오지 못했습니다 (Firestore 규칙 게시가 필요할 수 있습니다)', e); }
+  updateMaintBadge_();
+}
+
+/** 매장을 바꿔 볼 수 있는 계정인지: 편집자 중 소속 매장이 없거나 allStores:true 인 본사급만 가능 */
+function canSwitchStore_(){
+  return myApprovedRole === 'editor' && !!myProfile_ && (myProfile_.allStores === true || !myProfile_.storeCode);
+}
+
+async function setActiveStore_(code){
+  if (!canSwitchStore_()) return; // 소속 매장 외에는 선택할 수 없음
+  activeStoreCode_ = code || '';
+  try{ localStorage.setItem('rb_active_store', activeStoreCode_); }catch(e){}
+  await loadStoreData_();
+}
+
+async function switchStore_(code){
+  await setActiveStore_(code);
+  if (pageReloader_) pageReloader_();
+}
+
+function storeBarHtml_(){
+  const locked = !canSwitchStore_();
+  return `
+    <select ${locked?'disabled':''} onchange="switchStore_(this.value)" title="매장">
+      <option value="">매장 선택</option>
+      ${storeList_.map(s=>`<option value="${escHtml_(s.code)}" ${s.code===activeStoreCode_?'selected':''}>${escHtml_(s.name)}</option>`).join('')}
+    </select>`;
+}
+
+function noStoreHtml_(){
+  if (!canSwitchStore_()) return `<div class="empty">소속 매장이 지정되지 않은 계정입니다. 관리자에게 매장 지정을 요청해주세요.</div>`;
+  return storeList_.length
+    ? `<div class="empty">위에서 매장을 먼저 선택해주세요.</div>`
+    : `<div class="empty">등록된 매장이 없습니다. 관리자 메뉴의 "권한 관리"에서 매장을 먼저 추가해주세요.</div>`;
+}
+
+function prepPage_(navKey, reloader){
+  leavePresence_();
+  currentGameId = null;
+  pageReloader_ = reloader || null;
+  closeMoreMenu_();
+  setNavActive_(navKey);
+  if (location.search) history.replaceState(null, '', location.pathname + location.hash);
+}
+
+// ---------- 하단 내비게이션 ----------
+function setNavActive_(key){
+  const map = { home:'bnHome', history:'bnHistory', maint:'bnMaint', more:'bnMore' };
+  Object.values(map).forEach(id=>{ const el=document.getElementById(id); if (el) el.classList.remove('active'); });
+  const el = document.getElementById(map[key]);
+  if (el) el.classList.add('active');
+}
+function toggleMoreMenu_(){
+  const m = document.getElementById('moreMenu');
+  if (!m) return;
+  const gameDb = document.getElementById('moreMenuGameDb');
+  if (gameDb) gameDb.style.display = currentRole==='editor' ? 'block' : 'none';
+  m.classList.toggle('open');
+}
+function closeMoreMenu_(){ const m=document.getElementById('moreMenu'); if (m) m.classList.remove('open'); }
+document.addEventListener('click', (e)=>{
+  if (!e.target.closest('#moreMenu') && !e.target.closest('#bnMore')) closeMoreMenu_();
+});
+function updateMaintBadge_(){
+  const el = document.getElementById('maintBadge');
+  if (!el) return;
+  let n = 0;
+  gameStatsMap_.forEach(v=>{ if ((v.cycleScans||0) >= MAINT_THRESHOLD_) n++; });
+  el.textContent = n > 99 ? '99+' : String(n);
+  el.style.display = n > 0 ? 'flex' : 'none';
+}
+
+// ---------- QR 스캔 기록 + 식별 스티커 색상 ----------
+function getOwnedColors_(gameId){
+  const o = ownedGamesMap_.get(String(gameId));
+  return (o && o.owned !== false && Array.isArray(o.colors)) ? o.colors : [];
+}
+
+/** QR 스캔 한 번을 기록하고, 이 게임의 점검 카운트(누적/점검 이후)를 1 올립니다.
+ *  색상 칩이 바로 보이도록 currentScan_은 즉시(동기적으로) 만들고, 저장은 이어서 비동기로 처리합니다. */
+function logQrScan_(g){
+  const id = String(g.id);
+  currentScan_ = { gameId:id, scanId:null, color:null, ready:Promise.resolve() };
+  if (!activeStoreCode_) return;
+  const now = Date.now();
+  if (lastScanLoggedAt_[id] && now - lastScanLoggedAt_[id] < 5000) return; // 새로고침 등으로 겹쳐 기록되는 것 방지
+  lastScanLoggedAt_[id] = now;
+  const cs = currentScan_;
+  cs.ready = (async ()=>{
+    try{
+      const by = (auth.currentUser?.email || '').toLowerCase();
+      const r = await addDoc(collection(db, 'stores', activeStoreCode_, 'scans'), { gameId:id, gameName:g.name||'', color:null, ts:now, by });
+      cs.scanId = r.id;
+      await setDoc(doc(db, 'stores', activeStoreCode_, 'gameStats', id),
+        { gameName:g.name||'', totalScans:increment(1), cycleScans:increment(1), lastScanAt:now }, { merge:true });
+      const st = gameStatsMap_.get(id) || { totalScans:0, cycleScans:0 };
+      gameStatsMap_.set(id, { ...st, gameName:g.name||'', totalScans:(st.totalScans||0)+1, cycleScans:(st.cycleScans||0)+1, lastScanAt:now });
+      updateMaintBadge_();
+    }catch(e){ console.warn('스캔 기록 저장 실패 (Firestore 규칙 게시가 필요할 수 있습니다)', e); }
+  })();
+}
+
+function scanChipsHtml_(g){
+  if (!g || !currentScan_ || currentScan_.gameId !== String(g.id)) return '';
+  const colors = getOwnedColors_(g.id);
+  if (colors.length < 2) return '';
+  return `<span class="sc-lb">식별 스티커</span>` + colors.map(name=>{
+    const c = colorInfo_(name);
+    const sel = currentScan_.color === name;
+    return `<button class="sc-chip ${sel?'sel':''} ${c.light?'light':''}" style="background:${c.hex};" onclick="pickScanColor_('${jsq_(name)}')" title="${escHtml_(name)}">${sel?'✓':''}</button>`;
+  }).join('');
+}
+function refreshScanChips_(){
+  const slot = document.getElementById('scanChipsSlot');
+  if (!slot) return;
+  const g = games.find(x=>x.id===currentGameId);
+  slot.innerHTML = scanChipsHtml_(g);
+}
+async function pickScanColor_(name){
+  if (!currentScan_) return;
+  currentScan_.color = name;
+  refreshScanChips_();
+  const cs = currentScan_;
+  await cs.ready;
+  if (cs.scanId && activeStoreCode_){
+    try{ await updateDoc(doc(db, 'stores', activeStoreCode_, 'scans', cs.scanId), { color:name }); }
+    catch(e){ console.warn('색상 저장 실패', e); }
+  }
+}
+
+async function fetchScans_(fromMs, toMs){
+  const q = query(collection(db, 'stores', activeStoreCode_, 'scans'),
+    where('ts', '>=', fromMs), where('ts', '<=', toMs), orderBy('ts', 'desc'));
+  const snap = await getDocs(q);
+  const out = [];
+  snap.forEach(d=>out.push({ id:d.id, ...d.data() }));
+  return out;
+}
+
+function pageHeadHtml_(title, desc){
+  return `<div class="pg-head"><h2>${title}</h2>${desc?`<p class="pg-desc">${desc}</p>`:''}</div>`;
+}
+
+// ---------- 히스토리 ----------
+let histRangeDays_ = 7;
+async function openScanHistory_(){
+  prepPage_('history', openScanHistory_);
+  appEl.innerHTML = `
+    ${pageHeadHtml_('🕓 스캔 히스토리', '날짜별로 QR로 찍힌 게임 기록입니다. 항목을 누르면 그 게임의 가이드로 이동합니다.')}
+    <div class="st-bar">
+      ${storeBarHtml_()}
+      <button class="chip-btn ${histRangeDays_===7?'on':''}" onclick="setHistRange_(7)">최근 7일</button>
+      <button class="chip-btn ${histRangeDays_===30?'on':''}" onclick="setHistRange_(30)">최근 30일</button>
+    </div>
+    <div id="histBody"><p style="padding:20px 4px;">불러오는 중...</p></div>`;
+  const body = document.getElementById('histBody');
+  if (!activeStoreCode_){ body.innerHTML = noStoreHtml_(); return; }
+  try{
+    const now = Date.now();
+    const scans = await fetchScans_(startOfDayMs_(now - (histRangeDays_-1)*86400000), now);
+    const todayKey = dayKey_(now);
+    const today = scans.filter(s=>dayKey_(s.ts)===todayKey);
+    const todayGames = new Set(today.map(s=>s.gameId));
+    const byDay = new Map();
+    scans.forEach(s=>{ const k=dayKey_(s.ts); if(!byDay.has(k)) byDay.set(k, []); byDay.get(k).push(s); });
+    body.innerHTML = `
+      <div class="stat-row">
+        <div class="stat-box"><div class="n">${todayGames.size}개</div><div class="l">오늘 스캔된 게임 수</div></div>
+        <div class="stat-box"><div class="n">${today.length}회</div><div class="l">오늘 총 스캔 횟수</div></div>
+        <div class="stat-box"><div class="n">${scans.length}회</div><div class="l">최근 ${histRangeDays_}일 총 스캔</div></div>
+      </div>
+      ${scans.length ? [...byDay.entries()].map(([k, list])=>`
+        <div class="day-title">${fmtDayLabel_(k)} · ${new Set(list.map(s=>s.gameId)).size}개 게임 / ${list.length}회</div>
+        ${list.map(s=>`
+          <div class="row-card clickable" onclick="openGameFromHistory_('${jsq_(s.gameId)}')">
+            <div class="row-top">
+              <div style="flex:1; min-width:0;"><div class="row-name">${escHtml_(gameNameById_(s.gameId, s.gameName))} ${colorDotHtml_(s.color)}</div><div class="row-sub">${fmtTime_(s.ts)}${s.color?` · ${escHtml_(s.color)} 스티커`:''}</div></div>
+            </div>
+          </div>`).join('')}
+      `).join('') : `<div class="empty">아직 스캔 기록이 없습니다.</div>`}`;
+  }catch(e){
+    console.error(e);
+    body.innerHTML = `<div class="empty">기록을 불러오지 못했습니다.<br><span style="font-size:12px;">(Firestore 규칙에 새 항목이 게시되어 있는지 확인해주세요)</span></div>`;
+  }
+}
+function setHistRange_(d){ histRangeDays_ = d; openScanHistory_(); }
+function openGameFromHistory_(gameId){
+  const g = games.find(x=>String(x.id)===String(gameId));
+  if (!g){ alert('삭제되었거나 찾을 수 없는 게임입니다.'); return; }
+  openGame(g.id, 'return');
+}
+
+// ---------- 랭킹 ----------
+let rankRange_ = 'week';
+let rankFrom_ = '', rankTo_ = '';
+let rankSelected_ = null;
+let rankScans_ = [];
+let rankSpan_ = null;
+
+function computeRankSpan_(){
+  const now = Date.now();
+  if (rankRange_ === 'today') return { from: startOfDayMs_(now), to: now };
+  if (rankRange_ === 'month'){ const d=new Date(now); return { from: new Date(d.getFullYear(), d.getMonth(), 1).getTime(), to: now }; }
+  if (rankRange_ === 'custom'){
+    const f = rankFrom_ ? new Date(rankFrom_+'T00:00:00').getTime() : startOfDayMs_(now);
+    const t = rankTo_ ? new Date(rankTo_+'T23:59:59').getTime() : endOfDayMs_(now);
+    return { from: f, to: Math.max(f, t) };
+  }
+  return { from: startOfDayMs_(now - 6*86400000), to: now };
+}
+async function openScanRanking_(){
+  prepPage_('more', openScanRanking_);
+  const dayStr = dayKey_(Date.now());
+  if (!rankFrom_) rankFrom_ = dayKey_(Date.now()-6*86400000);
+  if (!rankTo_) rankTo_ = dayStr;
+  appEl.innerHTML = `
+    ${pageHeadHtml_('🏆 랭킹', '선택한 기간 동안 QR로 많이 찍힌 게임 순위입니다. 게임을 누르면 날짜별 이용 횟수 그래프가 나옵니다.')}
+    <div class="st-bar">
+      ${storeBarHtml_()}
+      ${[['today','오늘'],['week','최근 7일'],['month','이번 달'],['custom','기간 설정']].map(([k,l])=>`<button class="chip-btn ${rankRange_===k?'on':''}" onclick="setRankRange_('${k}')">${l}</button>`).join('')}
+    </div>
+    ${rankRange_==='custom' ? `<div class="st-bar"><input type="date" value="${rankFrom_}" onchange="setRankCustom_('from', this.value)"> ~ <input type="date" value="${rankTo_}" onchange="setRankCustom_('to', this.value)"></div>` : ''}
+    <div id="rankBody"><p style="padding:20px 4px;">불러오는 중...</p></div>`;
+  const body = document.getElementById('rankBody');
+  if (!activeStoreCode_){ body.innerHTML = noStoreHtml_(); return; }
+  try{
+    rankSpan_ = computeRankSpan_();
+    rankScans_ = await fetchScans_(rankSpan_.from, rankSpan_.to);
+    renderRankBody_();
+  }catch(e){
+    console.error(e);
+    body.innerHTML = `<div class="empty">기록을 불러오지 못했습니다.<br><span style="font-size:12px;">(Firestore 규칙에 새 항목이 게시되어 있는지 확인해주세요)</span></div>`;
+  }
+}
+function setRankRange_(k){ rankRange_ = k; rankSelected_ = null; openScanRanking_(); }
+function setRankCustom_(which, v){ if (which==='from') rankFrom_ = v; else rankTo_ = v; rankSelected_ = null; openScanRanking_(); }
+function selectRankGame_(id){ rankSelected_ = rankSelected_ === id ? null : id; renderRankBody_(); }
+
+function renderRankBody_(){
+  const body = document.getElementById('rankBody');
+  if (!body) return;
+  const agg = new Map();
+  rankScans_.forEach(s=>{
+    const a = agg.get(s.gameId) || { id:s.gameId, name:s.gameName, count:0 };
+    a.count++; agg.set(s.gameId, a);
+  });
+  const rows = [...agg.values()].sort((a,b)=> b.count - a.count || String(a.name).localeCompare(String(b.name),'ko'));
+  const max = rows.length ? rows[0].count : 1;
+  body.innerHTML = `
+    <div class="stat-row">
+      <div class="stat-box"><div class="n">${rankScans_.length}회</div><div class="l">기간 내 총 스캔</div></div>
+      <div class="stat-box"><div class="n">${rows.length}개</div><div class="l">이용된 게임 수</div></div>
+      <div class="stat-box"><div class="n" style="font-size:15px; line-height:1.5;">${rows.length ? escHtml_(gameNameById_(rows[0].id, rows[0].name)) : '-'}</div><div class="l">가장 많이 이용된 게임</div></div>
+    </div>
+    ${rows.length ? rows.map((r,i)=>`
+      <div class="row-card clickable" onclick="selectRankGame_('${jsq_(r.id)}')" style="${rankSelected_===r.id?'border-color:var(--accent);':''}">
+        <div class="row-top">
+          <div style="width:24px; text-align:center; font-weight:800; color:${i===0?'var(--accent)':'var(--ink-soft)'};">${i+1}</div>
+          <div style="flex:1; min-width:0;"><div class="row-name">${escHtml_(gameNameById_(r.id, r.name))}</div><div class="mini-bar"><i style="width:${Math.round(r.count/max*100)}%"></i></div></div>
+          <div style="font-weight:800;">${r.count}회</div>
+        </div>
+        ${rankSelected_===r.id ? rankTrendHtml_(r.id) : ''}
+      </div>`).join('') : `<div class="empty">이 기간에는 스캔 기록이 없습니다.</div>`}`;
+}
+
+function rankTrendHtml_(gameId){
+  const { from, to } = rankSpan_;
+  const days = Math.max(1, Math.round((startOfDayMs_(to) - startOfDayMs_(from)) / 86400000) + 1);
+  const weekly = days > 31;
+  const step = weekly ? 7 : 1;
+  const n = Math.ceil(days / step);
+  const buckets = new Array(n).fill(0);
+  rankScans_.filter(s=>s.gameId===gameId).forEach(s=>{
+    const di = Math.round((startOfDayMs_(s.ts) - startOfDayMs_(from)) / 86400000);
+    const bi = Math.min(n-1, Math.max(0, Math.floor(di / step)));
+    buckets[bi]++;
+  });
+  const m = Math.max(...buckets, 1);
+  const labelEvery = n > 14 ? Math.ceil(n/7) : 1;
+  return `
+    <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--line);" onclick="event.stopPropagation()">
+      <div class="row-sub">${weekly?'주별':'일별'} 이용 횟수 · 합계 ${buckets.reduce((a,b)=>a+b,0)}회</div>
+      <div class="trend">
+        ${buckets.map((v,i)=>{
+          const d = new Date(startOfDayMs_(from) + i*step*86400000);
+          const lb = (i % labelEvery === 0) ? `${d.getMonth()+1}/${d.getDate()}` : '';
+          return `<div class="tb" title="${d.getMonth()+1}/${d.getDate()} · ${v}회"><i class="${v===m&&v>0?'hi':''}" style="height:${Math.round(v/m*80)}%"></i><span>${lb}</span></div>`;
+        }).join('')}
+      </div>
+    </div>`;
+}
+
+// ---------- 정기 점검 ----------
+let maintShowAll_ = false;
+let maintOpen_ = null;
+
+function getMaintRows_(){
+  const rows = [];
+  gameStatsMap_.forEach((v, id)=>{
+    if ((v.cycleScans||0) <= 0 && !(maintShowAll_ && (v.totalScans||0) > 0)) return;
+    rows.push({ id, name: gameNameById_(id, v.gameName), cycle: v.cycleScans||0, total: v.totalScans||0, last: v.lastCheckedAt||0, memo: v.memo||'' });
+  });
+  rows.sort((a,b)=> b.cycle - a.cycle || b.total - a.total);
+  return maintShowAll_ ? rows : rows.filter(r=>r.cycle >= MAINT_THRESHOLD_);
+}
+
+async function openMaintenance_(){
+  prepPage_('maint', openMaintenance_);
+  appEl.innerHTML = `${pageHeadHtml_('🔧 정기 점검', `마지막 점검 이후 QR로 ${MAINT_THRESHOLD_}회 이상 찍힌 게임이 자동으로 점검 대상이 되고, 많이 찍힌 순서로 정렬됩니다. 게임을 누르면 메모와 점검 이력이 보입니다.`)}
+    <div class="st-bar">${storeBarHtml_()}</div><div id="maintBody"><p style="padding:20px 4px;">불러오는 중...</p></div>`;
+  if (!activeStoreCode_){ document.getElementById('maintBody').innerHTML = noStoreHtml_(); return; }
+  await loadStoreData_();
+  renderMaintBody_();
+}
+
+function renderMaintBody_(){
+  const body = document.getElementById('maintBody');
+  if (!body) return;
+  const rows = getMaintRows_();
+  const maxCycle = Math.max(MAINT_THRESHOLD_, ...rows.map(r=>r.cycle));
+  body.innerHTML = `
+    <div class="st-bar">
+      <span style="font-size:13px; color:var(--ink-soft);">점검 대상 <b style="color:var(--accent);">${[...gameStatsMap_.values()].filter(v=>(v.cycleScans||0)>=MAINT_THRESHOLD_).length}</b>개 · 기준 ${MAINT_THRESHOLD_}회 이상</span>
+      <label style="display:flex; align-items:center; gap:5px; font-size:12.5px; cursor:pointer;"><input type="checkbox" ${maintShowAll_?'checked':''} onchange="toggleMaintShowAll_(this.checked)"> ${MAINT_THRESHOLD_}회 미만도 보기</label>
+      <span style="flex:1;"></span>
+      <button class="btn btn-ghost2 btn-sm" onclick="printMaintenance_()">🖨️ A4 출력</button>
+    </div>
+    ${rows.length ? rows.map((r,i)=>`
+      <div class="row-card clickable" onclick="toggleMaintDetail_('${jsq_(r.id)}')" style="${maintOpen_===r.id?'border-color:var(--accent);':''}">
+        <div class="row-top">
+          <div style="width:24px; text-align:center; font-weight:800; color:${r.cycle>=MAINT_THRESHOLD_?'var(--accent)':'var(--ink-soft)'};">${i+1}</div>
+          <div style="flex:1; min-width:0;">
+            <div class="row-name">${escHtml_(r.name)}</div>
+            <div class="mini-bar"><i style="width:${Math.round(r.cycle/maxCycle*100)}%"></i></div>
+            <div class="row-sub">점검 이후 <b style="color:var(--ink);">${r.cycle}회</b> · 누적 ${r.total}회 · 마지막 점검 ${fmtShortDate_(r.last)}</div>
+          </div>
+          <button class="btn btn-primary2 btn-sm" onclick="event.stopPropagation(); completeMaint_('${jsq_(r.id)}')">점검 완료</button>
+        </div>
+        ${maintOpen_===r.id ? `
+          <div style="margin-top:10px; padding-top:10px; border-top:1px dashed var(--line);" onclick="event.stopPropagation()">
+            <div class="row-sub" style="margin-bottom:5px; font-weight:700;">📝 메모</div>
+            <textarea style="width:100%; min-height:70px; padding:8px 10px; border:1px solid var(--line); border-radius:8px; font-size:13px; font-family:var(--sans); resize:vertical;" placeholder="점검하면서 확인한 내용을 적어주세요 (예: 타일 2장 마모)" onchange="saveMaintMemo_('${jsq_(r.id)}', this.value)">${escHtml_(r.memo)}</textarea>
+            <div class="row-sub" style="margin:10px 0 5px; font-weight:700;">점검 이력</div>
+            <div id="maintHist" class="row-sub">불러오는 중...</div>
+          </div>` : ''}
+      </div>`).join('') : `<div class="empty">${maintShowAll_?'스캔 기록이 있는 게임이 없습니다.':`점검 대상(${MAINT_THRESHOLD_}회 이상)인 게임이 아직 없습니다.`}</div>`}`;
+  if (maintOpen_) loadMaintHistory_(maintOpen_);
+}
+function toggleMaintShowAll_(v){ maintShowAll_ = v; renderMaintBody_(); }
+function toggleMaintDetail_(id){ maintOpen_ = maintOpen_ === id ? null : id; renderMaintBody_(); }
+
+async function loadMaintHistory_(id){
+  const el = document.getElementById('maintHist');
+  if (!el) return;
+  try{
+    const q = query(collection(db, 'stores', activeStoreCode_, 'gameStats', id, 'checks'), orderBy('at', 'desc'), limit(8));
+    const snap = await getDocs(q);
+    const list = []; snap.forEach(d=>list.push(d.data()));
+    const el2 = document.getElementById('maintHist');
+    if (!el2 || maintOpen_ !== id) return;
+    el2.innerHTML = list.length ? list.map(c=>`<div style="padding:5px 0; border-bottom:1px solid var(--line);"><b style="color:var(--ink);">${dayKey_(c.at)}</b> · 점검 직전 ${c.cycleScans||0}회${c.by?` · ${escHtml_(String(c.by).split('@')[0])}`:''}${c.memo?`<div style="white-space:pre-wrap; margin-top:2px;">${escHtml_(c.memo)}</div>`:''}</div>`).join('') : '아직 점검 이력이 없습니다.';
+  }catch(e){ el.textContent = '이력을 불러오지 못했습니다.'; }
+}
+
+async function saveMaintMemo_(id, val){
+  try{
+    await setDoc(doc(db, 'stores', activeStoreCode_, 'gameStats', id), { memo: val, memoUpdatedAt: Date.now() }, { merge: true });
+    const st = gameStatsMap_.get(id) || {};
+    gameStatsMap_.set(id, { ...st, memo: val });
+  }catch(e){ alert('메모를 저장하지 못했습니다. 잠시 후 다시 시도해주세요.'); }
+}
+
+/** 점검 완료: "점검 이후 횟수"만 0으로 되돌립니다. 누적 횟수와 스캔 기록(히스토리·랭킹)은 그대로 남습니다. */
+async function completeMaint_(id){
+  const st = gameStatsMap_.get(id) || {};
+  const name = gameNameById_(id, st.gameName);
+  if (!confirm(`"${name}" 점검을 완료 처리할까요?\n\n점검 이후 횟수만 0으로 초기화되고, 누적 스캔 기록(히스토리·랭킹)은 그대로 유지됩니다.`)) return;
+  const now = Date.now();
+  const by = (auth.currentUser?.email || '').toLowerCase();
+  try{
+    await addDoc(collection(db, 'stores', activeStoreCode_, 'gameStats', id, 'checks'), { at: now, by, cycleScans: st.cycleScans||0, memo: st.memo||'' });
+    await setDoc(doc(db, 'stores', activeStoreCode_, 'gameStats', id), { cycleScans: 0, lastCheckedAt: now, lastCheckedBy: by }, { merge: true });
+    gameStatsMap_.set(id, { ...st, cycleScans: 0, lastCheckedAt: now, lastCheckedBy: by });
+    updateMaintBadge_();
+    if (maintOpen_ === id) maintOpen_ = null;
+    renderMaintBody_();
+  }catch(e){ console.error(e); alert('점검 완료 처리에 실패했습니다. 잠시 후 다시 시도해주세요.'); }
+}
+
+/** 지금 정렬된 점검 대상을 A4 점검표로 만들어 브라우저 인쇄 창을 엽니다 (프린터는 인쇄 창에서 선택). */
+function printMaintenance_(){
+  const rows = getMaintRows_().filter(r=>r.cycle >= MAINT_THRESHOLD_);
+  if (!rows.length){ alert(`출력할 점검 대상(${MAINT_THRESHOLD_}회 이상)이 없습니다.`); return; }
+  const storeName = (storeList_.find(s=>s.code===activeStoreCode_)||{}).name || '';
+  const today = new Date();
+  const area = document.getElementById('printArea');
+  area.innerHTML = `
+    <h1 class="print-title">정기 게임 점검표${storeName?` · ${escHtml_(storeName)}`:''}</h1>
+    <p class="print-sub">출력일 ${today.getFullYear()}-${pad2_(today.getMonth()+1)}-${pad2_(today.getDate())} · 점검 이후 스캔 ${MAINT_THRESHOLD_}회 이상 · 많이 찍힌 순 · 총 ${rows.length}개</p>
+    <table class="print-table">
+      <thead><tr><th style="width:28px;">✔</th><th style="width:34px;">순위</th><th>게임</th><th style="width:70px;">점검 이후</th><th style="width:60px;">누적</th><th style="width:70px;">마지막 점검</th><th style="width:38%;">점검 메모</th></tr></thead>
+      <tbody>${rows.map((r,i)=>`<tr><td>☐</td><td>${i+1}</td><td><b>${escHtml_(r.name)}</b></td><td>${r.cycle}회</td><td>${r.total}회</td><td>${fmtShortDate_(r.last)}</td><td class="pt-memo" style="font-size:10.5px; color:#666;">${escHtml_(r.memo)}</td></tr>`).join('')}</tbody>
+    </table>`;
+  document.body.classList.add('printing-maint');
+  const cleanup = ()=>{ document.body.classList.remove('printing-maint'); area.innerHTML = ''; };
+  window.addEventListener('afterprint', cleanup, { once: true });
+  setTimeout(()=>window.print(), 50);
+}
+
+// ---------- 보유 게임 관리 ----------
+let ownedSearch_ = '';
+let ownedPickerFor_ = null;
+function setOwnedSearch_(v){ ownedSearch_ = v; renderOwnedList_(); }
+
+async function openOwnedGames_(){
+  prepPage_('more', openOwnedGames_);
+  ownedSearch_ = ''; ownedPickerFor_ = null;
+  appEl.innerHTML = `${pageHeadHtml_('🗂️ 보유 게임 관리', '이 매장에서 보유한 게임을 켜고, 같은 게임을 여러 개 운영하면 식별 스티커 색상을 추가하세요. 추가한 색상이 반납대 가이드에서 스캔 후 선택 칩으로 나타납니다.')}
+    <div class="st-bar">${storeBarHtml_()}<input type="text" class="pg-search" style="margin:0; flex:1; min-width:160px;" placeholder="게임 이름 검색 (초성 가능)" oninput="setOwnedSearch_(this.value)"></div>
+    <div id="ownedBody"></div>`;
+  if (!activeStoreCode_){ document.getElementById('ownedBody').innerHTML = noStoreHtml_(); return; }
+  await loadStoreData_();
+  renderOwnedList_();
+}
+
+function renderOwnedList_(){
+  const body = document.getElementById('ownedBody');
+  if (!body) return;
+  const ownedCount = [...ownedGamesMap_.values()].filter(o=>o.owned!==false).length;
+  const list = games.filter(g=>matchGameSearch_(g, ownedSearch_));
+  body.innerHTML = `
+    <p style="margin-bottom:10px;">보유 <b style="color:var(--ink);">${ownedCount}</b> / 전체 ${games.length}개</p>
+    ${list.map(g=>{
+      const id = String(g.id);
+      const o = ownedGamesMap_.get(id);
+      const owned = !!o && o.owned !== false;
+      const colors = owned && Array.isArray(o.colors) ? o.colors : [];
+      const metaBits = [g.intro, g.difficulty, g.displayGrade].filter(Boolean).join(' · ');
+      return `
+      <div class="row-card" style="${owned?'':'opacity:.7;'}">
+        <div class="row-top">
+          <div style="flex:1; min-width:0;"><div class="row-name">${escHtml_(g.name||'')}</div><div class="row-sub">ID ${escHtml_(id)}${metaBits?` · ${escHtml_(metaBits)}`:''}</div></div>
+          <label style="display:flex; align-items:center; gap:6px; font-size:12.5px; font-weight:700; cursor:pointer;"><input type="checkbox" ${owned?'checked':''} onchange="toggleOwnedGame_('${jsq_(id)}', this.checked)"> 보유</label>
+        </div>
+        ${owned ? `
+        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:9px; padding-top:9px; border-top:1px dashed var(--line);">
+          <span class="row-sub" style="font-weight:700;">${colors.length>=2?`${colors.length}개 운영 · `:''}식별 스티커</span>
+          ${colors.map(name=>`<span style="display:inline-flex; align-items:center; gap:4px; border:1px solid var(--line); border-radius:999px; padding:2px 4px 2px 8px; font-size:12px;">${colorDotHtml_(name)} ${escHtml_(name)} <button style="border:none; background:none; cursor:pointer; color:var(--ink-soft); font-size:13px;" onclick="removeOwnedColor_('${jsq_(id)}','${jsq_(name)}')" title="삭제">✕</button></span>`).join('')}
+          <button class="chip-btn" style="border-style:dashed; color:var(--accent); border-color:var(--accent);" onclick="toggleOwnedPicker_('${jsq_(id)}')">+ 색상</button>
+        </div>
+        ${ownedPickerFor_===id ? `<div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:9px;">${STICKER_COLORS_.filter(c=>!colors.includes(c.name)).map(c=>`<button class="sc-chip ${c.light?'light':''}" style="background:${c.hex}; width:38px; height:38px; flex-basis:38px; font-size:11px;" onclick="addOwnedColor_('${jsq_(id)}','${jsq_(c.name)}')" title="${c.name}"></button>`).join('')}</div>` : ''}
+        ` : ''}
+      </div>`;
+    }).join('') || `<div class="empty">검색 결과가 없습니다.</div>`}`;
+}
+
+async function saveOwned_(id, data){
+  const ref_ = doc(db, 'stores', activeStoreCode_, 'ownedGames', id);
+  try{
+    if (data === null){ await deleteDoc(ref_); ownedGamesMap_.delete(id); }
+    else { await setDoc(ref_, { ...data, updatedAt: Date.now() }); ownedGamesMap_.set(id, { ...data }); }
+    return true;
+  }catch(e){ console.error(e); alert('저장하지 못했습니다. 잠시 후 다시 시도해주세요.'); return false; }
+}
+async function toggleOwnedGame_(id, on){
+  if (on) await saveOwned_(id, { owned:true, colors:[] });
+  else { ownedPickerFor_ = null; await saveOwned_(id, null); }
+  renderOwnedList_();
+}
+function toggleOwnedPicker_(id){ ownedPickerFor_ = ownedPickerFor_ === id ? null : id; renderOwnedList_(); }
+async function addOwnedColor_(id, name){
+  const o = ownedGamesMap_.get(id) || { owned:true, colors:[] };
+  const colors = [...(o.colors||[])]; if (!colors.includes(name)) colors.push(name);
+  await saveOwned_(id, { owned:true, colors });
+  renderOwnedList_();
+}
+async function removeOwnedColor_(id, name){
+  const o = ownedGamesMap_.get(id); if (!o) return;
+  await saveOwned_(id, { owned:true, colors:(o.colors||[]).filter(c=>c!==name) });
+  renderOwnedList_();
+}
+
+// ---------- 게임 DB 관리 (관리자) + 엑셀 대량 업로드 ----------
+let xlsxLoadPromise_ = null;
+function loadXlsx_(){
+  if (window.XLSX) return Promise.resolve(window.XLSX);
+  if (xlsxLoadPromise_) return xlsxLoadPromise_;
+  xlsxLoadPromise_ = new Promise((resolve, reject)=>{
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    s.onload = ()=>resolve(window.XLSX);
+    s.onerror = ()=>{ xlsxLoadPromise_ = null; reject(new Error('엑셀 라이브러리를 불러오지 못했습니다 (네트워크 문제일 수 있습니다)')); };
+    document.head.appendChild(s);
+  });
+  return xlsxLoadPromise_;
+}
+
+let gdbSearch_ = '';
+function setGdbSearch_(v){ gdbSearch_ = v; renderGdbList_(); }
+let gdbParsed_ = null; // { rows:[{rowNo,id,name,intro,difficulty,displayGrade,status,msg}], }
+
+function optHtml_(opts, sel, ph){
+  return `<option value="">${ph}</option>` + opts.map(o=>`<option ${o===sel?'selected':''}>${o}</option>`).join('');
+}
+
+function openGameDbAdmin_(){
+  prepPage_('more', openGameDbAdmin_);
+  if (currentRole !== 'editor'){ appEl.innerHTML = `<div class="empty">편집자 권한이 필요한 메뉴입니다.</div>`; return; }
+  gdbParsed_ = null; gdbSearch_ = '';
+  appEl.innerHTML = `
+    ${pageHeadHtml_('➕ 게임 DB 관리', '게임을 하나씩 추가하거나, 엑셀로 한 번에 대량 추가·갱신합니다. 이미 있는 게임 ID는 이름·분류·난이도·진열 등급만 바뀌고, 만들어 둔 가이드(사진·표 등)는 그대로 유지됩니다.')}
+    <div class="pg-body" style="grid-template-columns:1fr; max-width:760px;">
+      <div class="pg-panel">
+        <h3>게임 1개 추가</h3>
+        <div class="st-bar">
+          <input id="gdbId" type="text" placeholder="게임 ID" style="width:110px; padding:8px 10px; border:1px solid var(--line); border-radius:8px;">
+          <input id="gdbName" type="text" placeholder="게임 이름" style="flex:1; min-width:150px; padding:8px 10px; border:1px solid var(--line); border-radius:8px;">
+        </div>
+        <div class="st-bar">
+          <select id="gdbIntro">${optHtml_(INTRO_OPTS_, '', '도입 분류')}</select>
+          <select id="gdbDiff">${optHtml_(DIFF_OPTS_, '', '난이도')}</select>
+          <select id="gdbGrade">${optHtml_(GRADE_OPTS_, '', '진열 등급')}</select>
+          <button class="btn btn-primary2 btn-sm" onclick="addSingleGame_()">추가</button>
+        </div>
+      </div>
+
+      <div class="pg-panel">
+        <h3>엑셀로 대량 추가</h3>
+        <p style="margin-bottom:10px;">1행은 제목 행으로 건너뜁니다. 열 구성: <b>A 게임ID · B 게임 이름 · C 도입 분류(필수/권장/선택) · D 난이도(Very Easy, Easy, Normal, Semi-Hard, Hard, Extreme) · E 진열 등급(S+ ~ F-)</b></p>
+        <div class="st-bar">
+          <button class="btn btn-ghost2 btn-sm" onclick="downloadGameXlsxTemplate_()">양식 다운로드</button>
+          <input type="file" id="gdbFile" accept=".xlsx,.xls,.csv" onchange="parseGameXlsx_(this.files[0])">
+        </div>
+        <div id="gdbPreview"></div>
+      </div>
+
+      <div class="pg-panel">
+        <h3>등록된 게임 (${games.length}개)</h3>
+        <input type="text" class="pg-search" placeholder="게임 이름 검색 (초성 가능)" oninput="setGdbSearch_(this.value)">
+        <div id="gdbList"></div>
+      </div>
+    </div>`;
+  renderGdbList_();
+}
+
+function renderGdbList_(){
+  const el = document.getElementById('gdbList');
+  if (!el) return;
+  const list = games.filter(g=>matchGameSearch_(g, gdbSearch_)).slice(0, 200);
+  el.innerHTML = list.map(g=>`
+    <div class="row-card"><div class="row-top" style="flex-wrap:wrap;">
+      <div style="flex:1; min-width:140px;"><div class="row-name">${escHtml_(g.name||'')}</div><div class="row-sub">ID ${escHtml_(String(g.id))}</div></div>
+      <select onchange="updateGameMeta_('${jsq_(g.id)}','intro',this.value)">${optHtml_(INTRO_OPTS_, g.intro, '도입 분류')}</select>
+      <select onchange="updateGameMeta_('${jsq_(g.id)}','difficulty',this.value)">${optHtml_(DIFF_OPTS_, g.difficulty, '난이도')}</select>
+      <select onchange="updateGameMeta_('${jsq_(g.id)}','displayGrade',this.value)">${optHtml_(GRADE_OPTS_, g.displayGrade, '진열 등급')}</select>
+    </div></div>`).join('') + (games.filter(g=>matchGameSearch_(g, gdbSearch_)).length > 200 ? `<p>검색해서 범위를 좁혀주세요 (상위 200개만 표시)</p>` : '') || `<div class="empty">검색 결과가 없습니다.</div>`;
+}
+
+async function updateGameMeta_(id, field, val){
+  const g = games.find(x=>String(x.id)===String(id));
+  if (!g) return;
+  try{
+    await updateDoc(doc(db, 'games', String(id)), { [field]: val, updatedAt: Date.now() });
+    g[field] = val;
+  }catch(e){ alert('저장하지 못했습니다. 잠시 후 다시 시도해주세요.'); }
+}
+
+async function addSingleGame_(){
+  const id = document.getElementById('gdbId').value.trim();
+  const name = document.getElementById('gdbName').value.trim();
+  if (!id || !name){ alert('게임 ID와 게임 이름을 입력해주세요.'); return; }
+  if (/[\/]/.test(id)){ alert('게임 ID에는 "/"를 쓸 수 없습니다.'); return; }
+  if (games.some(x=>String(x.id)===id)){ alert(`ID "${id}"는 이미 사용 중입니다.`); return; }
+  const data = {
+    name, cases: [], guideDone: false, completedBy: [], note: '', updatedAt: Date.now(),
+    intro: document.getElementById('gdbIntro').value, difficulty: document.getElementById('gdbDiff').value, displayGrade: document.getElementById('gdbGrade').value,
+  };
+  try{
+    await setDoc(doc(db, 'games', id), data);
+    await loadGames();
+    alert(`"${name}" 게임을 추가했습니다.`);
+    openGameDbAdmin_();
+  }catch(e){ console.error(e); alert('추가하지 못했습니다. 잠시 후 다시 시도해주세요.'); }
+}
+
+async function downloadGameXlsxTemplate_(){
+  try{
+    const X = await loadXlsx_();
+    const ws = X.utils.aoa_to_sheet([
+      ['게임ID', '게임 이름', '도입 분류', '난이도', '진열 등급'],
+      ['G-0013', '13클루', '필수', 'Normal', 'A'],
+      ['G-0014', '루미큐브', '필수', 'Easy', 'A+'],
+    ]);
+    const wb = X.utils.book_new();
+    X.utils.book_append_sheet(wb, ws, '게임');
+    X.writeFile(wb, '게임DB_업로드_양식.xlsx');
+  }catch(e){ alert(e.message); }
+}
+
+function normalizeOpt_(val, opts){
+  const t = String(val==null?'':val).trim();
+  if (!t) return { ok:true, v:'' };
+  const hit = opts.find(o=>o.toLowerCase().replace(/[\s_]/g,'') === t.toLowerCase().replace(/[\s_]/g,''));
+  return hit ? { ok:true, v:hit } : { ok:false, v:t };
+}
+
+async function parseGameXlsx_(file){
+  const box = document.getElementById('gdbPreview');
+  if (!file || !box) return;
+  box.innerHTML = '<p>파일을 읽는 중...</p>';
+  try{
+    const X = await loadXlsx_();
+    const wb = X.read(await file.arrayBuffer(), { type:'array' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const aoa = X.utils.sheet_to_json(ws, { header:1, raw:false, defval:'' });
+    const rows = [];
+    const seen = new Set();
+    aoa.forEach((r, idx)=>{
+      if (idx === 0) return; // 제목 행
+      const cells = [0,1,2,3,4].map(i=>String(r[i]==null?'':r[i]).trim());
+      if (cells.every(c=>!c)) return; // 완전히 빈 줄
+      const [id, name, introRaw, diffRaw, gradeRaw] = cells;
+      const row = { rowNo: idx+1, id, name, status:'new', msgs:[] };
+      const intro = normalizeOpt_(introRaw, INTRO_OPTS_), diff = normalizeOpt_(diffRaw, DIFF_OPTS_), grade = normalizeOpt_(gradeRaw.toUpperCase(), GRADE_OPTS_);
+      row.intro = intro.v; row.difficulty = diff.v; row.displayGrade = grade.v;
+      if (!id) row.msgs.push('게임 ID가 비어 있습니다');
+      else if (/[\/]/.test(id)) row.msgs.push('게임 ID에 "/"를 쓸 수 없습니다');
+      else if (seen.has(id)) row.msgs.push(`파일 안에서 ID "${id}"가 중복됩니다`);
+      if (!name) row.msgs.push('게임 이름이 비어 있습니다');
+      if (!intro.ok) row.msgs.push(`도입 분류 "${intro.v}"는 허용값이 아닙니다 (필수/권장/선택)`);
+      if (!diff.ok) row.msgs.push(`난이도 "${diff.v}"는 허용값이 아닙니다 (${DIFF_OPTS_.join(', ')})`);
+      if (!grade.ok) row.msgs.push(`진열 등급 "${grade.v}"는 허용값이 아닙니다 (S+ ~ F-)`);
+      if (id) seen.add(id);
+      if (row.msgs.length) row.status = 'error';
+      else if (games.some(g=>String(g.id)===id)) row.status = 'update';
+      rows.push(row);
+    });
+    gdbParsed_ = rows;
+    renderGdbPreview_();
+  }catch(e){
+    console.error(e);
+    box.innerHTML = `<p style="color:var(--danger);">파일을 읽지 못했습니다. ${escHtml_(e.message||'')}</p>`;
+  }
+}
+
+function renderGdbPreview_(){
+  const box = document.getElementById('gdbPreview');
+  if (!box || !gdbParsed_) return;
+  const nNew = gdbParsed_.filter(r=>r.status==='new').length;
+  const nUpd = gdbParsed_.filter(r=>r.status==='update').length;
+  const errs = gdbParsed_.filter(r=>r.status==='error');
+  box.innerHTML = `
+    <div class="st-bar" style="margin-top:6px;">
+      <span class="xl-ok">신규 ${nNew}건</span><span class="xl-warn">기존 ID 갱신 ${nUpd}건</span><span class="xl-err">오류 ${errs.length}건</span>
+    </div>
+    ${errs.length ? `<div style="background:#fff8f7; border:1px solid #f4cfcd; border-radius:9px; padding:8px 10px; font-size:12px; color:var(--accent); line-height:1.7; margin-bottom:10px; max-height:160px; overflow-y:auto;">${errs.map(r=>`${r.rowNo}행 · ${escHtml_(r.msgs.join(' / '))}`).join('<br>')}</div>` : ''}
+    <div style="max-height:240px; overflow:auto; margin-bottom:10px;">
+      <table class="xl-table"><thead><tr><th>행</th><th>ID</th><th>이름</th><th>도입</th><th>난이도</th><th>진열</th><th>상태</th></tr></thead>
+      <tbody>${gdbParsed_.slice(0,200).map(r=>`<tr><td>${r.rowNo}</td><td>${escHtml_(r.id)}</td><td>${escHtml_(r.name)}</td><td>${escHtml_(r.intro)}</td><td>${escHtml_(r.difficulty)}</td><td>${escHtml_(r.displayGrade)}</td><td class="${r.status==='error'?'xl-err':r.status==='update'?'xl-warn':'xl-ok'}">${r.status==='error'?'오류':r.status==='update'?'갱신':'신규'}</td></tr>`).join('')}</tbody></table>
+    </div>
+    <button class="btn btn-primary2 btn-sm" ${nNew+nUpd?'':'disabled'} onclick="applyGameXlsx_()">${nNew+nUpd}건 반영 (오류 행은 제외)</button>
+    <div id="gdbApplyStatus" style="margin-top:8px; font-size:12.5px; color:var(--ink-soft);"></div>`;
+}
+
+async function applyGameXlsx_(){
+  const targets = (gdbParsed_||[]).filter(r=>r.status!=='error');
+  if (!targets.length) return;
+  if (!confirm(`${targets.length}건을 게임 DB에 반영할까요?`)) return;
+  const status = document.getElementById('gdbApplyStatus');
+  let done = 0, failed = 0;
+  for (let i=0; i<targets.length; i+=10){
+    const chunk = targets.slice(i, i+10);
+    await Promise.all(chunk.map(async r=>{
+      try{
+        const meta = { name:r.name, intro:r.intro, difficulty:r.difficulty, displayGrade:r.displayGrade, updatedAt:Date.now() };
+        if (r.status === 'update'){
+          ['intro','difficulty','displayGrade'].forEach(k=>{ if (!meta[k]) delete meta[k]; }); // 빈 칸은 기존 값을 지우지 않음
+          await setDoc(doc(db, 'games', r.id), meta, { merge:true });
+        }
+        else await setDoc(doc(db, 'games', r.id), { ...meta, cases:[], guideDone:false, completedBy:[], note:'' });
+        done++;
+      }catch(e){ console.error(e); failed++; }
+    }));
+    if (status) status.textContent = `진행 중... ${done + failed} / ${targets.length}`;
+  }
+  await loadGames();
+  alert(`반영 완료: 성공 ${done}건${failed?`, 실패 ${failed}건`:''}`);
+  openGameDbAdmin_();
+}
+
 // 전역에 노출 (onclick에서 호출하기 위함 - type="module"은 기본적으로 전역 스코프가 아니라서 필요)
 Object.assign(window, {
+  switchStore_, toggleMoreMenu_, closeMoreMenu_, pickScanColor_, openScanHistory_, setHistRange_, openGameFromHistory_,
+  openScanRanking_, setRankRange_, setRankCustom_, selectRankGame_, openMaintenance_, toggleMaintShowAll_, toggleMaintDetail_,
+  saveMaintMemo_, completeMaint_, printMaintenance_, openOwnedGames_, toggleOwnedGame_, toggleOwnedPicker_, addOwnedColor_, removeOwnedColor_,
+  openGameDbAdmin_, addSingleGame_, downloadGameXlsxTemplate_, parseGameXlsx_, applyGameXlsx_, updateGameMeta_, renderOwnedList_, renderGdbList_, setOwnedSearch_, setGdbSearch_,
   renderList, openGame, createNewGame, switchMode, setRole,
   prevPhoto, nextPhoto, uploadPhoto, deletePhoto, movePhoto, autoGenerateMarkers,
   downloadGuideImage, downloadAllGuideImages,
