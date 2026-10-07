@@ -963,13 +963,14 @@ function openGameFromQr_(gameId, mode){
 }
 
 /** QR 접근 관련 오류(등록되지 않은 QR, 비공개 가이드, 네트워크 오류 등)를 안내하는 화면입니다. */
-function renderGuideAccessError_(message){
+function renderGuideAccessError_(message, scanned){
   leavePresence_();
   currentGameId = null;
   appEl.innerHTML = `
     <div style="max-width:380px; margin:70px auto; text-align:center;">
       <div style="font-size:38px; margin-bottom:14px;">⚠️</div>
-      <p style="font-size:15px; font-weight:700; margin-bottom:20px;">${message}</p>
+      <p style="font-size:15px; font-weight:700; margin-bottom:20px;">${escHtml_(message)}</p>
+      ${scanned ? `<p style="font-size:12px; color:var(--ink-soft); margin:-10px 0 16px; word-break:break-all;">스캐너가 읽은 내용: <code>${escHtml_(scanned)}</code></p>` : ''}
       ${rvMode_
         ? `<p style="font-size:13px; color:var(--ink-soft);">다른 게임의 QR코드를 스캔해주세요.</p>`
         : `<button class="btn btn-primary2" style="width:auto; padding:9px 22px;" onclick="renderList()">← 게임 목록으로</button>`}
@@ -2298,7 +2299,7 @@ function activateQrScan_(){
   if (document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur();
   qrScanKeyHandler_ = (e)=>{
     if (!qrScanActive_) return;
-    if (e.key === 'Enter'){
+    if (e.key === 'Enter' || (e.key === 'Tab' && qrScanBuffer_)){ // 스캐너에 따라 끝에 Tab을 보내기도 합니다
       e.preventDefault();
       e.stopPropagation();
       const raw = qrScanBuffer_.trim();
@@ -2307,15 +2308,38 @@ function activateQrScan_(){
       handleQrScanInput_(raw);
       return;
     }
-    // 문자 하나짜리 키(숫자·영문·기호 등)만 버퍼에 담고, Shift·Tab 같은 제어키는 무시합니다.
-    if (e.key.length === 1){
+    // 문자 키만 버퍼에 담고, Shift 같은 제어키는 무시합니다.
+    // 한글 입력 상태(IME)이면 스캐너가 보낸 "R"이 "ㄱ"이나 "Process"로 들어오므로, 그때는 눌린 자판 위치(e.code)로
+    // 원래 영문·숫자·기호를 되살립니다. (QR 내용은 영문·숫자·기호뿐이라 이렇게 복원할 수 있습니다)
+    const ch = scanKeyChar_(e);
+    if (ch){
       e.preventDefault();
       e.stopPropagation();
-      qrScanBuffer_ += e.key;
+      qrScanBuffer_ += ch;
     }
   };
   document.addEventListener('keydown', qrScanKeyHandler_, true);
   updateQrScanIndicator_();
+}
+
+const SCAN_CODE_CHARS_ = {
+  Minus:['-','_'], Equal:['=','+'], BracketLeft:['[','{'], BracketRight:[']','}'], Backslash:['\\','|'],
+  Semicolon:[';',':'], Quote:["'",'"'], Backquote:['`','~'], Comma:[',','<'], Period:['.','>'], Slash:['/','?'], Space:[' ',' '],
+  NumpadDivide:['/','/'], NumpadMultiply:['*','*'], NumpadSubtract:['-','-'], NumpadAdd:['+','+'], NumpadDecimal:['.','.'],
+};
+const SCAN_DIGIT_SHIFT_ = ')!@#$%^&*(';
+function scanKeyChar_(e){
+  if (e.key && e.key.length === 1 && e.key.charCodeAt(0) >= 0x20 && e.key.charCodeAt(0) < 0x7F) return e.key; // 보통의 영문·숫자·기호
+  const code = e.code || '';
+  let m;
+  if ((m = code.match(/^Key([A-Z])$/))){
+    const upper = !!e.shiftKey !== !!(e.getModifierState && e.getModifierState('CapsLock'));
+    return upper ? m[1] : m[1].toLowerCase();
+  }
+  if ((m = code.match(/^Digit([0-9])$/))) return e.shiftKey ? SCAN_DIGIT_SHIFT_[Number(m[1])] : m[1];
+  if ((m = code.match(/^Numpad([0-9])$/))) return m[1];
+  if (SCAN_CODE_CHARS_[code]) return SCAN_CODE_CHARS_[code][e.shiftKey ? 1 : 0];
+  return '';
 }
 
 function deactivateQrScan_(){
@@ -2386,7 +2410,8 @@ function renderReturnViewerStandby_(){
  */
 const QR_PAYLOAD_PREFIX_ = 'RB/';
 function buildQrPayload_(gameId, stickerCode){
-  return QR_PAYLOAD_PREFIX_ + gameId + (stickerCode ? '/' + stickerCode : '');
+  // 키보드 방식 스캐너는 한글을 보낼 수 없으므로, 게임ID에 한글 등 영문·숫자 외 글자가 있으면 %XX 형태(영문·숫자만)로 바꿔 담습니다.
+  return QR_PAYLOAD_PREFIX_ + encodeURIComponent(String(gameId)) + (stickerCode ? '/' + stickerCode : '');
 }
 
 /** 스캐너가 보내온 글자에서 게임ID와 식별 스티커 코드를 꺼냅니다.
@@ -2397,7 +2422,8 @@ function parseScanPayload_(raw){
   if (raw.toUpperCase().startsWith(QR_PAYLOAD_PREFIX_)){
     const rest = raw.slice(QR_PAYLOAD_PREFIX_.length);
     const i = rest.indexOf('/'); // 게임ID에는 "/"를 쓸 수 없으므로 첫 "/" 뒤는 스티커 코드입니다
-    const gameId = i === -1 ? rest : rest.slice(0, i);
+    let gameId = i === -1 ? rest : rest.slice(0, i);
+    try{ gameId = decodeURIComponent(gameId); }catch(e){}
     const sticker = i === -1 ? '' : rest.slice(i+1);
     return gameId ? { gameId, sticker } : null;
   }
@@ -2408,6 +2434,16 @@ function parseScanPayload_(raw){
   }catch(e){
     return { gameId: raw, sticker: '' }; // 게임 ID만 담긴 경우
   }
+}
+
+/** 스캔한 게임ID로 게임을 찾습니다. 스캐너가 Caps Lock 상태에서 대소문자를 뒤집어 보내는 경우가 있어,
+ *  정확히 같은 ID가 없으면 대소문자를 무시하고 하나로 특정될 때만 그 게임으로 봅니다. */
+function findGameByScannedId_(gameId){
+  const id = String(gameId);
+  const exact = games.find(x=>String(x.id)===id);
+  if (exact) return exact;
+  const ci = games.filter(x=>String(x.id).toLowerCase()===id.toLowerCase());
+  return ci.length === 1 ? ci[0] : null;
 }
 
 // 아주 짧은 시간 안에 같은 내용이 연속으로 들어오면(스캐너가 흔들려 겹쳐 찍히는 등) 중복 처리하지 않습니다.
@@ -2426,17 +2462,17 @@ function handleQrScanInput_(raw){
   const parsed = parseScanPayload_(raw);
   const gameId = parsed && parsed.gameId;
   if (!gameId){
-    renderGuideAccessError_('게임 QR코드를 다시 확인해주세요.');
+    renderGuideAccessError_('게임 QR코드를 다시 확인해주세요.', raw);
     return;
   }
-  const g = games.find(x=>String(x.id)===String(gameId));
+  const g = findGameByScannedId_(gameId);
   if (!g){
-    renderGuideAccessError_('등록된 게임 가이드를 찾을 수 없습니다.');
+    renderGuideAccessError_('등록된 게임 가이드를 찾을 수 없습니다.', raw);
     return;
   }
   const isPublished = !!(g.returnGuide && g.returnGuide.published === true);
   if (!isPublished){
-    renderGuideAccessError_('현재 사용할 수 없는 가이드입니다.');
+    renderGuideAccessError_(`"${g.name || g.id}" 반납대 가이드가 아직 게시되지 않았습니다.`, raw);
     return;
   }
   logQrScan_(g, parsed.sticker);
