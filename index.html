@@ -685,6 +685,7 @@
   <div class="more-menu" id="moreMenu">
     <button onclick="closeMoreMenu_(); renderList();">📋 전체 게임 목록</button>
     <button onclick="closeMoreMenu_(); openScanRanking_();">🏆 랭킹 · 기간별 인기 게임</button>
+    <button onclick="closeMoreMenu_(); openIdleGames_();">💤 안 쓰이는 게임</button>
     <button onclick="closeMoreMenu_(); openOwnedGames_();">🗂️ 보유 게임 관리</button>
     <button onclick="closeMoreMenu_(); openQrPrintTool_();">🖨️ QR 라벨 인쇄</button>
     <button onclick="closeMoreMenu_(); openPurchaseGuide();">🛒 구매 가이드</button>
@@ -7515,6 +7516,89 @@ function rankTrendHtml_(gameId){
     </div>`;
 }
 
+// ---------- 안 쓰이는 게임 ----------
+// 보유 중인데 정한 기간 동안 QR 스캔이 한 번도 없는 게임을 찾아, 진열 위치를 바꾸거나 진열에서 뺄 게임을 고를 때 씁니다.
+// 매장 gameStats 의 lastScanAt(마지막 스캔 시각)만 보므로 추가로 읽는 문서가 없습니다.
+let idleDays_ = 30;
+function setIdleDays_(n){ idleDays_ = n; openIdleGames_(); }
+
+function idleGameRows_(days){
+  const cutoff = Date.now() - days*86400000;
+  const byGame = new Map(); // gameId -> { last, total, units: Map(stickerCode -> last) }
+  gameStatsMap_.forEach((v, key)=>{
+    const gid = String(v.gameId || String(key).split('__')[0]);
+    const g = byGame.get(gid) || { last: 0, total: 0, units: new Map() };
+    const last = Number(v.lastScanAt) || 0;
+    g.last = Math.max(g.last, last);
+    g.total += Number(v.totalScans) || 0;
+    if (v.stickerCode) g.units.set(String(v.stickerCode), Math.max(g.units.get(String(v.stickerCode)) || 0, last));
+    byGame.set(gid, g);
+  });
+  const idle = [], never = [], spare = [];
+  games.forEach(game=>{
+    const id = String(game.id);
+    const qty = ownedQty_(id);
+    if (!qty) return;
+    const st = byGame.get(id);
+    const row = { id, name: game.name || '(이름 없음)', qty, last: st ? st.last : 0, total: st ? st.total : 0 };
+    if (!st || (!st.last && !st.total)) { never.push(row); return; }
+    if (st.last < cutoff){ idle.push(row); return; }
+    // 여러 개 보유한 게임: 기간 안에 찍힌 스티커가 보유 수량보다 적으면 "여분"으로 알려줍니다 (스티커로 구분된 것만 셈)
+    const stickers = getOwnedStickers_(id);
+    if (qty >= 2 && stickers.length >= 2){
+      const unused = stickers.filter(x => (st.units.get(String(x.code)) || 0) < cutoff);
+      if (unused.length && unused.length < stickers.length) spare.push({ ...row, unused: unused.map(x=>x.label || `#${x.code}`), used: stickers.length - unused.length });
+    }
+  });
+  idle.sort((a,b)=> (a.last - b.last) || a.name.localeCompare(b.name, 'ko'));
+  never.sort((a,b)=> a.name.localeCompare(b.name, 'ko'));
+  spare.sort((a,b)=> b.unused.length - a.unused.length || a.name.localeCompare(b.name, 'ko'));
+  return { idle, never, spare };
+}
+
+async function openIdleGames_(){
+  if (!prepPage_('more', openIdleGames_)) return;
+  appEl.innerHTML = `
+    ${pageHeadHtml_('💤 안 쓰이는 게임', '보유 중인데 선택한 기간 동안 QR로 한 번도 찍히지 않은 게임입니다. 진열 위치를 바꾸거나 진열에서 뺄 게임을 고를 때 참고하세요. 게임을 누르면 가이드로 이동합니다.')}
+    <div class="st-bar">
+      ${storeBarHtml_()}
+      ${[30, 60, 90].map(n=>`<button class="chip-btn ${idleDays_===n?'on':''}" onclick="setIdleDays_(${n})">최근 ${n}일</button>`).join('')}
+    </div>
+    <div id="idleBody"><p style="padding:20px 4px;">불러오는 중...</p></div>`;
+  const body = document.getElementById('idleBody');
+  if (!activeStoreCode_){ body.innerHTML = noStoreHtml_(); return; }
+  await loadStoreData_();
+  if (!document.getElementById('idleBody')) return;
+  const ownedCount = games.filter(g=>ownedQty_(g.id) > 0).length;
+  if (!ownedCount){ body.innerHTML = `<div class="empty">이 매장에 보유 게임으로 등록된 게임이 없습니다. 더보기 → 🗂️ 보유 게임 관리에서 먼저 등록해주세요.</div>`; return; }
+  const { idle, never, spare } = idleGameRows_(idleDays_);
+  const ago = ms => Math.floor((Date.now() - ms) / 86400000);
+  const row = (r, sub) => `
+    <div class="row-card clickable" onclick="openGame('${jsq_(r.id)}')">
+      <div class="row-top">
+        <div style="flex:1; min-width:0;">
+          <div class="row-name">${escHtml_(r.name)}${r.qty >= 2 ? ` <span class="row-sub">· ${r.qty}개 보유</span>` : ''}</div>
+          <div class="row-sub">${sub}</div>
+        </div>
+      </div>
+    </div>`;
+  body.innerHTML = `
+    <div class="stat-row">
+      <div class="stat-box"><div class="row-sub">${idleDays_}일 넘게 이용 없음</div><div class="n">${idle.length}개</div></div>
+      <div class="stat-box"><div class="row-sub">스캔 기록 없음</div><div class="n">${never.length}개</div></div>
+      <div class="stat-box"><div class="row-sub">보유 게임</div><div class="n" style="color:var(--ink);">${ownedCount}개</div></div>
+    </div>
+    <h3 style="font-size:14px; margin:4px 0 8px;">💤 ${idleDays_}일 넘게 이용 없음 <span class="row-sub">오래된 순</span></h3>
+    ${idle.length ? idle.map(r=>row(r, r.last ? `마지막 이용 <b style="color:var(--ink);">${dayKey_(r.last)}</b> (${ago(r.last)}일 전) · 누적 ${r.total}회` : `마지막 이용 날짜 기록 없음 · 누적 ${r.total}회`)).join('')
+      : `<div class="empty">최근 ${idleDays_}일 동안 이용 기록이 없는 보유 게임이 없습니다.</div>`}
+    ${spare.length ? `
+    <h3 style="font-size:14px; margin:18px 0 8px;">📦 여분이 남는 게임 <span class="row-sub">여러 개 보유 중 ${idleDays_}일 동안 일부만 이용</span></h3>
+    ${spare.map(r=>row(r, `${r.qty}개 중 ${r.used}개만 이용 · 이용 없는 스티커 ${r.unused.map(l=>`<span class="sc-sticker">🏷️ ${escHtml_(l)}</span>`).join(' ')}`)).join('')}` : ''}
+    ${never.length ? `
+    <h3 style="font-size:14px; margin:18px 0 8px;">❔ 스캔 기록 없음 <span class="row-sub">QR 라벨을 아직 안 붙였거나 새로 들어온 게임일 수 있습니다</span></h3>
+    ${never.map(r=>row(r, '아직 QR로 찍힌 기록이 없습니다')).join('')}` : ''}`;
+}
+
 // ---------- 정기 점검 ----------
 let maintShowAll_ = false;
 let maintOpen_ = null;
@@ -8254,7 +8338,7 @@ Object.assign(window, {
   updateEstMinutes_,
   toggleReturnViewer_, enterReturnViewer_, exitReturnViewer_,
   renderHome_, switchStore_, toggleMoreMenu_, closeMoreMenu_, openScanHistory_, setHistRange_, openGameFromHistory_,
-  openScanRanking_, setRankRange_, setRankCustom_, selectRankGame_, openMaintenance_, toggleMaintShowAll_, toggleMaintDetail_, setMaintView_, moveMaintCal_, pickMaintCalDay_,
+  openIdleGames_, setIdleDays_, openScanRanking_, setRankRange_, setRankCustom_, selectRankGame_, openMaintenance_, toggleMaintShowAll_, toggleMaintDetail_, setMaintView_, moveMaintCal_, pickMaintCalDay_,
   saveMaintMemo_, completeMaint_, printMaintenance_, openOwnedGames_, setOwnedQty_, setOwnedFilter_, downloadOwnedXlsx_, parseOwnedXlsx_, applyOwnedXlsx_, ownedXlsxCancel_, toggleOwnedPicker_, addOwnedColor_, removeOwnedColor_,
   openGameDbAdmin_, addSingleGame_, downloadGameXlsxTemplate_, parseGameXlsx_, applyGameXlsx_, updateGameMeta_, renderOwnedList_, renderGdbList_, setOwnedSearch_, setGdbSearch_,
   renderList, openGame, createNewGame, switchMode, setRole,
