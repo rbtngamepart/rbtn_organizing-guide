@@ -2503,7 +2503,7 @@ function openQrPrintTool_(){
       <h2>🖨️ QR 라벨 인쇄</h2>
       <p class="pg-desc">
         게임을 검색해서 선택하고 필요한 수량을 입력하세요. A4·20×20mm·한 장 104칸(8×13) 라벨지 기준이며,
-        한 칸 안에 <b>QR(위)과 게임 이름·식별 스티커(아래)</b>를 함께 인쇄합니다.
+        한 칸 안에 <b>QR(위)과 게임 이름·식별 스티커(아래 한 줄, 길면 …로 줄임)</b>를 함께 인쇄합니다.
         QR에는 사이트 주소 없이 게임 코드만 들어가서 외부인이 찍어도 가이드가 열리지 않고, 반납대 뷰어에서 스캐너로 찍을 때만 열립니다.
         "보유 게임 관리"에서 식별 스티커를 등록한 게임은 오른쪽에서 인쇄할 스티커를 고를 수 있습니다 (수량은 스티커마다 적용).
         인쇄 배율은 "100%"(실제 크기)로, "페이지에 맞춤"은 꺼주세요. 처음에는 일반 A4로 먼저 뽑아 칸 위치를 확인하세요.
@@ -2709,11 +2709,11 @@ function buildQrLabelImage_(qrDataUrl, gameName, stickerLabel){
     const img = new Image();
     img.onload = ()=>{
       const SIZE = 480;                 // 20mm = 480px (1mm = 24px)
-      const qrPx = 336;                 // QR 14mm
-      const qrTop = 14;                 // 위 여백 약 0.6mm
-      const textTop = qrTop + qrPx + 6; // QR 바로 아래부터 글자 영역 (약 5mm)
-      const textBottom = SIZE - 10;
-      const maxW = SIZE - 28;
+      const qrPx = 360;                 // QR 15mm
+      const qrTop = 12;                 // 위 여백 0.5mm
+      const lineY = (qrTop + qrPx + SIZE) / 2 + 2; // QR 아래 남은 공간의 가운데에 글자 한 줄
+      const maxW = SIZE - 24;
+      const FONT_PX = 48;               // 약 2mm
       const canvas = document.createElement('canvas');
       canvas.width = SIZE; canvas.height = SIZE;
       const ctx = canvas.getContext('2d');
@@ -2721,34 +2721,39 @@ function buildQrLabelImage_(qrDataUrl, gameName, stickerLabel){
       ctx.imageSmoothingEnabled = false;
       ctx.drawImage(img, (SIZE-qrPx)/2, qrTop, qrPx, qrPx);
       ctx.imageSmoothingEnabled = true;
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#000';
-      const font = (px)=> `800 ${px}px 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif`;
-      const fit = (text, startPx, minPx)=>{ // 폭에 맞을 때까지 글자를 줄이고, 그래도 넘치면 뒤를 …로 줄임
-        let px = startPx; ctx.font = font(px);
-        while (px > minPx && ctx.measureText(text).width > maxW){ px -= 2; ctx.font = font(px); }
+      ctx.font = `800 ${FONT_PX}px 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif`;
+      ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+      const w = (t)=> ctx.measureText(t).width;
+      // 주어진 폭에 안 들어가면 뒤를 잘라 "…"를 붙입니다.
+      const ellipsize = (text, width)=>{
+        text = String(text||'');
+        if (w(text) <= width) return text;
         let t = text;
-        while (t.length > 1 && ctx.measureText(t).width > maxW){ t = t.slice(0, -2) + '…'; }
-        return { t, px };
+        while (t.length && w(t + '…') > width) t = t.slice(0, -1);
+        return t ? t + '…' : '…';
       };
-      const areaH = textBottom - textTop;
-      if (stickerLabel){
-        // 두 줄: 게임 이름 / 검은 바탕의 스티커 값 (붙일 때 가장 중요한 정보라 눈에 띄게)
-        const nm = fit(gameName || '', 42, 30);
-        ctx.font = font(nm.px);
-        ctx.fillText(nm.t, SIZE/2, textTop + areaH*0.27);
-        const st = fit(stickerLabel, 40, 28);
-        ctx.font = font(st.px);
-        const w = Math.min(maxW, ctx.measureText(st.t).width + 24), h = st.px + 8, cy = textTop + areaH*0.74;
+
+      // 한 줄: [게임 이름] [■ 식별 스티커] — 스티커는 붙일 때 가장 중요한 정보라 검은 바탕으로 눈에 띄게 둡니다.
+      const PAD = 10, GAP = 10;
+      let name = String(gameName||''), sticker = stickerLabel ? String(stickerLabel) : '';
+      if (sticker){
+        const pillW = (t)=> w(t) + PAD*2;
+        // 둘 다 들어가지 않으면 스티커는 최대 절반까지만 쓰게 줄이고, 남는 폭에 게임 이름을 줄여 넣습니다.
+        if (w(name) + GAP + pillW(sticker) > maxW){
+          if (pillW(sticker) > maxW/2) sticker = ellipsize(sticker, maxW/2 - PAD*2);
+          name = ellipsize(name, maxW - GAP - pillW(sticker));
+        }
+        const total = (name ? w(name) + GAP : 0) + pillW(sticker);
+        let x = (SIZE - total) / 2;
+        if (name){ ctx.fillStyle = '#000'; ctx.fillText(name, x, lineY); x += w(name) + GAP; }
+        const h = FONT_PX + 10;
         ctx.fillStyle = '#000';
-        roundRectPath_(ctx, SIZE/2 - w/2, cy - h/2, w, h, 8); ctx.fill();
-        ctx.fillStyle = '#fff'; ctx.fillText(st.t, SIZE/2, cy + 1);
+        roundRectPath_(ctx, x, lineY - h/2, pillW(sticker), h, 8); ctx.fill();
+        ctx.fillStyle = '#fff'; ctx.fillText(sticker, x + PAD, lineY + 1);
       } else {
-        // 스티커가 없으면 게임 이름을 최대 두 줄로 크게
-        ctx.font = font(44);
-        let lines = wrapCanvasTextByChar_(ctx, gameName || '', maxW);
-        if (lines.length > 2){ lines = [lines[0], fit(lines.slice(1).join(''), 44, 44).t]; }
-        if (lines.length === 1){ const f = fit(lines[0], 50, 32); ctx.font = font(f.px); ctx.fillText(f.t, SIZE/2, textTop + areaH/2); }
-        else { lines.forEach((ln, i)=> ctx.fillText(ln, SIZE/2, textTop + areaH*(i ? 0.73 : 0.27))); }
+        name = ellipsize(name, maxW);
+        ctx.fillStyle = '#000';
+        ctx.fillText(name, (SIZE - w(name)) / 2, lineY);
       }
       resolve(canvas.toDataURL('image/png'));
     };
