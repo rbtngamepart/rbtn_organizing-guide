@@ -355,6 +355,21 @@
   .st-bar select, .st-bar input[type=date]{padding:8px 10px; border:1px solid var(--line); border-radius:8px; font-size:13px; font-family:var(--sans); background:var(--surface);}
   .chip-btn{border:1px solid var(--line); background:var(--surface); color:var(--ink-soft); font-size:12.5px; font-weight:700; padding:7px 13px; border-radius:999px; cursor:pointer; font-family:var(--sans);}
   .chip-btn.on{background:var(--ink); color:#fff; border-color:var(--ink);}
+  .owned-units{margin-top:8px; display:flex; flex-direction:column; gap:5px;}
+  .owned-unit{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+  .owned-unit .chip-btn{padding:5px 10px; font-size:12px;}
+  .mc-tag.rep{background:var(--bg); color:var(--ink-mid); border:1px solid var(--line-strong);}
+  .mc-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:4px;}
+  .mc-wd{font-size:11px; font-weight:700; color:var(--ink-soft); text-align:center; padding:2px 0;}
+  .mc-day{all:unset; box-sizing:border-box; min-height:58px; border:1px solid var(--line); border-radius:8px; background:var(--surface); padding:4px 5px; cursor:pointer; display:flex; flex-direction:column; gap:2px; font-family:var(--sans);}
+  .mc-day.out{visibility:hidden;}
+  .mc-day.today .mc-n{background:var(--ink); color:var(--surface); border-radius:999px; padding:0 5px;}
+  .mc-day.sel{border-color:var(--accent); box-shadow:0 0 0 1.5px var(--accent);}
+  .mc-n{font-size:11.5px; font-weight:700; color:var(--ink-soft); align-self:flex-start;}
+  .mc-tag{font-size:10.5px; font-weight:800; border-radius:5px; padding:1px 4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .mc-tag.ok{background:var(--done-bg); color:var(--ink); border:1px solid var(--done-line);}
+  .mc-tag.warn{background:var(--accent-soft); color:var(--accent);}
+  @media (max-width:520px){ .mc-day{min-height:50px; padding:3px;} .mc-tag{font-size:9.5px; padding:0 3px;} }
   .stat-row{display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:8px; margin-bottom:14px;}
   .stat-box{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:10px 13px;}
   .stat-box .n{font-size:20px; font-weight:800; color:var(--accent);}
@@ -674,6 +689,7 @@
   <div class="more-menu" id="moreMenu">
     <button onclick="closeMoreMenu_(); renderList();">📋 전체 게임 목록</button>
     <button onclick="closeMoreMenu_(); openScanRanking_();">🏆 랭킹 · 기간별 인기 게임</button>
+    <button onclick="closeMoreMenu_(); openIdleGames_();">💤 안 쓰이는 게임</button>
     <button onclick="closeMoreMenu_(); openOwnedGames_();">🗂️ 보유 게임 관리</button>
     <button onclick="closeMoreMenu_(); openQrPrintTool_();">🖨️ QR 라벨 인쇄</button>
     <button onclick="closeMoreMenu_(); openPurchaseGuide();">🛒 구매 가이드</button>
@@ -7045,6 +7061,89 @@ async function loadStoreData_(){
   updateMaintBadge_();
 }
 
+/** "처음 이용" 시각: 이 기능 전에 쌓인 단위는 firstScanAt 이 없으므로, 매장 스캔 로그를 오래된 순으로
+ *  500건씩 읽어 단위별 가장 이른 스캔 시각을 찾아 채웁니다. 빠진 단위를 다 찾으면 바로 멈추고,
+ *  로그에서도 못 찾은 단위는 firstScanUnknown 으로 표시해 다시 찾지 않습니다. (세션당 매장별 1번)
+ *  모든 단위가 채워진 뒤에는 아무것도 읽지 않습니다. */
+const firstScanBackfillDone_ = new Set();
+async function backfillFirstScan_(){
+  const code = activeStoreCode_;
+  if (!code || firstScanBackfillDone_.has(code)) return false;
+  firstScanBackfillDone_.add(code);
+  const missing = new Set();
+  gameStatsMap_.forEach((v, key)=>{ if (!v.firstScanAt && !v.firstScanUnknown && !v.replacedAt && (v.totalScans||0) > 0) missing.add(key); });
+  if (!missing.size) return false;
+  const found = new Map();
+  try{
+    let after = -1;
+    for (let page = 0; page < 40 && found.size < missing.size; page++){
+      const snap = await getDocs(query(collection(db, 'stores', code, 'scans'), where('ts', '>', after), orderBy('ts', 'asc'), limit(500)));
+      if (!snap.docs.length) break;
+      snap.forEach(d=>{
+        const x = d.data();
+        const key = unitKey_(String(x.gameId), x.sticker ? String(x.sticker) : '');
+        if (missing.has(key) && !found.has(key) && x.ts) found.set(key, x.ts);
+        after = Math.max(after, x.ts || 0);
+      });
+      if (snap.docs.length < 500) break;
+    }
+    if (activeStoreCode_ !== code) return false;
+    await Promise.all([...missing].map(key=>{
+      const patch = found.has(key) ? { firstScanAt: found.get(key) } : { firstScanUnknown: true };
+      gameStatsMap_.set(key, { ...(gameStatsMap_.get(key)||{}), ...patch });
+      return setDoc(doc(db, 'stores', code, 'gameStats', key), patch, { merge: true });
+    }));
+    return true;
+  }catch(e){ console.warn('처음 이용 날짜를 채우지 못했습니다', e); firstScanBackfillDone_.delete(code); return false; }
+}
+/** 게임의 처음 이용(첫 스캔) 시각: 스티커별 단위 중 가장 이른 값. 모르면 0 */
+function firstScanOf_(gameId, stickerCode){
+  let t = 0;
+  gameStatsMap_.forEach((v, key)=>{
+    if (String(v.gameId || String(key).split('__')[0]) !== String(gameId)) return;
+    if (stickerCode != null && String(v.stickerCode||'') !== String(stickerCode)) return;
+    if (v.firstScanAt && (!t || v.firstScanAt < t)) t = v.firstScanAt;
+  });
+  return t;
+}
+function firstScanText_(ms){ return ms ? `처음 이용 ${dayKey_(ms)}` : ''; }
+/** 박스(점검 단위) 하나의 처음 이용 상태 문구 */
+function unitFirstText_(gameId, code){
+  const st = gameStatsMap_.get(unitKey_(String(gameId), code ? String(code) : ''));
+  if (st && st.firstScanAt) return firstScanText_(st.firstScanAt);
+  if (st && st.replacedAt) return `${fmtShortDate_(st.replacedAt)} 새 게임으로 교체 · 다음 스캔부터 기록`;
+  if (st && (st.totalScans||0) > 0) return '처음 이용 날짜 모름';
+  return '아직 스캔 전';
+}
+
+/** 새 게임으로 교체: 식별 스티커(또는 게임)는 그대로 쓰되, 그 박스의 "처음 이용" 날짜를 지우고 다음 스캔부터 다시 기록합니다.
+ *  새 박스이므로 점검 이후 횟수와 누락·파손 표시도 초기화하고, 점검 이력(checks)에 교체 기록을 남깁니다.
+ *  누적 스캔 횟수와 스캔 기록(히스토리·랭킹)은 그대로 둡니다. */
+async function replaceUnit_(gameId, code){
+  if (!activeStoreCode_) return;
+  gameId = String(gameId); code = code ? String(code) : '';
+  const key = unitKey_(gameId, code);
+  const label = code ? stickerLabel_(gameId, code) : '';
+  const name = gameNameById_(gameId) + (label ? ` · ${label}` : '');
+  if (!confirm(`"${name}"을(를) 새 게임으로 교체했나요?\n\n이 박스의 처음 이용 날짜를 지우고 다음 스캔부터 다시 기록합니다. 점검 이후 횟수와 누락·파손 표시도 초기화되고, 누적 스캔 기록은 그대로 남습니다.`)) return;
+  const st = gameStatsMap_.get(key) || {};
+  const now = Date.now();
+  const by = (auth.currentUser?.email || '').toLowerCase();
+  const patch = { gameId, gameName: gameNameById_(gameId), stickerCode: code || null, stickerLabel: label || null,
+    firstScanAt: null, firstScanUnknown: false, replacedAt: now, replacedBy: by,
+    cycleScans: 0, flagged: false, flaggedAt: null, flaggedBy: null };
+  try{
+    await addDoc(collection(db, 'stores', activeStoreCode_, 'gameStats', key, 'checks'), { at: now, by, type: 'replace', cycleScans: st.cycleScans||0, prevFirstScanAt: st.firstScanAt || null });
+    await setDoc(doc(db, 'stores', activeStoreCode_, 'gameStats', key), patch, { merge: true });
+    gameStatsMap_.set(key, { ...st, ...patch });
+    maintCalCache_ = {};
+    updateMaintBadge_();
+    toast_(`${name}: 새 게임으로 교체했습니다`);
+    if (document.getElementById('ownedBody')) renderOwnedList_();
+    if (document.getElementById('maintBody')) renderMaintBody_();
+  }catch(e){ console.error(e); alert('교체 처리에 실패했습니다. 잠시 후 다시 시도해주세요.'); }
+}
+
 /** 모든 매장을 골라 볼 수 있는 본사 계정인지:
  *  권한 관리에서 "전체 매장"을 켠 계정(allStores:true), 직책이 "본사"인 계정, 소속 매장이 없는 편집자 */
 function canSwitchStore_(){
@@ -7321,10 +7420,12 @@ function logQrScan_(g, stickerCode){
     try{
       const by = (auth.currentUser?.email || '').toLowerCase();
       await addDoc(collection(db, 'stores', activeStoreCode_, 'scans'), { gameId:id, gameName:g.name||'', sticker:code||null, color:label||null, ts:now, by });
-      await setDoc(doc(db, 'stores', activeStoreCode_, 'gameStats', unit),
-        { gameId:id, gameName:g.name||'', stickerCode:code||null, stickerLabel:label||null, totalScans:increment(1), cycleScans:increment(1), lastScanAt:now }, { merge:true });
       const st = gameStatsMap_.get(unit) || { totalScans:0, cycleScans:0 };
-      gameStatsMap_.set(unit, { ...st, gameId:id, gameName:g.name||'', stickerCode:code||null, stickerLabel:label||null, totalScans:(st.totalScans||0)+1, cycleScans:(st.cycleScans||0)+1, lastScanAt:now });
+      // 처음 스캔되는 단위(또는 새 게임으로 교체한 뒤 첫 스캔)면 "처음 이용" 시각을 남깁니다 (예전 기록이 있는 단위는 스캔 로그에서 따로 채움)
+      const first = (!st.firstScanAt && (!(st.totalScans > 0) || st.replacedAt)) ? { firstScanAt: now } : {};
+      await setDoc(doc(db, 'stores', activeStoreCode_, 'gameStats', unit),
+        { gameId:id, gameName:g.name||'', stickerCode:code||null, stickerLabel:label||null, totalScans:increment(1), cycleScans:increment(1), lastScanAt:now, ...first }, { merge:true });
+      gameStatsMap_.set(unit, { ...st, ...first, gameId:id, gameName:g.name||'', stickerCode:code||null, stickerLabel:label||null, totalScans:(st.totalScans||0)+1, cycleScans:(st.cycleScans||0)+1, lastScanAt:now });
       updateMaintBadge_();
     }catch(e){ console.warn('스캔 기록 저장 실패 (Firestore 규칙 게시가 필요할 수 있습니다)', e); }
   })();
@@ -7504,9 +7605,97 @@ function rankTrendHtml_(gameId){
     </div>`;
 }
 
+// ---------- 안 쓰이는 게임 ----------
+// 보유 중인데 정한 기간 동안 QR 스캔이 한 번도 없는 게임을 찾아, 진열 위치를 바꾸거나 진열에서 뺄 게임을 고를 때 씁니다.
+// 매장 gameStats 의 lastScanAt(마지막 스캔 시각)만 보므로 추가로 읽는 문서가 없습니다.
+let idleDays_ = 30;
+function setIdleDays_(n){ idleDays_ = n; openIdleGames_(); }
+
+function idleGameRows_(days){
+  const cutoff = Date.now() - days*86400000;
+  const byGame = new Map(); // gameId -> { last, total, units: Map(stickerCode -> last) }
+  gameStatsMap_.forEach((v, key)=>{
+    const gid = String(v.gameId || String(key).split('__')[0]);
+    const g = byGame.get(gid) || { last: 0, total: 0, units: new Map() };
+    const last = Number(v.lastScanAt) || 0;
+    g.last = Math.max(g.last, last);
+    g.total += Number(v.totalScans) || 0;
+    if (v.stickerCode) g.units.set(String(v.stickerCode), Math.max(g.units.get(String(v.stickerCode)) || 0, last));
+    byGame.set(gid, g);
+  });
+  const idle = [], never = [], spare = [];
+  games.forEach(game=>{
+    const id = String(game.id);
+    const qty = ownedQty_(id);
+    if (!qty) return;
+    const st = byGame.get(id);
+    const row = { id, name: game.name || '(이름 없음)', qty, last: st ? st.last : 0, total: st ? st.total : 0 };
+    if (!st || (!st.last && !st.total)) { never.push(row); return; }
+    if (st.last < cutoff){ idle.push(row); return; }
+    // 여러 개 보유한 게임: 기간 안에 찍힌 스티커가 보유 수량보다 적으면 "여분"으로 알려줍니다 (스티커로 구분된 것만 셈)
+    const stickers = getOwnedStickers_(id);
+    if (qty >= 2 && stickers.length >= 2){
+      const unused = stickers.filter(x => (st.units.get(String(x.code)) || 0) < cutoff);
+      if (unused.length && unused.length < stickers.length) spare.push({ ...row, unused: unused.map(x=>x.label || `#${x.code}`), used: stickers.length - unused.length });
+    }
+  });
+  idle.sort((a,b)=> (a.last - b.last) || a.name.localeCompare(b.name, 'ko'));
+  never.sort((a,b)=> a.name.localeCompare(b.name, 'ko'));
+  spare.sort((a,b)=> b.unused.length - a.unused.length || a.name.localeCompare(b.name, 'ko'));
+  return { idle, never, spare };
+}
+
+async function openIdleGames_(){
+  if (!prepPage_('more', openIdleGames_)) return;
+  appEl.innerHTML = `
+    ${pageHeadHtml_('💤 안 쓰이는 게임', '보유 중인데 선택한 기간 동안 QR로 한 번도 찍히지 않은 게임입니다. 진열 위치를 바꾸거나 진열에서 뺄 게임을 고를 때 참고하세요. 게임을 누르면 가이드로 이동합니다.')}
+    <div class="st-bar">
+      ${storeBarHtml_()}
+      ${[30, 60, 90].map(n=>`<button class="chip-btn ${idleDays_===n?'on':''}" onclick="setIdleDays_(${n})">최근 ${n}일</button>`).join('')}
+    </div>
+    <div id="idleBody"><p style="padding:20px 4px;">불러오는 중...</p></div>`;
+  const body = document.getElementById('idleBody');
+  if (!activeStoreCode_){ body.innerHTML = noStoreHtml_(); return; }
+  await loadStoreData_();
+  await backfillFirstScan_();
+  if (!document.getElementById('idleBody')) return;
+  const ownedCount = games.filter(g=>ownedQty_(g.id) > 0).length;
+  if (!ownedCount){ body.innerHTML = `<div class="empty">이 매장에 보유 게임으로 등록된 게임이 없습니다. 더보기 → 🗂️ 보유 게임 관리에서 먼저 등록해주세요.</div>`; return; }
+  const { idle, never, spare } = idleGameRows_(idleDays_);
+  const ago = ms => Math.floor((Date.now() - ms) / 86400000);
+  const row = (r, sub) => `
+    <div class="row-card clickable" onclick="openGame('${jsq_(r.id)}')">
+      <div class="row-top">
+        <div style="flex:1; min-width:0;">
+          <div class="row-name">${escHtml_(r.name)}${r.qty >= 2 ? ` <span class="row-sub">· ${r.qty}개 보유</span>` : ''}</div>
+          <div class="row-sub">${sub}</div>
+        </div>
+      </div>
+    </div>`;
+  body.innerHTML = `
+    <div class="stat-row">
+      <div class="stat-box"><div class="row-sub">${idleDays_}일 넘게 이용 없음</div><div class="n">${idle.length}개</div></div>
+      <div class="stat-box"><div class="row-sub">스캔 기록 없음</div><div class="n">${never.length}개</div></div>
+      <div class="stat-box"><div class="row-sub">보유 게임</div><div class="n" style="color:var(--ink);">${ownedCount}개</div></div>
+    </div>
+    <h3 style="font-size:14px; margin:4px 0 8px;">💤 ${idleDays_}일 넘게 이용 없음 <span class="row-sub">오래된 순</span></h3>
+    ${idle.length ? idle.map(r=>row(r, (r.last ? `마지막 이용 <b style="color:var(--ink);">${dayKey_(r.last)}</b> (${ago(r.last)}일 전) · 누적 ${r.total}회` : `마지막 이용 날짜 기록 없음 · 누적 ${r.total}회`) + (firstScanOf_(r.id) ? ` · ${firstScanText_(firstScanOf_(r.id))}` : ''))).join('')
+      : `<div class="empty">최근 ${idleDays_}일 동안 이용 기록이 없는 보유 게임이 없습니다.</div>`}
+    ${spare.length ? `
+    <h3 style="font-size:14px; margin:18px 0 8px;">📦 여분이 남는 게임 <span class="row-sub">여러 개 보유 중 ${idleDays_}일 동안 일부만 이용</span></h3>
+    ${spare.map(r=>row(r, `${firstScanOf_(r.id) ? `${firstScanText_(firstScanOf_(r.id))} · ` : ''}${r.qty}개 중 ${r.used}개만 이용 · 이용 없는 스티커 ${r.unused.map(l=>`<span class="sc-sticker">🏷️ ${escHtml_(l)}</span>`).join(' ')}`)).join('')}` : ''}
+    ${never.length ? `
+    <h3 style="font-size:14px; margin:18px 0 8px;">❔ 스캔 기록 없음 <span class="row-sub">QR 라벨을 아직 안 붙였거나 새로 들어온 게임일 수 있습니다</span></h3>
+    ${never.map(r=>row(r, '아직 QR로 찍힌 기록이 없습니다')).join('')}` : ''}`;
+}
+
 // ---------- 정기 점검 ----------
 let maintShowAll_ = false;
 let maintOpen_ = null;
+let maintView_ = 'list';      // 'list' | 'calendar'
+let maintCalMonth_ = null;    // 달력에 보이는 달의 1일 (ms)
+let maintCalDay_ = null;      // 달력에서 고른 날짜 'YYYY-MM-DD'
+let maintCalCache_ = {};      // `${매장}|${월}` -> 그 달의 이벤트 목록
 
 function getMaintRows_(){
   const rows = [];
@@ -7515,7 +7704,7 @@ function getMaintRows_(){
     const gid = v.gameId || id;
     const label = v.stickerCode ? (getOwnedStickers_(gid).find(x=>x.code===String(v.stickerCode))?.label || v.stickerLabel || `#${v.stickerCode}`) : '';
     const gname = gameNameById_(gid, v.gameName);
-    rows.push({ id, gameName: gname, sticker: label, name: gname + (label ? ` · ${label}` : ''), cycle: v.cycleScans||0, total: v.totalScans||0, last: v.lastCheckedAt||0, memo: v.memo||'', flagged: !!v.flagged, flaggedAt: v.flaggedAt||0 });
+    rows.push({ id, gameName: gname, sticker: label, name: gname + (label ? ` · ${label}` : ''), cycle: v.cycleScans||0, total: v.totalScans||0, last: v.lastCheckedAt||0, first: v.firstScanAt||0, gid: String(gid), code: v.stickerCode ? String(v.stickerCode) : '', memo: v.memo||'', flagged: !!v.flagged, flaggedAt: v.flaggedAt||0 });
   });
   // 누락·파손 신고된 게임은 스캔 횟수와 상관없이 맨 위에, 그다음 많이 찍힌 순
   rows.sort((a,b)=> (b.flagged - a.flagged) || (b.flagged ? b.flaggedAt - a.flaggedAt : 0) || b.cycle - a.cycle || b.total - a.total);
@@ -7524,16 +7713,19 @@ function getMaintRows_(){
 
 async function openMaintenance_(){
   if (!prepPage_('maint', openMaintenance_)) return;
+  maintCalCache_ = {};
   appEl.innerHTML = `${pageHeadHtml_('🔧 정기 점검', `마지막 점검 이후 QR로 ${MAINT_THRESHOLD_}회 이상 찍힌 게임이 자동으로 점검 대상이 되고, 많이 찍힌 순서로 정렬됩니다. 같은 게임을 여러 개 운영하면 식별 스티커별로 따로 셉니다. 게임을 누르면 메모와 점검 이력이 보입니다.`)}
     <div class="st-bar">${storeBarHtml_()}</div><div id="maintBody"><p style="padding:20px 4px;">불러오는 중...</p></div>`;
   if (!activeStoreCode_){ document.getElementById('maintBody').innerHTML = noStoreHtml_(); return; }
   await loadStoreData_();
   renderMaintBody_();
+  if (await backfillFirstScan_()) renderMaintBody_();
 }
 
 function renderMaintBody_(){
   const body = document.getElementById('maintBody');
   if (!body) return;
+  if (maintView_ === 'calendar'){ renderMaintCalendar_(); return; }
   const rows = getMaintRows_();
   const maxCycle = Math.max(MAINT_THRESHOLD_, ...rows.map(r=>r.cycle));
   body.innerHTML = `
@@ -7541,6 +7733,7 @@ function renderMaintBody_(){
       <span style="font-size:13px; color:var(--ink-soft);">점검 대상 <b style="color:var(--accent);">${[...gameStatsMap_.values()].filter(v=>v.flagged || (v.cycleScans||0)>=MAINT_THRESHOLD_).length}</b>개 · 기준 ${MAINT_THRESHOLD_}회 이상 또는 ⚠ 누락·파손 신고</span>
       <label style="display:flex; align-items:center; gap:5px; font-size:12.5px; cursor:pointer;"><input type="checkbox" ${maintShowAll_?'checked':''} onchange="toggleMaintShowAll_(this.checked)"> ${MAINT_THRESHOLD_}회 미만도 보기</label>
       <span style="flex:1;"></span>
+      <button class="btn btn-ghost2 btn-sm" onclick="setMaintView_('calendar')" title="지난 점검 기록을 달력으로 보기">📅 달력</button>
       <button class="btn btn-ghost2 btn-sm" onclick="printMaintenance_()">🖨️ A4 출력</button>
     </div>
     ${rows.length ? rows.map((r,i)=>`
@@ -7550,7 +7743,7 @@ function renderMaintBody_(){
           <div style="flex:1; min-width:0;">
             <div class="row-name" style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">${escHtml_(r.gameName)}${r.sticker ? ` <span class="sc-sticker" title="식별 스티커">🏷️ ${escHtml_(r.sticker)}</span>` : ''}${r.flagged ? ` <span class="mini-badge warn" style="white-space:nowrap;">⚠ 누락·파손 ${fmtShortDate_(r.flaggedAt)}</span>` : ''}</div>
             <div class="mini-bar"><i style="width:${Math.round(r.cycle/maxCycle*100)}%"></i></div>
-            <div class="row-sub">점검 이후 <b style="color:var(--ink);">${r.cycle}회</b> · 누적 ${r.total}회 · 마지막 점검 ${fmtShortDate_(r.last)}</div>
+            <div class="row-sub">점검 이후 <b style="color:var(--ink);">${r.cycle}회</b> · 누적 ${r.total}회 · 마지막 점검 ${fmtShortDate_(r.last)}${r.first ? ` · ${firstScanText_(r.first)}` : ''}</div>
           </div>
           <button class="btn btn-primary2 btn-sm" onclick="event.stopPropagation(); completeMaint_('${jsq_(r.id)}')">점검 완료</button>
         </div>
@@ -7560,6 +7753,10 @@ function renderMaintBody_(){
             <textarea style="width:100%; min-height:70px; padding:8px 10px; border:1px solid var(--line); border-radius:8px; font-size:13px; font-family:var(--sans); resize:vertical;" placeholder="점검하면서 확인한 내용을 적어주세요 (예: 타일 2장 마모)" onchange="saveMaintMemo_('${jsq_(r.id)}', this.value)">${escHtml_(r.memo)}</textarea>
             <div class="row-sub" style="margin:10px 0 5px; font-weight:700;">점검 이력</div>
             <div id="maintHist" class="row-sub">불러오는 중...</div>
+            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:10px;">
+              <span class="row-sub" style="flex:1;">${escHtml_(unitFirstText_(r.gid, r.code))}</span>
+              <button class="chip-btn" onclick="replaceUnit_('${jsq_(r.gid)}','${jsq_(r.code)}')">🔁 새 게임으로 교체</button>
+            </div>
           </div>` : ''}
       </div>`).join('') : `<div class="empty">${maintShowAll_?'스캔 기록이 있는 게임이 없습니다.':`점검 대상(${MAINT_THRESHOLD_}회 이상 또는 누락·파손 신고)인 게임이 아직 없습니다.`}</div>`}`;
   if (maintOpen_) loadMaintHistory_(maintOpen_);
@@ -7576,8 +7773,134 @@ async function loadMaintHistory_(id){
     const list = []; snap.forEach(d=>list.push(d.data()));
     const el2 = document.getElementById('maintHist');
     if (!el2 || maintOpen_ !== id) return;
-    el2.innerHTML = list.length ? list.map(c=>`<div style="padding:5px 0; border-bottom:1px solid var(--line);"><b style="color:var(--ink);">${dayKey_(c.at)}</b> · 점검 직전 ${c.cycleScans||0}회${c.by?` · ${escHtml_(String(c.by).split('@')[0])}`:''}${c.memo?`<div style="white-space:pre-wrap; margin-top:2px;">${escHtml_(c.memo)}</div>`:''}</div>`).join('') : '아직 점검 이력이 없습니다.';
+    el2.innerHTML = list.length ? list.map(c=> c.type === 'replace'
+      ? `<div style="padding:5px 0; border-bottom:1px solid var(--line);"><b style="color:var(--ink);">${dayKey_(c.at)}</b> · 🔁 새 게임으로 교체${c.by?` · ${escHtml_(String(c.by).split('@')[0])}`:''}</div>`
+      : `<div style="padding:5px 0; border-bottom:1px solid var(--line);"><b style="color:var(--ink);">${dayKey_(c.at)}</b> · 점검 직전 ${c.cycleScans||0}회${c.by?` · ${escHtml_(String(c.by).split('@')[0])}`:''}${c.memo?`<div style="white-space:pre-wrap; margin-top:2px;">${escHtml_(c.memo)}</div>`:''}</div>`).join('') : '아직 점검 이력이 없습니다.';
   }catch(e){ el.textContent = '이력을 불러오지 못했습니다.'; }
+}
+
+// ---------- 정기 점검 달력 ----------
+// 점검을 완료할 때마다 gameStats/{단위}/checks 에 남는 기록을 달력으로 모아 보여줍니다.
+// 점검한 적이 있는 단위(lastCheckedAt 있음)만 그 달 범위로 조회하고, 달마다 한 번만 불러옵니다.
+function setMaintView_(v){
+  maintView_ = v;
+  if (v === 'calendar' && !maintCalMonth_){ const d = new Date(); maintCalMonth_ = new Date(d.getFullYear(), d.getMonth(), 1).getTime(); }
+  renderMaintBody_();
+}
+function moveMaintCal_(delta){
+  const d = new Date(maintCalMonth_);
+  maintCalMonth_ = delta === 0 ? new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime() : new Date(d.getFullYear(), d.getMonth() + delta, 1).getTime();
+  maintCalDay_ = null;
+  renderMaintCalendar_();
+}
+function pickMaintCalDay_(key){ maintCalDay_ = maintCalDay_ === key ? null : key; renderMaintCalendar_(); }
+
+function maintUnitInfo_(id, v){
+  v = v || gameStatsMap_.get(id) || {};
+  const gid = v.gameId || String(id).split('__')[0];
+  const label = v.stickerCode ? (getOwnedStickers_(gid).find(x=>x.code===String(v.stickerCode))?.label || v.stickerLabel || `#${v.stickerCode}`) : '';
+  return { gid, gameName: gameNameById_(gid, v.gameName), sticker: label };
+}
+
+async function loadMaintCalEvents_(monthStart){
+  const key = `${activeStoreCode_}|${monthStart}`;
+  if (maintCalCache_[key]) return maintCalCache_[key];
+  const d = new Date(monthStart);
+  const from = monthStart, to = new Date(d.getFullYear(), d.getMonth() + 1, 1).getTime() - 1;
+  const events = [];
+  const units = [...gameStatsMap_.entries()].filter(([, v]) => (v.lastCheckedAt||0) >= from || (v.replacedAt||0) >= from);
+  const lists = await Promise.all(units.map(async ([id, v]) => {
+    const snap = await getDocs(query(collection(db, 'stores', activeStoreCode_, 'gameStats', id, 'checks'), where('at', '>=', from), where('at', '<=', to)));
+    const out = [];
+    snap.forEach(c => out.push({ id, ...maintUnitInfo_(id, v), ...c.data() }));
+    return out;
+  }));
+  lists.flat().forEach(c => {
+    if ((c.at||0) < from || (c.at||0) > to) return;
+    if (c.type === 'replace'){ events.push({ type: 'replace', at: c.at, id: c.id, gid: c.gid, gameName: c.gameName, sticker: c.sticker, by: c.by || '' }); return; }
+    events.push({ type: 'check', at: c.at, id: c.id, gid: c.gid, gameName: c.gameName, sticker: c.sticker, by: c.by || '', cycle: c.cycleScans || 0, memo: c.memo || '', wasFlagged: !!c.flagged });
+    // 점검으로 해결된 누락·파손 신고도 신고한 날짜에 표시합니다
+    if (c.flagged && c.flaggedAt >= from && c.flaggedAt <= to) events.push({ type: 'flag', at: c.flaggedAt, id: c.id, gid: c.gid, gameName: c.gameName, sticker: c.sticker, resolvedAt: c.at });
+  });
+  // 아직 점검하지 않은 신고
+  gameStatsMap_.forEach((v, id) => {
+    if (v.flagged && v.flaggedAt >= from && v.flaggedAt <= to) events.push({ type: 'flag', at: v.flaggedAt, id, ...maintUnitInfo_(id, v), by: v.flaggedBy || '', open: true });
+  });
+  events.sort((a, b) => b.at - a.at);
+  maintCalCache_[key] = events;
+  return events;
+}
+
+async function renderMaintCalendar_(){
+  const body = document.getElementById('maintBody');
+  if (!body) return;
+  const month = maintCalMonth_;
+  const d0 = new Date(month);
+  const head = `
+    <div class="st-bar">
+      <button class="btn btn-ghost2 btn-sm" onclick="setMaintView_('list')">← 점검 목록</button>
+      <span style="flex:1;"></span>
+      <button class="chip-btn" onclick="moveMaintCal_(-1)" title="이전 달">◀</button>
+      <b style="font-size:15px; min-width:96px; text-align:center;">${d0.getFullYear()}년 ${d0.getMonth()+1}월</b>
+      <button class="chip-btn" onclick="moveMaintCal_(1)" title="다음 달">▶</button>
+      <button class="chip-btn" onclick="moveMaintCal_(0)">이번 달</button>
+    </div>`;
+  const key = `${activeStoreCode_}|${month}`;
+  if (!maintCalCache_[key]) body.innerHTML = head + '<p style="padding:20px 4px;">불러오는 중...</p>';
+  let events;
+  try{ events = await loadMaintCalEvents_(month); }
+  catch(e){ console.error(e); body.innerHTML = head + '<div class="empty">점검 기록을 불러오지 못했습니다.</div>'; return; }
+  if (maintView_ !== 'calendar' || maintCalMonth_ !== month || !document.getElementById('maintBody')) return;
+
+  const byDay = {};
+  events.forEach(ev => { (byDay[dayKey_(ev.at)] = byDay[dayKey_(ev.at)] || []).push(ev); });
+  const checks = events.filter(e => e.type === 'check');
+  const flags = events.filter(e => e.type === 'flag');
+  const todayKey = dayKey_(Date.now());
+  const firstWd = d0.getDay();
+  const days = new Date(d0.getFullYear(), d0.getMonth() + 1, 0).getDate();
+  const cells = [];
+  for (let i = 0; i < firstWd; i++) cells.push('<div class="mc-day out"></div>');
+  for (let n = 1; n <= days; n++){
+    const k = dayKey_(new Date(d0.getFullYear(), d0.getMonth(), n).getTime());
+    const evs = byDay[k] || [];
+    const c = evs.filter(e => e.type === 'check').length, f = evs.filter(e => e.type === 'flag').length, rp = evs.filter(e => e.type === 'replace').length;
+    cells.push(`<button class="mc-day ${k===todayKey?'today':''} ${k===maintCalDay_?'sel':''}" data-day="${k}" onclick="pickMaintCalDay_('${k}')">
+      <span class="mc-n">${n}</span>
+      ${c ? `<span class="mc-tag ok" title="점검 완료 ${c}건">✔ ${c}</span>` : ''}
+      ${f ? `<span class="mc-tag warn" title="누락·파손 신고 ${f}건">⚠ ${f}</span>` : ''}
+      ${rp ? `<span class="mc-tag rep" title="새 게임으로 교체 ${rp}건">🔁 ${rp}</span>` : ''}
+    </button>`);
+  }
+  const who = e => e.by ? escHtml_(String(e.by).split('@')[0]) : '';
+  const evRow = e => {
+    const name = `${escHtml_(e.gameName)}${e.sticker ? ` <span class="sc-sticker">🏷️ ${escHtml_(e.sticker)}</span>` : ''}`;
+    if (e.type === 'replace') return `<div class="row-card clickable" onclick="openGame('${jsq_(e.gid)}')">
+        <div class="row-name" style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;"><span class="mini-badge">🔁 새 게임으로 교체</span> ${name}</div>
+        <div class="row-sub">${fmtTime_(e.at)}${who(e) ? ` · ${who(e)}` : ''} · 처음 이용 날짜 초기화</div>
+      </div>`;
+    if (e.type === 'flag') return `<div class="row-card clickable" onclick="openGame('${jsq_(e.gid)}')">
+        <div class="row-name" style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;"><span class="mini-badge warn">⚠ 누락·파손 신고</span> ${name}</div>
+        <div class="row-sub">${fmtTime_(e.at)}${who(e) ? ` · ${who(e)}` : ''} · ${e.open ? '<b style="color:var(--accent);">아직 점검 전</b>' : `${fmtShortDate_(e.resolvedAt)} 점검으로 해결`}</div>
+      </div>`;
+    return `<div class="row-card clickable" onclick="openGame('${jsq_(e.gid)}')">
+        <div class="row-name" style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;"><span class="mini-badge" style="background:var(--done-bg); border-color:var(--done-line);">✔ 점검 완료</span> ${name}${e.wasFlagged ? ' <span class="mini-badge warn">신고 처리</span>' : ''}</div>
+        <div class="row-sub">${fmtTime_(e.at)}${who(e) ? ` · ${who(e)}` : ''} · 점검 직전 ${e.cycle}회 사용</div>
+        ${e.memo ? `<div class="row-sub" style="white-space:pre-wrap; margin-top:3px; color:var(--ink);">📝 ${escHtml_(e.memo)}</div>` : ''}
+      </div>`;
+  };
+  const listEvents = maintCalDay_ ? (byDay[maintCalDay_] || []) : events;
+  const games = new Set(checks.map(e => e.gid)).size;
+  body.innerHTML = head + `
+    <div class="stat-row">
+      <div class="stat-box"><div class="row-sub">${d0.getMonth()+1}월 점검 완료</div><div class="n">${checks.length}건</div></div>
+      <div class="stat-box"><div class="row-sub">점검한 게임</div><div class="n">${games}개</div></div>
+      <div class="stat-box"><div class="row-sub">누락·파손 신고</div><div class="n">${flags.length}건</div></div>
+    </div>
+    <div class="mc-grid">${['일','월','화','수','목','금','토'].map(w=>`<div class="mc-wd">${w}</div>`).join('')}${cells.join('')}</div>
+    <div class="row-sub" style="margin:8px 0 14px;">✔ 점검 완료 · ⚠ 누락·파손 신고 · 🔁 새 게임으로 교체 — 날짜를 누르면 그날 기록만 봅니다.</div>
+    <h3 style="font-size:14px; margin:0 0 8px;">${maintCalDay_ ? escHtml_(fmtDayLabel_(maintCalDay_)) : `${d0.getMonth()+1}월 전체 기록`} <span class="row-sub">${listEvents.length}건</span>${maintCalDay_ ? ` <button class="chip-btn" style="margin-left:6px;" onclick="pickMaintCalDay_('${maintCalDay_}')">전체 보기</button>` : ''}</h3>
+    <div id="maintCalList">${listEvents.length ? listEvents.map(evRow).join('') : `<div class="empty">${maintCalDay_ ? '이 날은 점검 기록이 없습니다.' : '이 달에는 점검 기록이 없습니다.'}</div>`}</div>`;
 }
 
 async function saveMaintMemo_(id, val){
@@ -7600,6 +7923,7 @@ async function completeMaint_(id){
     await setDoc(doc(db, 'stores', activeStoreCode_, 'gameStats', id), { cycleScans: 0, lastCheckedAt: now, lastCheckedBy: by, flagged: false, flaggedAt: null, flaggedBy: null }, { merge: true });
     gameStatsMap_.set(id, { ...st, cycleScans: 0, lastCheckedAt: now, lastCheckedBy: by, flagged: false, flaggedAt: null, flaggedBy: null });
     updateMaintBadge_();
+    maintCalCache_ = {};
     if (maintOpen_ === id) maintOpen_ = null;
     renderMaintBody_();
     refreshHomeBody_();
@@ -7662,6 +7986,7 @@ async function openOwnedGames_(filter){
   await loadStoreData_();
   renderOwnedXlsxPanel_();
   renderOwnedList_();
+  if (await backfillFirstScan_()) renderOwnedList_();
 }
 
 function renderOwnedXlsxPanel_(){
@@ -7725,6 +8050,14 @@ function renderOwnedList_(){
             : `<button class="chip-btn" style="border-style:dashed; color:var(--accent); border-color:var(--accent);" onclick="toggleOwnedPicker_('${jsq_(id)}')">+ 스티커</button>`}
           ${need ? `<span class="mini-badge warn">스티커 ${qty - stickers.length}개 더 정해주세요</span>`
             : qty === 1 && !stickers.length ? `<span class="rg-card-hint">1개 보유는 스티커 없이 운영해도 됩니다</span>` : ''}
+        </div>
+        <div class="owned-units">
+          ${(stickers.length ? stickers.map(st=>({ code: st.code, label: st.label })) : [{ code: '', label: '' }]).map(u=>`
+            <div class="owned-unit">
+              ${u.label ? `<span class="sc-sticker">🏷️ ${escHtml_(u.label)}</span>` : ''}
+              <span class="row-sub" style="flex:1;">${escHtml_(unitFirstText_(id, u.code))}</span>
+              <button class="chip-btn" onclick="replaceUnit_('${jsq_(id)}','${jsq_(u.code)}')" title="같은 스티커를 새 박스에 붙여 쓸 때 처음 이용 날짜를 초기화합니다">🔁 새 게임으로 교체</button>
+            </div>`).join('')}
         </div>
         ` : ''}
       </div>`;
@@ -8117,7 +8450,7 @@ Object.assign(window, {
   updateEstMinutes_,
   toggleReturnViewer_, enterReturnViewer_, exitReturnViewer_,
   renderHome_, switchStore_, toggleMoreMenu_, closeMoreMenu_, openScanHistory_, setHistRange_, openGameFromHistory_,
-  openScanRanking_, setRankRange_, setRankCustom_, selectRankGame_, openMaintenance_, toggleMaintShowAll_, toggleMaintDetail_,
+  openIdleGames_, setIdleDays_, openScanRanking_, setRankRange_, setRankCustom_, selectRankGame_, openMaintenance_, toggleMaintShowAll_, toggleMaintDetail_, setMaintView_, moveMaintCal_, pickMaintCalDay_, replaceUnit_,
   saveMaintMemo_, completeMaint_, printMaintenance_, openOwnedGames_, setOwnedQty_, setOwnedFilter_, downloadOwnedXlsx_, parseOwnedXlsx_, applyOwnedXlsx_, ownedXlsxCancel_, toggleOwnedPicker_, addOwnedColor_, removeOwnedColor_,
   openGameDbAdmin_, addSingleGame_, downloadGameXlsxTemplate_, parseGameXlsx_, applyGameXlsx_, updateGameMeta_, renderOwnedList_, renderGdbList_, setOwnedSearch_, setGdbSearch_,
   renderList, openGame, createNewGame, switchMode, setRole,
