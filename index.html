@@ -2874,6 +2874,7 @@ function openHelpModal(){
         <li><b>⭐ 즐겨찾기 · 최근 본 게임</b> — 카드나 게임 제목 옆의 ☆을 누르면 즐겨찾기에 추가됩니다. 목록 맨 위에 즐겨찾기와 최근 본 게임이 바로가기로 나옵니다 (이 기기에만 저장).</li>
         <li><b>⚠ 누락·파손 신고</b> — 반납대 가이드 "① 필수 구성품 확인" 제목 옆의 "⚠ 누락·파손 신고"를 누르고 내용을 적으면 편집자에게 전달됩니다.</li>
         <li><b>🔗 QR · 식별 스티커</b> — 게임 박스의 QR에는 사이트 주소 없이 게임 코드(와 식별 스티커)만 들어 있어서, 반납대 뷰어(하단 📷)를 켜고 스캐너로 찍을 때만 가이드가 열립니다. QR 라벨은 "⋯ 더보기 → 🖨️ QR 라벨 인쇄"에서 만들며, 한 칸에 QR과 게임 이름·식별 스티커가 함께 인쇄됩니다. 같은 게임을 여러 개 운영하면 "🗂️ 보유 게임 관리"에서 박스마다 붙인 식별 스티커 값(예: 빨강, A)을 등록하세요. 랭킹은 게임 단위로, 정기 점검은 스티커별로 셉니다.</li>
+        <li><b>🗂️ 보유 게임 · 엑셀 업로드</b> — "⋯ 더보기 → 🗂️ 보유 게임 관리"에서 게임별 보유 수량을 넣습니다. 한 번에 넣으려면 "엑셀로 보유 수량 한 번에 올리기"에서 전체 게임 목록 양식을 받아 보유 수량 칸만 채워 업로드하세요. 2개 이상 보유한 게임은 "⚠ 스티커 지정 필요"에 모이니, 박스별 식별 스티커 값을 정해주세요.</li>
         <li><b>🔍 크게 보기 · 🖨️ 인쇄</b> — 사진 탭의 "크게 보기"나 구성품·반납대 사진을 누르면 화면 가득 띄워 두 손가락(또는 휠)으로 확대할 수 있습니다. 🖨️ 인쇄는 사진과 체크리스트 표, 반납대 필수 구성품, QR을 한 장으로 정리해 인쇄합니다.</li>
         <li><b>🌓 화면 테마</b> — 상단의 🌓 버튼으로 자동(기기 설정) · 밝게 · 어둡게를 바꿀 수 있습니다.</li>
         <li><b>⌨️ 단축키</b> — <span class="kbd">/</span> 검색, <span class="kbd">←</span><span class="kbd">→</span> 사진 넘기기, <span class="kbd">F</span> 크게 보기, <span class="kbd">Esc</span> 창 닫기·선택 해제, <span class="kbd">?</span> 이 도움말.</li>
@@ -7305,51 +7306,107 @@ function printMaintenance_(){
 }
 
 // ---------- 보유 게임 관리 ----------
+// 매장마다 보유 수량(qty)을 관리합니다. 같은 게임이 2개 이상이면 박스마다 식별 스티커가 필요하므로,
+// 수량만큼 스티커가 정해지지 않은 게임은 "스티커 지정 필요"로 모아 보여줍니다.
+// 수량은 엑셀(전체 게임 목록 양식)로 한 번에 올릴 수 있고, 스티커 값은 이 화면에서만 정합니다.
 let ownedSearch_ = '';
 let ownedPickerFor_ = null;
+let ownedFilter_ = 'all'; // 'all' | 'owned' | 'need'
+let ownedXlsxParsed_ = null; // 엑셀 업로드 미리보기
 function setOwnedSearch_(v){ ownedSearch_ = v; renderOwnedList_(); }
+function setOwnedFilter_(v){ ownedFilter_ = v; renderOwnedList_(); }
+
+/** 이 매장의 보유 수량. 수량을 따로 저장하기 전의 기록은 "보유 = 1개, 스티커가 더 많으면 스티커 수"로 봅니다. */
+function ownedQty_(gameId){
+  const o = ownedGamesMap_.get(String(gameId));
+  if (!o || o.owned === false) return 0;
+  if (typeof o.qty === 'number') return o.qty;
+  return Math.max(1, getOwnedStickers_(gameId).length);
+}
+/** 보유 수량이 2개 이상인데 식별 스티커가 수량보다 적게 정해진 게임인지 */
+function needsSticker_(gameId){
+  const q = ownedQty_(gameId);
+  return q >= 2 && getOwnedStickers_(gameId).length < q;
+}
 
 async function openOwnedGames_(){
   if (!prepPage_('more', openOwnedGames_)) return;
-  ownedSearch_ = ''; ownedPickerFor_ = null;
-  appEl.innerHTML = `${pageHeadHtml_('🗂️ 보유 게임 관리', '이 매장에서 보유한 게임을 켜고, 같은 게임을 여러 개 운영하면 박스마다 붙인 식별 스티커 값(예: 빨강, A, 2호)을 추가하세요. QR 라벨 인쇄에서 스티커별 QR을 만들 수 있고, 정기 점검은 스티커별로 따로 셉니다.')}
+  ownedSearch_ = ''; ownedPickerFor_ = null; ownedXlsxParsed_ = null;
+  appEl.innerHTML = `${pageHeadHtml_('🗂️ 보유 게임 관리', '이 매장에서 보유한 게임의 수량을 넣으세요. 같은 게임이 2개 이상이면 박스마다 붙일 식별 스티커 값(예: 빨강, A, 2호)을 정해야 합니다. QR 라벨 인쇄에서 스티커별 QR을 만들 수 있고, 정기 점검은 스티커별로 따로 셉니다.')}
     <div class="st-bar">${storeBarHtml_()}<input type="text" class="pg-search" style="margin:0; flex:1; min-width:160px;" placeholder="게임 이름 검색 (초성 가능)" oninput="setOwnedSearch_(this.value)"></div>
+    <div id="ownedXlsxPanel"></div>
     <div id="ownedBody"></div>`;
   if (!activeStoreCode_){ document.getElementById('ownedBody').innerHTML = noStoreHtml_(); return; }
   await loadStoreData_();
+  renderOwnedXlsxPanel_();
   renderOwnedList_();
+}
+
+function renderOwnedXlsxPanel_(){
+  const el = document.getElementById('ownedXlsxPanel');
+  if (!el) return;
+  el.innerHTML = `
+    <details class="pg-panel" style="margin-bottom:12px;" ${ownedXlsxParsed_ ? 'open' : ''}>
+      <summary style="cursor:pointer; font-weight:800; font-size:13.5px;">📊 엑셀로 보유 수량 한 번에 올리기</summary>
+      <p style="margin:8px 0 10px; font-size:12.5px;">
+        ① 전체 게임 목록 양식을 받아 <b>C열 "보유 수량"</b>만 채운 뒤 ② 업로드하세요. 빈 칸·0은 "미보유"입니다.
+        식별 스티커 값은 엑셀에 적지 않고, 업로드 후 이 화면의 "⚠ 스티커 지정 필요"에서 정합니다.
+      </p>
+      <div class="st-bar" style="margin-bottom:6px;">
+        <button class="btn btn-ghost2 btn-sm" onclick="downloadOwnedXlsx_()">① 전체 게임 목록 양식 받기 (현재 보유 수량 포함)</button>
+        <label class="btn btn-ghost2 btn-sm" style="cursor:pointer;">② 엑셀 업로드<input type="file" accept=".xlsx,.xls,.csv" style="display:none;" onchange="parseOwnedXlsx_(this.files[0]); this.value='';"></label>
+      </div>
+      <div id="ownedXlsxPreview">${ownedXlsxPreviewHtml_()}</div>
+    </details>`;
 }
 
 function renderOwnedList_(){
   const body = document.getElementById('ownedBody');
   if (!body) return;
-  const ownedCount = [...ownedGamesMap_.values()].filter(o=>o.owned!==false).length;
-  const list = games.filter(g=>matchGameSearch_(g, ownedSearch_));
+  const ownedCount = games.filter(g=>ownedQty_(g.id) > 0).length;
+  const totalBoxes = games.reduce((n,g)=> n + ownedQty_(g.id), 0);
+  const needList = games.filter(g=>needsSticker_(g.id));
+  if (ownedFilter_ === 'need' && !needList.length) ownedFilter_ = 'all';
+  let list = games.filter(g=>matchGameSearch_(g, ownedSearch_));
+  if (ownedFilter_ === 'owned') list = list.filter(g=>ownedQty_(g.id) > 0);
+  if (ownedFilter_ === 'need') list = list.filter(g=>needsSticker_(g.id));
   body.innerHTML = `
-    <p style="margin-bottom:10px;">보유 <b style="color:var(--ink);">${ownedCount}</b> / 전체 ${games.length}개</p>
+    ${needList.length ? `<div class="report-banner" style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+      <b>⚠ 보유 수량이 2개 이상인데 식별 스티커가 다 정해지지 않은 게임이 ${needList.length}개 있습니다.</b>
+      ${ownedFilter_ === 'need' ? '' : `<button class="chip-btn" onclick="setOwnedFilter_('need')">모아 보기</button>`}
+    </div>` : ''}
+    <div class="st-bar">
+      <button class="chip-btn ${ownedFilter_==='all'?'on':''}" onclick="setOwnedFilter_('all')">전체 ${games.length}</button>
+      <button class="chip-btn ${ownedFilter_==='owned'?'on':''}" onclick="setOwnedFilter_('owned')">보유 ${ownedCount}종 · ${totalBoxes}개</button>
+      ${needList.length ? `<button class="chip-btn ${ownedFilter_==='need'?'on':''}" onclick="setOwnedFilter_('need')" style="${ownedFilter_==='need'?'':'color:var(--accent); border-color:var(--accent);'}">⚠ 스티커 지정 필요 ${needList.length}</button>` : ''}
+    </div>
     ${list.map(g=>{
       const id = String(g.id);
-      const o = ownedGamesMap_.get(id);
-      const owned = !!o && o.owned !== false;
+      const qty = ownedQty_(id);
+      const owned = qty > 0;
       const stickers = owned ? getOwnedStickers_(id) : [];
+      const need = needsSticker_(id);
       const metaBits = [g.intro, g.difficulty, g.displayGrade].filter(Boolean).join(' · ');
       return `
-      <div class="row-card" style="${owned?'':'opacity:.7;'}">
+      <div class="row-card" style="${owned?'':'opacity:.7;'}${need?'border-color:var(--accent);':''}">
         <div class="row-top">
           <div style="flex:1; min-width:0;"><div class="row-name">${escHtml_(g.name||'')}</div><div class="row-sub">ID ${escHtml_(id)}${metaBits?` · ${escHtml_(metaBits)}`:''}</div></div>
-          <label style="display:flex; align-items:center; gap:6px; font-size:12.5px; font-weight:700; cursor:pointer;"><input type="checkbox" ${owned?'checked':''} onchange="toggleOwnedGame_('${jsq_(id)}', this.checked)"> 보유</label>
+          <label style="display:flex; align-items:center; gap:6px; font-size:12.5px; font-weight:700;">보유
+            <input type="number" min="0" max="99" inputmode="numeric" value="${qty}" style="width:58px; padding:5px 6px; border:1px solid var(--line); border-radius:8px; font-size:13px; text-align:right;" onchange="setOwnedQty_('${jsq_(id)}', this.value)">개</label>
         </div>
         ${owned ? `
         <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:9px; padding-top:9px; border-top:1px dashed var(--line);">
-          <span class="row-sub" style="font-weight:700;">${stickers.length>=2?`${stickers.length}개 운영 · `:''}식별 스티커</span>
+          <span class="row-sub" style="font-weight:700;">식별 스티커${qty>=2 ? ` ${stickers.length}/${qty}` : ''}</span>
           ${stickers.map(st=>`<span class="sc-sticker">${escHtml_(st.label)} <button style="border:none; background:none; cursor:pointer; color:var(--ink-soft); font-size:13px; padding:0 0 0 2px;" onclick="removeOwnedColor_('${jsq_(id)}','${jsq_(st.code)}')" title="삭제">✕</button></span>`).join('')}
           ${ownedPickerFor_===id
             ? `<span style="display:inline-flex; gap:6px; align-items:center;"><input type="text" id="stickerInput_${escHtml_(id)}" maxlength="20" placeholder="예: 빨강, A, 2호" style="width:130px; padding:6px 8px; border:1px solid var(--line); border-radius:8px; font-size:12.5px;" onkeydown="if(event.key==='Enter') addOwnedColor_('${jsq_(id)}', this.value)"><button class="chip-btn on" onclick="addOwnedColor_('${jsq_(id)}', document.getElementById('stickerInput_${jsq_(id)}').value)">추가</button><button class="chip-btn" onclick="toggleOwnedPicker_('${jsq_(id)}')">취소</button></span>`
             : `<button class="chip-btn" style="border-style:dashed; color:var(--accent); border-color:var(--accent);" onclick="toggleOwnedPicker_('${jsq_(id)}')">+ 스티커</button>`}
+          ${need ? `<span class="mini-badge warn">스티커 ${qty - stickers.length}개 더 정해주세요</span>`
+            : qty === 1 && !stickers.length ? `<span class="rg-card-hint">1개 보유는 스티커 없이 운영해도 됩니다</span>` : ''}
         </div>
         ` : ''}
       </div>`;
-    }).join('') || `<div class="empty">검색 결과가 없습니다.</div>`}`;
+    }).join('') || `<div class="empty">${ownedFilter_==='need' ? '스티커 지정이 필요한 게임이 없습니다.' : '검색 결과가 없습니다.'}</div>`}`;
 }
 
 async function saveOwned_(id, data){
@@ -7360,9 +7417,19 @@ async function saveOwned_(id, data){
     return true;
   }catch(e){ console.error(e); alert('저장하지 못했습니다. 잠시 후 다시 시도해주세요.'); return false; }
 }
-async function toggleOwnedGame_(id, on){
-  if (on) await saveOwned_(id, { owned:true, stickers:[] });
-  else { ownedPickerFor_ = null; await saveOwned_(id, null); }
+/** 저장용 보유 문서: 예전 colors 배열은 stickers로 옮겨 적고, 수량을 함께 둡니다.
+ *  수량을 0으로 해도 정해 둔 스티커는 지우지 않고 "미보유"로만 표시합니다 (다시 보유하면 그대로 살아남). */
+function ownedDocWith_(id, patch){
+  const o = { ...(ownedGamesMap_.get(String(id)) || {}) };
+  const stickers = Array.isArray(o.stickers) ? o.stickers : (Array.isArray(o.colors) ? o.colors.map((name, i)=>({ code:String(i+1), label:name })) : []);
+  delete o.colors; delete o.updatedAt;
+  const used = stickers.map(st=>Number(st.code)||0);
+  return { ...o, stickers, lastStickerCode: Math.max(Number(o.lastStickerCode)||0, 0, ...used), qty: ownedQty_(id), owned: ownedQty_(id) > 0, ...patch };
+}
+async function setOwnedQty_(id, v){
+  const n = Math.max(0, Math.min(99, parseInt(v, 10) || 0));
+  if (!n) ownedPickerFor_ = null;
+  await saveOwned_(String(id), ownedDocWith_(id, { qty: n, owned: n > 0 }));
   renderOwnedList_();
 }
 function toggleOwnedPicker_(id){
@@ -7375,23 +7442,143 @@ function toggleOwnedPicker_(id){
 async function addOwnedColor_(id, label){
   label = String(label||'').trim();
   if (!label){ document.getElementById(`stickerInput_${id}`)?.focus(); return; }
-  const stickers = getOwnedStickers_(id).map(st=>({ ...st }));
-  if (stickers.some(st=>st.label === label)){ alert(`"${label}"은(는) 이미 등록된 식별 스티커입니다.`); return; }
-  const o = ownedGamesMap_.get(id) || {};
-  const used = [...stickers.map(st=>Number(st.code)||0), Number(o.lastStickerCode)||0];
-  const code = String(Math.max(0, ...used) + 1);
-  stickers.push({ code, label });
-  ownedPickerFor_ = null;
-  await saveOwned_(id, { owned:true, stickers, lastStickerCode: Number(code) });
+  const base = ownedDocWith_(id, {});
+  if (base.stickers.some(st=>st.label === label)){ alert(`"${label}"은(는) 이미 등록된 식별 스티커입니다.`); return; }
+  const code = String(base.lastStickerCode + 1);
+  const stickers = [...base.stickers, { code, label }];
+  // 스티커는 박스마다 하나씩이므로, 스티커가 수량보다 많아지면 수량도 함께 늘립니다.
+  const qty = Math.max(base.qty, stickers.length);
+  // 수량만큼 다 정할 때까지 입력칸을 열어 둡니다 (연달아 입력하기 편하게).
+  ownedPickerFor_ = stickers.length < qty ? String(id) : null;
+  await saveOwned_(String(id), { ...base, stickers, lastStickerCode: Number(code), qty, owned: true });
   renderOwnedList_();
+  if (ownedPickerFor_) document.getElementById(`stickerInput_${id}`)?.focus();
 }
 async function removeOwnedColor_(id, code){
   const st = getOwnedStickers_(id).find(x=>x.code===String(code));
   if (!st || !confirm(`식별 스티커 "${st.label}"을(를) 삭제할까요?\n이미 붙인 QR은 스캔하면 "#${st.code}"로 표시됩니다.`)) return;
-  const o = ownedGamesMap_.get(id) || {};
-  const used = getOwnedStickers_(id).map(x=>Number(x.code)||0);
-  await saveOwned_(id, { owned:true, stickers: getOwnedStickers_(id).filter(x=>x.code!==String(code)), lastStickerCode: Math.max(Number(o.lastStickerCode)||0, ...used) });
+  const base = ownedDocWith_(id, {});
+  await saveOwned_(String(id), { ...base, stickers: base.stickers.filter(x=>x.code!==String(code)) });
   renderOwnedList_();
+}
+
+// ---- 보유 수량 엑셀 (양식 받기 → C열 수량 입력 → 업로드) ----
+async function downloadOwnedXlsx_(){
+  try{
+    const X = await loadXlsx_();
+    const storeName = (storeList_.find(s=>s.code===activeStoreCode_)||{}).name || activeStoreCode_;
+    const rows = [['게임ID', '게임 이름', '보유 수량', '식별 스티커 (참고용 · 수정해도 반영 안 됨)']];
+    games.slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''), 'ko')).forEach(g=>{
+      const q = ownedQty_(g.id);
+      rows.push([String(g.id), g.name || '', q || '', getOwnedStickers_(g.id).map(st=>st.label).join(', ')]);
+    });
+    const ws = X.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{ wch: 12 }, { wch: 30 }, { wch: 10 }, { wch: 34 }];
+    const guide = X.utils.aoa_to_sheet([
+      ['보유 게임 엑셀 작성 방법'],
+      ['1. "보유 게임" 시트의 C열(보유 수량)만 숫자로 채워주세요. 빈 칸이나 0은 미보유입니다.'],
+      ['2. A열(게임ID)은 바꾸지 마세요. 줄 순서는 바꿔도 되고, 필요 없는 줄은 지워도 됩니다 (지운 게임은 지금 수량 그대로 유지).'],
+      ['3. 같은 게임이 2개 이상이면 업로드 후 사이트의 "보유 게임 관리 → ⚠ 스티커 지정 필요"에서 박스별 식별 스티커 값을 정해주세요.'],
+    ]);
+    guide['!cols'] = [{ wch: 110 }];
+    const wb = X.utils.book_new();
+    X.utils.book_append_sheet(wb, ws, '보유 게임');
+    X.utils.book_append_sheet(wb, guide, '작성 방법');
+    X.writeFile(wb, `보유게임_${storeName}_${dayKey_(Date.now())}.xlsx`);
+  }catch(e){ alert(e.message); }
+}
+
+async function parseOwnedXlsx_(file){
+  if (!file) return;
+  ownedXlsxParsed_ = { loading: true };
+  renderOwnedXlsxPanel_();
+  try{
+    const X = await loadXlsx_();
+    const wb = X.read(await file.arrayBuffer(), { type:'array' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const aoa = X.utils.sheet_to_json(ws, { header:1, raw:false, defval:'' });
+    const rows = [], seen = new Set();
+    aoa.forEach((r, idx)=>{
+      if (idx === 0) return; // 제목 행
+      const id = String(r[0]==null?'':r[0]).trim();
+      const qtyRaw = String(r[2]==null?'':r[2]).trim();
+      if (!id) return;
+      const row = { rowNo: idx+1, id, name: '', msgs: [] };
+      const g = games.find(x=>String(x.id)===id);
+      if (!g) row.msgs.push(`등록되지 않은 게임 ID "${id}"`);
+      else row.name = g.name || '';
+      if (seen.has(id)) row.msgs.push(`파일 안에서 ID "${id}"가 중복됩니다`);
+      seen.add(id);
+      const n = qtyRaw === '' ? 0 : Number(qtyRaw.replace(/[,개\s]/g, ''));
+      if (!Number.isInteger(n) || n < 0 || n > 99) row.msgs.push(`보유 수량 "${qtyRaw}"은(는) 0~99 사이 정수여야 합니다`);
+      row.qty = Number.isInteger(n) ? n : 0;
+      row.prev = g ? ownedQty_(g.id) : 0;
+      row.status = row.msgs.length ? 'error' : row.qty === row.prev ? 'same' : !row.prev ? 'add' : !row.qty ? 'remove' : 'change';
+      rows.push(row);
+    });
+    ownedXlsxParsed_ = { rows };
+  }catch(e){
+    console.error(e);
+    ownedXlsxParsed_ = { error: e.message || '파일을 읽지 못했습니다' };
+  }
+  renderOwnedXlsxPanel_();
+}
+
+function ownedXlsxPreviewHtml_(){
+  const P = ownedXlsxParsed_;
+  if (!P) return '';
+  if (P.loading) return '<p>파일을 읽는 중...</p>';
+  if (P.error) return `<p style="color:var(--danger);">파일을 읽지 못했습니다. ${escHtml_(P.error)}</p>`;
+  const by = k => P.rows.filter(r=>r.status===k);
+  const errs = by('error'), changes = P.rows.filter(r=>['add','change','remove'].includes(r.status));
+  const willNeed = changes.filter(r=>r.qty >= 2 && getOwnedStickers_(r.id).length < r.qty).length;
+  const label = { add:'보유 추가', change:'수량 변경', remove:'보유 해제' };
+  return `
+    <div class="st-bar" style="margin-top:6px;">
+      <span class="xl-ok">보유 추가 ${by('add').length}</span>
+      <span class="xl-warn">수량 변경 ${by('change').length}</span>
+      <span class="xl-err">보유 해제 ${by('remove').length}</span>
+      <span class="row-sub">변경 없음 ${by('same').length}</span>
+      ${errs.length ? `<span class="xl-err">오류 ${errs.length}</span>` : ''}
+    </div>
+    ${errs.length ? `<div style="background:#fff8f7; border:1px solid #f4cfcd; border-radius:9px; padding:8px 10px; font-size:12px; color:var(--accent); line-height:1.7; margin-bottom:10px; max-height:140px; overflow-y:auto;">${errs.map(r=>`${r.rowNo}행 · ${escHtml_(r.msgs.join(' / '))}`).join('<br>')}</div>` : ''}
+    ${changes.length ? `
+    <div style="max-height:220px; overflow:auto; margin-bottom:10px;">
+      <table class="xl-table"><thead><tr><th>게임</th><th>지금</th><th>→ 업로드</th><th>구분</th></tr></thead>
+      <tbody>${changes.slice(0, 300).map(r=>`<tr><td>${escHtml_(r.name)}</td><td>${r.prev}</td><td><b>${r.qty}</b></td><td class="${r.status==='add'?'xl-ok':r.status==='remove'?'xl-err':'xl-warn'}">${label[r.status]}</td></tr>`).join('')}</tbody></table>
+    </div>` : '<p style="font-size:12.5px;">바뀌는 내용이 없습니다.</p>'}
+    ${willNeed ? `<p style="font-size:12.5px; color:var(--accent); margin-bottom:8px;">⚠ 반영 후 ${willNeed}개 게임은 보유 수량이 2개 이상이라 식별 스티커를 정해야 합니다.</p>` : ''}
+    <button class="btn btn-primary2 btn-sm" ${changes.length?'':'disabled'} onclick="applyOwnedXlsx_()">${changes.length}건 반영 (오류 행은 제외)</button>
+    <button class="btn btn-ghost2 btn-sm" onclick="ownedXlsxCancel_()">취소</button>
+    <div id="ownedXlsxStatus" style="margin-top:8px; font-size:12.5px; color:var(--ink-soft);"></div>`;
+}
+function ownedXlsxCancel_(){ ownedXlsxParsed_ = null; renderOwnedXlsxPanel_(); }
+
+async function applyOwnedXlsx_(){
+  const P = ownedXlsxParsed_;
+  const targets = (P && P.rows || []).filter(r=>['add','change','remove'].includes(r.status));
+  if (!targets.length) return;
+  const removes = targets.filter(r=>r.status==='remove').length;
+  if (!confirm(`${targets.length}건을 반영할까요?${removes ? `\n(보유 해제 ${removes}건 포함 — 정해 둔 식별 스티커는 지우지 않고 남겨 둡니다)` : ''}`)) return;
+  const status = document.getElementById('ownedXlsxStatus');
+  let done = 0, failed = 0;
+  for (let i=0; i<targets.length; i+=10){
+    await Promise.all(targets.slice(i, i+10).map(async r=>{
+      const data = ownedDocWith_(r.id, { qty: r.qty, owned: r.qty > 0 });
+      try{
+        await setDoc(doc(db, 'stores', activeStoreCode_, 'ownedGames', r.id), { ...data, updatedAt: Date.now() });
+        ownedGamesMap_.set(r.id, data);
+        done++;
+      }catch(e){ console.error(e); failed++; }
+    }));
+    if (status) status.textContent = `진행 중... ${done + failed} / ${targets.length}`;
+  }
+  ownedXlsxParsed_ = null;
+  renderOwnedXlsxPanel_();
+  const need = games.filter(g=>needsSticker_(g.id)).length;
+  if (need) ownedFilter_ = 'need';
+  renderOwnedList_();
+  alert(`반영 완료: 성공 ${done}건${failed?`, 실패 ${failed}건`:''}${need ? `\n\n식별 스티커를 정해야 하는 게임 ${need}개를 모아 보여드립니다.` : ''}`);
 }
 
 // ---------- 게임 DB 관리 (관리자) + 엑셀 대량 업로드 ----------
@@ -7609,7 +7796,7 @@ Object.assign(window, {
   toggleReturnViewer_, enterReturnViewer_, exitReturnViewer_,
   switchStore_, toggleMoreMenu_, closeMoreMenu_, openScanHistory_, setHistRange_, openGameFromHistory_,
   openScanRanking_, setRankRange_, setRankCustom_, selectRankGame_, openMaintenance_, toggleMaintShowAll_, toggleMaintDetail_,
-  saveMaintMemo_, completeMaint_, printMaintenance_, openOwnedGames_, toggleOwnedGame_, toggleOwnedPicker_, addOwnedColor_, removeOwnedColor_,
+  saveMaintMemo_, completeMaint_, printMaintenance_, openOwnedGames_, setOwnedQty_, setOwnedFilter_, downloadOwnedXlsx_, parseOwnedXlsx_, applyOwnedXlsx_, ownedXlsxCancel_, toggleOwnedPicker_, addOwnedColor_, removeOwnedColor_,
   openGameDbAdmin_, addSingleGame_, downloadGameXlsxTemplate_, parseGameXlsx_, applyGameXlsx_, updateGameMeta_, renderOwnedList_, renderGdbList_, setOwnedSearch_, setGdbSearch_,
   renderList, openGame, createNewGame, switchMode, setRole,
   prevPhoto, nextPhoto, uploadPhoto, deletePhoto, movePhoto, autoGenerateMarkers,
