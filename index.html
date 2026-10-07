@@ -270,6 +270,7 @@
   .access-row-pending:last-child{border-bottom:none;}
   .access-person{display:flex; align-items:center; gap:6px; flex:1; min-width:0;}
   .access-empty{font-size:12.5px; color:var(--ink-soft); padding:6px 0;}
+  .access-store{padding:4px 6px; border:1px solid var(--line); border-radius:6px; font-size:12px; font-family:var(--sans); max-width:150px;}
   .access-email-only{font-family:var(--sans); font-weight:600; font-size:12.5px; word-break:break-all; color:var(--ink-mid);}
   .access-email-sub{font-family:var(--sans); font-size:11.5px; color:var(--ink-mid); margin-top:1px;}
   .access-actions{display:flex; gap:6px; flex-shrink:0; flex-wrap:wrap; align-items:center;}
@@ -512,46 +513,33 @@
   .report-item{display:flex; justify-content:space-between; gap:10px; align-items:flex-start; padding:8px 0; border-top:1px dashed var(--warn-line); flex-wrap:wrap;}
   .report-item:first-of-type{margin-top:8px;}
 
-  /* ---- 홈 (매장 대시보드) ---- */
-  .home-tiles{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));}
-  .home-tile .n{font-size:26px; color:var(--ink);}
-  .home-tile .n .u{font-size:13px; font-weight:700; margin-left:2px; color:var(--ink-soft);}
-  .home-tile .l{font-size:12.5px; font-weight:700; color:var(--ink-mid);}
-  .home-tile .s{font-size:11.5px; color:var(--ink-soft); margin-top:2px;}
-  .home-tile.clickable{cursor:pointer;}
-  .home-tile.clickable:hover{border-color:var(--line-strong);}
-  .home-tile.warn{border-color:var(--accent);}
-  .home-tile.warn .n{color:var(--accent);}
+  /* ---- 홈 (매장 대시보드: 정기 점검 중심) ---- */
+  .home-hero{display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; background:var(--surface); border:1.5px solid var(--line); border-radius:14px; padding:16px 18px; margin-bottom:12px;}
+  .home-hero.alert{border-color:var(--accent); background:color-mix(in srgb, var(--accent) 6%, var(--surface));}
+  .home-hero-main{display:flex; align-items:center; gap:14px;}
+  .home-hero-n{font-size:44px; font-weight:900; line-height:1; color:var(--ink);}
+  .home-hero.alert .home-hero-n{color:var(--accent);}
+  .home-hero-n span{font-size:16px; font-weight:800; margin-left:2px; color:var(--ink-soft);}
+  .home-hero-t{font-size:16px; font-weight:800;}
+  .home-hero-s{font-size:13px; color:var(--ink-mid); margin-top:3px;}
+  .home-hero-actions{display:flex; gap:8px; flex-wrap:wrap;}
   .home-section{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:12px 14px; margin-bottom:12px; min-width:0;}
-  .home-section h3{margin:0 0 10px; font-size:14px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+  .home-section h3{margin:0 0 8px; font-size:14px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+  .home-flag{border-color:var(--warn-line); background:var(--warn-bg);}
+  .home-note{cursor:pointer;}
   .home-go{margin-left:auto; font-size:12px; font-weight:700; color:var(--accent); cursor:pointer; white-space:nowrap;}
-  .home-empty{font-size:13px; color:var(--ink-soft); padding:6px 2px;}
-  .home-grid{display:grid; grid-template-columns:minmax(0,1.3fr) minmax(0,1fr); gap:12px;}
-  .home-grid .home-section{margin-bottom:12px;}
+  .home-empty{font-size:13px; color:var(--ink-soft); padding:4px 2px;}
+  .home-grid{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:12px;}
   @media (max-width:760px){ .home-grid{grid-template-columns:minmax(0,1fr);} }
-  .home-todo{border:1px solid var(--line); border-radius:10px; padding:9px 12px; margin-bottom:8px; cursor:pointer; background:var(--bg);}
-  .home-todo:hover{border-color:var(--line-strong);}
-  .home-todo.warn{background:var(--warn-bg); border-color:var(--warn-line);}
-  .home-todo-head{display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:13.5px;}
-  .home-todo-items{display:flex; flex-wrap:wrap; gap:6px 14px; margin-top:6px; font-size:13px;}
-  .home-todo-items > span{display:inline-flex; align-items:center; gap:5px;}
-  .home-chart{position:relative; display:flex; gap:6px; height:150px; padding-top:22px;}
-  .home-chart-axis{display:flex; flex-direction:column; justify-content:space-between; font-size:10.5px; color:var(--ink-soft); text-align:right; padding-bottom:18px; min-width:18px;}
-  .home-chart-plot{position:relative; flex:1; display:flex; align-items:flex-end; gap:2px; border-bottom:1px solid var(--line); margin-bottom:18px;}
-  .home-grid-line{position:absolute; left:0; right:0; height:1px; background:var(--line);}
-  .home-col{flex:1; height:100%; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; position:relative; cursor:default;}
-  .home-col i{display:block; width:100%; max-width:24px; min-height:2px; background:var(--accent); opacity:.55; border-radius:4px 4px 0 0;}
-  .home-col i.today{opacity:1;}
-  .home-col.hover i{opacity:1;}
-  .home-col span{position:absolute; bottom:-17px; font-size:10px; color:var(--ink-soft); white-space:nowrap;}
-  .home-tip{position:absolute; top:0; display:none; background:var(--ink); color:var(--surface); font-size:11.5px; font-weight:700; padding:3px 8px; border-radius:6px; white-space:nowrap; pointer-events:none;}
-  .home-table{margin-top:6px; font-size:12px;} .home-table summary{cursor:pointer; color:var(--ink-soft);} .home-table table{margin-top:6px;}
-  .home-rank{display:flex; align-items:center; gap:10px; padding:6px 0; border-bottom:1px solid var(--line); cursor:pointer; font-size:13px;}
-  .home-rank:last-child{border-bottom:none;}
-  .home-rank-no{width:18px; text-align:center; font-weight:800; color:var(--ink-soft);}
-  .home-rank:first-of-type .home-rank-no{color:var(--accent);}
-  .home-recent{display:flex; align-items:center; gap:10px; padding:6px 0; border-bottom:1px solid var(--line); cursor:pointer; font-size:13px;}
-  .home-recent:last-child{border-bottom:none;}
+  .home-unit{display:flex; align-items:center; gap:8px; padding:10px 0; border-top:1px solid var(--line); cursor:pointer;}
+  .home-section h3 + .home-unit{border-top:none;}
+  .home-flag .home-unit{border-top-color:var(--warn-line);}
+  .home-unit.compact{padding:7px 0;}
+  .home-unit-main{flex:1; min-width:0;}
+  .home-unit-main .row-name{font-size:14.5px;}
+  .home-unit-main .sc-sticker{margin-left:4px; vertical-align:middle;}
+  .home-bar{max-width:260px; margin:5px 0 3px;}
+  .home-left{font-size:12px; font-weight:800; color:var(--ink-mid); white-space:nowrap;}
 
   /* ---- 반납대 가이드 편집자 화면 (뷰어와 같은 좌/우 카드 배치) ---- */
   .rg-edit-bar{display:flex; align-items:center; gap:10px 14px; flex-wrap:wrap; margin-bottom:10px; padding:8px 12px; background:var(--surface); border:1px solid var(--line); border-radius:12px; font-size:13px;}
@@ -1209,6 +1197,18 @@ function allStoresToggleHtml_(p, col){
   return `<label class="mini-badge" style="cursor:pointer; display:inline-flex; align-items:center; gap:4px;" title="켜면 이 계정이 모든 매장의 홈·히스토리·정기 점검·보유 게임을 골라 볼 수 있습니다">
     <input type="checkbox" ${p.allStores===true?'checked':''} onchange="setAllStores_('${jsq_(p.email)}','${col}', this.checked)" style="margin:0;"> 🏢 전체 매장</label>`;
 }
+/** 권한 관리: 계정의 소속 매장(storeCode)을 바꿉니다. 매장 계정은 이 매장의 데이터만 보게 됩니다. */
+async function setAccountStore_(email, col, code){
+  try{
+    await updateDoc(doc(db, col, email), { storeCode: code || '' });
+    toast_(code ? `${email} → ${(storeList_.find(s=>s.code===code)||{}).name || code} 연결` : `${email}의 매장 연결을 해제했습니다`);
+    // 내 계정을 바꿨다면 지금 보는 매장도 다시 정합니다.
+    if (auth.currentUser?.email?.toLowerCase() === email && myProfile_){
+      myProfile_.storeCode = code || '';
+      await loadStoreContext_();
+    }
+  }catch(e){ alert('저장하지 못했습니다: ' + e.message); renderAccessManagement(); }
+}
 async function setAllStores_(email, col, on){
   try{
     await updateDoc(doc(db, col, email), { allStores: !!on });
@@ -1239,6 +1239,12 @@ async function renderAccessManagement(){
   stores.sort((a,b)=> String(a.name||'').localeCompare(String(b.name||''), 'ko'));
 
   const storeName_ = (code)=> stores.find(s=>s.code===code)?.name || code;
+  // 계정에 소속 매장을 연결하는 선택 칸 (바꾸면 바로 저장)
+  const storeSel = (p, col)=> `
+    <select class="access-store" onchange="setAccountStore_('${jsq_(p.email)}','${col}', this.value)" title="소속 매장 (이 계정이 볼 매장 데이터)">
+      <option value="">${p.storeCode && !stores.some(s=>s.code===p.storeCode) ? `알 수 없는 매장 (${escHtml_(p.storeCode)})` : '매장 없음'}</option>
+      ${stores.map(s=>`<option value="${escHtml_(s.code)}" ${s.code===p.storeCode?'selected':''}>${escHtml_(s.name||s.code)}</option>`).join('')}
+    </select>`;
 
   appEl.innerHTML = `
     <button class="back" onclick="renderHome_()">← 홈으로</button>
@@ -1276,8 +1282,9 @@ async function renderAccessManagement(){
       <div class="access-section-title">편집자 (${editors.length})</div>
       ${editors.map(e=>`
         <div class="access-row">
-          <span class="access-email-only">${e.name ? `${escHtml_(e.name)} · ${e.storeCode ? `${escHtml_(storeName_(e.storeCode))} · ` : ''}` : ''}${escHtml_(e.email)}</span>
+          <span class="access-email-only">${e.name ? `${escHtml_(e.name)}${e.position ? ` (${escHtml_(e.position)})` : ''} · ` : ''}${escHtml_(e.email)}</span>
           <div class="access-actions">
+            ${storeSel(e, 'editors')}
             ${allStoresToggleHtml_(e, 'editors')}
             <button class="btn btn-ghost2" style="width:auto; padding:4px 8px; font-size:11.5px;" onclick="removeAccess('${e.email}','editors')">제거</button>
           </div>
@@ -1289,8 +1296,9 @@ async function renderAccessManagement(){
       <div class="access-section-title">뷰어 (${viewers.length})</div>
       ${viewers.map(v=>`
         <div class="access-row">
-          <span class="access-email-only">${v.name ? `${escHtml_(v.name)} · ${escHtml_(storeName_(v.storeCode))} · ` : ''}${escHtml_(v.email)}</span>
+          <span class="access-email-only">${v.name ? `${escHtml_(v.name)}${v.position ? ` (${escHtml_(v.position)})` : ''} · ` : ''}${escHtml_(v.email)}</span>
           <div class="access-actions">
+            ${storeSel(v, 'viewers')}
             ${allStoresToggleHtml_(v, 'viewers')}
             <button class="btn btn-ghost2" style="width:auto; padding:4px 8px; font-size:11.5px;" onclick="removeAccess('${v.email}','viewers')">제거</button>
           </div>
@@ -2973,7 +2981,7 @@ function openHelpModal(){
       <h4 style="font-size:13px; margin:16px 0 8px;">🙋 뷰어(매장) 안내</h4>
       <ul class="help-list">
         <li><b>게임 찾기</b> — 목록 상단 검색창에 이름(초성도 가능)을 입력하면 바로 필터링됩니다. 왼쪽 위 RED BUTTON 로고나 하단 🏠 홈을 누르면 홈으로 돌아옵니다.</li>
-        <li><b>🏠 홈</b> — 매장의 오늘 반납 스캔, 최근 7일 이용, 정기 점검 대상(누락·파손 신고 포함), 보유 게임 현황과 "지금 처리할 일", 최근 14일 추이, 인기 게임 TOP 5, 최근 스캔을 한눈에 봅니다. 게임을 찾을 때는 "📋 전체 게임 목록"이나 상단 검색창을 쓰세요.</li>
+        <li><b>🏠 홈</b> — 매장의 정기 점검 현황을 가장 먼저 보여줍니다. "지금 점검할 게임"(누락·파손 신고 + 점검 이후 20회 이상 스캔)을 바로 "점검 완료"할 수 있고, 곧 점검할 게임(남은 횟수)과 최근 점검 완료 기록도 함께 봅니다. 게임을 찾을 때는 "📋 전체 게임 목록"이나 상단 검색창을 쓰세요.</li>
         <li><b>사진 탭</b> — 실제 사진 위에 케이스종류(알파벳)와 위치가 표시됩니다. 점선으로 표시된 라벨은 실제 라벨기 인쇄 모습입니다. 사진이 여러 장이면 좌우를 클릭하거나 화면을 좌우로 밀어서 넘길 수 있습니다.</li>
         <li><b>표 탭</b> — 케이스종류·구성품·수량·비고를 표로 확인할 수 있습니다.</li>
         <li><b>구매 가이드</b> — 하단 "⋯ 더보기 → 🛒 구매 가이드"에서 필요한 케이스 수량과 구매 링크를 확인할 수 있습니다. "보유 재고"를 넣으면 더 사야 할 수량만, 단가를 넣으면 예상 금액도 계산합니다.</li>
@@ -7060,10 +7068,12 @@ function prepPage_(navKey, reloader){
   return true;
 }
 
-// ---------- 홈 (매장 대시보드) ----------
-// 매장 관리자가 들어오자마자 오늘 반납 처리 현황, 점검·신고처럼 지금 처리할 일, 이용 추이와 인기 게임을
-// 한눈에 보도록 정리한 화면입니다. 게임 목록은 "📋 전체 게임 목록"과 상단 검색으로 들어갑니다.
-const HOME_TREND_DAYS_ = 14;
+// ---------- 홈 (매장 대시보드: 정기 점검 중심) ----------
+// 실무에서 홈에 들어와 바로 해야 할 일은 "점검할 게임을 빼서 점검하는 것"이므로, 정기 점검을 가장 크게 보여줍니다.
+//  ① 지금 점검할 게임 = 누락·파손 신고 + 점검 이후 20회 이상 스캔 (바로 "점검 완료" 가능)
+//  ② 곧 점검할 게임 = 기준의 70% 이상 (남은 횟수 표시)
+//  ③ 최근 점검 완료 · 식별 스티커 지정 필요
+const HOME_SOON_RATIO_ = 0.7;
 
 async function renderHome_(){
   if (!prepPage_('home', renderHome_)) return;
@@ -7073,31 +7083,26 @@ async function renderHome_(){
   appEl.innerHTML = `
     <div class="pg-head" style="margin-bottom:10px;">
       <h2>🏠 ${storeName ? `${escHtml_(storeName)} 홈` : '홈'}</h2>
-      <p class="pg-desc">${dayKey_(Date.now()).replace(/-/g,'.')} 기준 · 오늘 반납 처리 현황과 지금 처리할 일을 모았습니다.</p>
     </div>
     <div class="st-bar">${storeBarHtml_()}
       <span style="flex:1;"></span>
-      <button class="btn btn-primary2 btn-sm" onclick="renderList()">📋 전체 게임 목록</button>
+      <button class="btn btn-ghost2 btn-sm" onclick="renderList()">📋 전체 게임 목록</button>
     </div>
     <div id="homeQuick">${homeQuickHtml_()}</div>
     <div id="homeBody"><p style="padding:20px 4px;">불러오는 중...</p></div>`;
   const body = document.getElementById('homeBody');
   if (!activeStoreCode_){ body.innerHTML = noStoreHtml_(); return; }
-  let scans = [];
-  try{
-    const now = Date.now();
-    [scans] = await Promise.all([
-      fetchScans_(startOfDayMs_(now - (HOME_TREND_DAYS_-1)*86400000), now),
-      loadStoreData_(),
-    ]);
-  }catch(e){
+  try{ await loadStoreData_(); }
+  catch(e){
     console.error(e);
-    body.innerHTML = `<div class="empty">매장 데이터를 불러오지 못했습니다.<br><span style="font-size:12px;">(Firestore 규칙에 새 항목이 게시되어 있는지 확인해주세요)</span></div>`;
+    body.innerHTML = `<div class="empty">매장 데이터를 불러오지 못했습니다.</div>`;
     return;
   }
-  if (!document.getElementById('homeBody')) return; // 그 사이 다른 화면으로 이동
-  body.innerHTML = homeBodyHtml_(scans);
-  bindHomeChartTips_();
+  refreshHomeBody_();
+}
+function refreshHomeBody_(){
+  const body = document.getElementById('homeBody');
+  if (body) body.innerHTML = homeBodyHtml_();
 }
 
 function homeQuickHtml_(){
@@ -7109,153 +7114,88 @@ function homeQuickHtml_(){
     (recent.length ? `<div class="quick-row"><span class="quick-row-title">🕘 최근 본 게임</span>${recent.map(chip).join('')}</div>` : '');
 }
 
-function homeBodyHtml_(scans){
+function homeBodyHtml_(){
   const now = Date.now();
-  const todayKey = dayKey_(now), yKey = dayKey_(now - 86400000);
-  const today = scans.filter(s=>dayKey_(s.ts)===todayKey);
-  const yesterday = scans.filter(s=>dayKey_(s.ts)===yKey);
-  const week = scans.filter(s=>s.ts >= startOfDayMs_(now - 6*86400000));
-  const prevWeek = scans.filter(s=>s.ts < startOfDayMs_(now - 6*86400000) && s.ts >= startOfDayMs_(now - 13*86400000));
-
-  // 점검·신고 (정기 점검 단위 = 게임 또는 게임+식별 스티커)
   const units = [];
   gameStatsMap_.forEach((v, id)=>{
     const gid = v.gameId || id;
     const label = v.stickerCode ? (findStickerLabel_(gid, v.stickerCode) || v.stickerLabel || `#${v.stickerCode}`) : '';
-    units.push({ id, gid, name: gameNameById_(gid, v.gameName), label, cycle: v.cycleScans||0, flagged: !!v.flagged, flaggedAt: v.flaggedAt||0 });
+    units.push({ id, gid, name: gameNameById_(gid, v.gameName), label, cycle: v.cycleScans||0, total: v.totalScans||0,
+      flagged: !!v.flagged, flaggedAt: v.flaggedAt||0, lastAt: v.lastCheckedAt||0, lastBy: v.lastCheckedBy||'' });
   });
   const flagged = units.filter(u=>u.flagged).sort((a,b)=>b.flaggedAt - a.flaggedAt);
   const due = units.filter(u=>!u.flagged && u.cycle >= MAINT_THRESHOLD_).sort((a,b)=>b.cycle - a.cycle);
-  const soon = units.filter(u=>!u.flagged && u.cycle < MAINT_THRESHOLD_ && u.cycle >= Math.ceil(MAINT_THRESHOLD_*0.7)).sort((a,b)=>b.cycle - a.cycle);
+  const soonMin = Math.ceil(MAINT_THRESHOLD_ * HOME_SOON_RATIO_);
+  const soon = units.filter(u=>!u.flagged && u.cycle < MAINT_THRESHOLD_ && u.cycle >= soonMin).sort((a,b)=>b.cycle - a.cycle);
+  const recentDone = units.filter(u=>u.lastAt).sort((a,b)=>b.lastAt - a.lastAt).slice(0, 5);
+  const needSticker = games.filter(g=>ownedQty_(g.id) > 0 && needsSticker_(g.id));
+  const total = flagged.length + due.length;
 
-  // 보유 게임
-  const owned = games.filter(g=>ownedQty_(g.id) > 0);
-  const boxes = owned.reduce((n,g)=> n + ownedQty_(g.id), 0);
-  const needSticker = owned.filter(g=>needsSticker_(g.id));
-
-  const diff = (a, b)=> {
-    if (!b) return a ? '' : '';
-    const d = a - b;
-    return d === 0 ? '어제와 같음' : `어제보다 ${d > 0 ? '+' : ''}${d}`;
-  };
-  const tile = (n, unit, label, sub, onclick, warn)=> `
-    <div class="stat-box home-tile ${onclick?'clickable':''} ${warn?'warn':''}" ${onclick?`onclick="${onclick}"`:''}>
-      <div class="n">${n}<span class="u">${unit}</span></div>
-      <div class="l">${label}</div>
-      ${sub ? `<div class="s">${sub}</div>` : ''}
-    </div>`;
-  const weekDelta = prevWeek.length ? Math.round((week.length - prevWeek.length) / prevWeek.length * 100) : null;
-
-  // 할 일 목록 (정말 처리할 게 있을 때만 줄을 만듭니다)
-  const unitName = (u)=> `${escHtml_(u.name)}${u.label ? ` <span class="sc-sticker">🏷️ ${escHtml_(u.label)}</span>` : ''}`;
-  const todo = [];
-  if (flagged.length) todo.push(`
-    <div class="home-todo warn" onclick="openMaintenance_()">
-      <div class="home-todo-head"><b>⚠ 누락·파손 신고 ${flagged.length}건</b><span class="home-go">정기 점검 →</span></div>
-      <div class="home-todo-items">${flagged.slice(0,5).map(u=>`<span>${unitName(u)}<span class="row-sub">${fmtShortDate_(u.flaggedAt)}</span></span>`).join('')}${flagged.length>5?`<span class="row-sub">외 ${flagged.length-5}건</span>`:''}</div>
-    </div>`);
-  if (due.length) todo.push(`
-    <div class="home-todo" onclick="openMaintenance_()">
-      <div class="home-todo-head"><b>🔧 정기 점검 대상 ${due.length}개</b><span class="row-sub">점검 이후 ${MAINT_THRESHOLD_}회 이상 스캔</span><span class="home-go">정기 점검 →</span></div>
-      <div class="home-todo-items">${due.slice(0,5).map(u=>`<span>${unitName(u)}<span class="row-sub">${u.cycle}회</span></span>`).join('')}${due.length>5?`<span class="row-sub">외 ${due.length-5}개</span>`:''}</div>
-    </div>`);
-  if (needSticker.length) todo.push(`
-    <div class="home-todo" onclick="openOwnedGames_('need')">
-      <div class="home-todo-head"><b>🏷️ 식별 스티커 지정 필요 ${needSticker.length}개</b><span class="row-sub">2개 이상 보유 게임</span><span class="home-go">보유 게임 관리 →</span></div>
-      <div class="home-todo-items">${needSticker.slice(0,5).map(g=>`<span>${escHtml_(g.name)}<span class="row-sub">${getOwnedStickers_(g.id).length}/${ownedQty_(g.id)}</span></span>`).join('')}${needSticker.length>5?`<span class="row-sub">외 ${needSticker.length-5}개</span>`:''}</div>
-    </div>`);
-
-  // 최근 14일 스캔 추이 (단일 계열 막대)
-  const days = [];
-  for (let i=HOME_TREND_DAYS_-1; i>=0; i--){
-    const ms = startOfDayMs_(now - i*86400000);
-    const k = dayKey_(ms);
-    const list = scans.filter(s=>dayKey_(s.ts)===k);
-    days.push({ k, ms, n: list.length, games: new Set(list.map(s=>s.gameId)).size });
-  }
-  const maxN = Math.max(1, ...days.map(d=>d.n));
-  const niceMax = maxN <= 5 ? 5 : maxN <= 10 ? 10 : Math.ceil(maxN/10)*10;
-
-  // 인기 게임 TOP 5 (최근 7일, 게임 단위)
-  const agg = new Map();
-  week.forEach(s=>{ const a = agg.get(s.gameId) || { id:s.gameId, name:s.gameName, n:0 }; a.n++; agg.set(s.gameId, a); });
-  const top = [...agg.values()].sort((a,b)=> b.n - a.n || String(a.name).localeCompare(String(b.name),'ko')).slice(0,5);
-  const topMax = top.length ? top[0].n : 1;
+  const unitName = (u)=> `<span class="row-name">${escHtml_(u.name)}</span>${u.label ? ` <span class="sc-sticker">🏷️ ${escHtml_(u.label)}</span>` : ''}`;
+  const ago = (ms)=>{ const d = Math.floor((startOfDayMs_(now) - startOfDayMs_(ms)) / 86400000); return d <= 0 ? '오늘' : d === 1 ? '어제' : `${d}일 전`; };
+  const doneBtn = (u)=> `<button class="btn btn-primary2 btn-sm" onclick="event.stopPropagation(); completeMaint_('${jsq_(u.id)}')">점검 완료</button>`;
+  const guideBtn = (u)=> `<button class="btn btn-ghost2 btn-sm" onclick="event.stopPropagation(); openGameFromHistory_('${jsq_(u.gid)}')" title="반납대 가이드 보기">가이드</button>`;
+  const bar = (u)=> `<div class="mini-bar home-bar"><i style="width:${Math.min(100, Math.round(u.cycle/MAINT_THRESHOLD_*100))}%"></i></div>`;
 
   return `
-    <div class="stat-row home-tiles">
-      ${tile(today.length, '회', '오늘 반납 스캔', `게임 ${new Set(today.map(s=>s.gameId)).size}개 · ${diff(today.length, yesterday.length) || `어제 ${yesterday.length}회`}`, 'openScanHistory_()')}
-      ${tile(week.length, '회', '최근 7일 스캔', weekDelta == null ? '' : `지난 7일보다 ${weekDelta>0?'+':''}${weekDelta}%`, 'openScanRanking_()')}
-      ${tile(flagged.length + due.length, '개', '정기 점검 대상', flagged.length ? `⚠ 누락·파손 신고 ${flagged.length}건 포함` : soon.length ? `곧 대상 ${soon.length}개` : '', 'openMaintenance_()', flagged.length > 0)}
-      ${tile(owned.length, '종', '보유 게임', `박스 ${boxes}개${needSticker.length ? ` · 스티커 필요 ${needSticker.length}` : ''}`, 'openOwnedGames_()', needSticker.length > 0)}
+    <div class="home-hero ${total ? 'alert' : ''}">
+      <div class="home-hero-main">
+        <div class="home-hero-n">${total}<span>개</span></div>
+        <div>
+          <div class="home-hero-t">${total ? '지금 점검할 게임' : '지금 점검할 게임이 없습니다 👍'}</div>
+          <div class="home-hero-s">${flagged.length ? `⚠ 누락·파손 신고 ${flagged.length}건` : ''}${flagged.length && due.length ? ' · ' : ''}${due.length ? `스캔 ${MAINT_THRESHOLD_}회 이상 ${due.length}개` : ''}${!total && soon.length ? `곧 점검할 게임 ${soon.length}개` : ''}</div>
+        </div>
+      </div>
+      <div class="home-hero-actions">
+        <button class="btn btn-ghost2 btn-sm" onclick="openMaintenance_()">🔧 정기 점검 전체</button>
+        ${total ? `<button class="btn btn-ghost2 btn-sm" onclick="printMaintenance_()">🖨️ 점검표 출력</button>` : ''}
+      </div>
     </div>
 
+    ${flagged.length ? `
+    <div class="home-section home-flag">
+      <h3>⚠ 누락·파손 신고 <span class="row-sub">스캔 횟수와 상관없이 먼저 점검하세요</span></h3>
+      ${flagged.map(u=>`
+        <div class="home-unit" onclick="openGameFromHistory_('${jsq_(u.gid)}')">
+          <div class="home-unit-main">${unitName(u)}<div class="row-sub">${ago(u.flaggedAt)} 신고${u.cycle ? ` · 점검 이후 ${u.cycle}회 스캔` : ''}</div></div>
+          ${guideBtn(u)}${doneBtn(u)}
+        </div>`).join('')}
+    </div>` : ''}
+
+    ${due.length ? `
     <div class="home-section">
-      <h3>✅ 지금 처리할 일</h3>
-      ${todo.length ? todo.join('') : `<div class="home-empty">처리할 일이 없습니다. 👍</div>`}
-    </div>
+      <h3>🔧 점검 기준 도달 <span class="row-sub">마지막 점검 이후 ${MAINT_THRESHOLD_}회 이상 스캔 · 많이 찍힌 순</span></h3>
+      ${due.map(u=>`
+        <div class="home-unit" onclick="openGameFromHistory_('${jsq_(u.gid)}')">
+          <div class="home-unit-main">${unitName(u)}${bar(u)}<div class="row-sub"><b style="color:var(--accent);">${u.cycle}회</b> / ${MAINT_THRESHOLD_}회 · 마지막 점검 ${u.lastAt ? ago(u.lastAt) : '기록 없음'}</div></div>
+          ${guideBtn(u)}${doneBtn(u)}
+        </div>`).join('')}
+    </div>` : ''}
 
     <div class="home-grid">
       <div class="home-section">
-        <h3>📈 최근 ${HOME_TREND_DAYS_}일 반납 스캔 <span class="row-sub">하루 스캔 수</span></h3>
-        <div class="home-chart" id="homeChart">
-          <div class="home-chart-axis"><span>${niceMax}</span><span>${niceMax/2}</span><span>0</span></div>
-          <div class="home-chart-plot">
-            <div class="home-grid-line" style="bottom:50%;"></div><div class="home-grid-line" style="bottom:100%;"></div>
-            ${days.map((d,i)=>`
-              <div class="home-col" data-tip="${escHtml_(fmtDayLabel_(d.k))} · ${d.n}회 · 게임 ${d.games}개">
-                <i style="height:${(d.n/niceMax*100).toFixed(1)}%;" class="${d.k===todayKey?'today':''}"></i>
-                <span>${i % 2 === (HOME_TREND_DAYS_-1) % 2 ? `${new Date(d.ms).getMonth()+1}/${new Date(d.ms).getDate()}` : ''}</span>
-              </div>`).join('')}
-          </div>
-          <div class="home-tip" id="homeTip"></div>
-        </div>
-        <details class="home-table"><summary>표로 보기</summary>
-          <table class="xl-table"><thead><tr><th>날짜</th><th>스캔</th><th>게임 수</th></tr></thead>
-          <tbody>${days.slice().reverse().map(d=>`<tr><td>${escHtml_(fmtDayLabel_(d.k))}</td><td>${d.n}</td><td>${d.games}</td></tr>`).join('')}</tbody></table>
-        </details>
+        <h3>⏳ 곧 점검할 게임 <span class="row-sub">${soonMin}회 이상</span></h3>
+        ${soon.length ? soon.slice(0, 8).map(u=>`
+          <div class="home-unit compact" onclick="openGameFromHistory_('${jsq_(u.gid)}')">
+            <div class="home-unit-main">${unitName(u)}${bar(u)}</div>
+            <span class="home-left">${MAINT_THRESHOLD_ - u.cycle}회 남음</span>
+          </div>`).join('') + (soon.length > 8 ? `<div class="row-sub">외 ${soon.length-8}개</div>` : '')
+          : `<div class="home-empty">곧 점검 기준에 닿는 게임이 없습니다.</div>`}
       </div>
       <div class="home-section">
-        <h3>🏆 인기 게임 TOP 5 <span class="row-sub">최근 7일</span><span class="home-go" onclick="openScanRanking_()">랭킹 →</span></h3>
-        ${top.length ? top.map((r,i)=>`
-          <div class="home-rank" onclick="openGameFromHistory_('${jsq_(r.id)}')">
-            <span class="home-rank-no">${i+1}</span>
-            <div style="flex:1; min-width:0;"><div class="row-name" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escHtml_(gameNameById_(r.id, r.name))}</div><div class="mini-bar"><i style="width:${Math.round(r.n/topMax*100)}%"></i></div></div>
-            <b>${r.n}회</b>
-          </div>`).join('') : `<div class="home-empty">최근 7일 스캔 기록이 없습니다.</div>`}
+        <h3>✅ 최근 점검 완료</h3>
+        ${recentDone.length ? recentDone.map(u=>`
+          <div class="home-unit compact" onclick="openGameFromHistory_('${jsq_(u.gid)}')">
+            <div class="home-unit-main">${unitName(u)}</div>
+            <span class="row-sub" style="white-space:nowrap;">${ago(u.lastAt)}${u.lastBy ? ` · ${escHtml_(String(u.lastBy).split('@')[0])}` : ''}</span>
+          </div>`).join('') : `<div class="home-empty">아직 점검 완료 기록이 없습니다.</div>`}
       </div>
     </div>
 
-    <div class="home-section">
-      <h3>🕓 최근 반납 스캔<span class="home-go" onclick="openScanHistory_()">히스토리 →</span></h3>
-      ${today.length || scans.length ? scans.slice(0, 8).map(s=>`
-        <div class="home-recent" onclick="openGameFromHistory_('${jsq_(s.gameId)}')">
-          <span class="row-sub" style="width:64px; flex-shrink:0;">${dayKey_(s.ts)===todayKey ? fmtTime_(s.ts) : fmtShortDate_(s.ts)}</span>
-          <span class="row-name" style="flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escHtml_(gameNameById_(s.gameId, s.gameName))}</span>
-          ${s.color ? `<span class="sc-sticker">🏷️ ${escHtml_(s.color)}</span>` : ''}
-        </div>`).join('') : `<div class="home-empty">아직 스캔 기록이 없습니다. 하단 📷 반납대 뷰어를 켜고 게임 QR을 찍어보세요.</div>`}
-    </div>`;
-}
-
-/** 추이 막대에 마우스를 올리거나 누르면 날짜·스캔 수를 보여줍니다. */
-function bindHomeChartTips_(){
-  const chart = document.getElementById('homeChart');
-  const tip = document.getElementById('homeTip');
-  if (!chart || !tip) return;
-  const show = (col)=>{
-    const r = col.getBoundingClientRect(), c = chart.getBoundingClientRect();
-    tip.textContent = col.dataset.tip;
-    tip.style.display = 'block';
-    const x = Math.min(Math.max(r.left - c.left + r.width/2 - tip.offsetWidth/2, 0), c.width - tip.offsetWidth);
-    tip.style.left = x + 'px';
-    chart.querySelectorAll('.home-col.hover').forEach(el=>el.classList.remove('hover'));
-    col.classList.add('hover');
-  };
-  chart.querySelectorAll('.home-col').forEach(col=>{
-    col.addEventListener('mouseenter', ()=>show(col));
-    col.addEventListener('click', ()=>show(col));
-  });
-  chart.addEventListener('mouseleave', ()=>{ tip.style.display = 'none'; chart.querySelectorAll('.home-col.hover').forEach(el=>el.classList.remove('hover')); });
+    ${needSticker.length ? `
+    <div class="home-section home-note" onclick="openOwnedGames_('need')">
+      <h3 style="margin:0;">🏷️ 식별 스티커 지정 필요 ${needSticker.length}개 <span class="row-sub">2개 이상 보유 게임은 스티커별로 점검을 셉니다</span><span class="home-go">보유 게임 관리 →</span></h3>
+    </div>` : ''}`;
 }
 
 // ---------- 하단 내비게이션 ----------
@@ -7636,6 +7576,7 @@ async function completeMaint_(id){
     updateMaintBadge_();
     if (maintOpen_ === id) maintOpen_ = null;
     renderMaintBody_();
+    refreshHomeBody_();
   }catch(e){ console.error(e); alert('점검 완료 처리에 실패했습니다. 잠시 후 다시 시도해주세요.'); }
 }
 
@@ -8168,7 +8109,7 @@ Object.assign(window, {
   toggleWorkComplete, deleteGame, setListWorkFilter_, onTopSearchInput,
   toggleGuideDone, updateGameNote, changeGameName_, changeGameId_,
   openDashboard, closeDashboard, setDashboardFilter, toggleGuideDoneFor,
-  openAccessManagement, setAllStores_, approveRequest, rejectRequest, addDirectAccess, removeAccess, addStore, removeStore,
+  openAccessManagement, setAllStores_, setAccountStore_, approveRequest, rejectRequest, addDirectAccess, removeAccess, addStore, removeStore,
   openMigrationTool, startMigration_,
   previewGameReplaceFiles_, updateGameReplaceId_, startGameReplace_,
   openPurchaseGuide, togglePurchaseGameSelect, selectAllTop50Games, deselectAllPurchaseGames, exportGameCaseCountsCsv_,
