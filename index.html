@@ -7290,7 +7290,8 @@ function getMaintRows_(){
     if (!v.flagged && (v.cycleScans||0) <= 0 && !(maintShowAll_ && (v.totalScans||0) > 0)) return;
     const gid = v.gameId || id;
     const label = v.stickerCode ? (getOwnedStickers_(gid).find(x=>x.code===String(v.stickerCode))?.label || v.stickerLabel || `#${v.stickerCode}`) : '';
-    rows.push({ id, name: gameNameById_(gid, v.gameName) + (label ? ` · ${label}` : ''), cycle: v.cycleScans||0, total: v.totalScans||0, last: v.lastCheckedAt||0, memo: v.memo||'', flagged: !!v.flagged, flaggedAt: v.flaggedAt||0 });
+    const gname = gameNameById_(gid, v.gameName);
+    rows.push({ id, gameName: gname, sticker: label, name: gname + (label ? ` · ${label}` : ''), cycle: v.cycleScans||0, total: v.totalScans||0, last: v.lastCheckedAt||0, memo: v.memo||'', flagged: !!v.flagged, flaggedAt: v.flaggedAt||0 });
   });
   // 누락·파손 신고된 게임은 스캔 횟수와 상관없이 맨 위에, 그다음 많이 찍힌 순
   rows.sort((a,b)=> (b.flagged - a.flagged) || (b.flagged ? b.flaggedAt - a.flaggedAt : 0) || b.cycle - a.cycle || b.total - a.total);
@@ -7323,7 +7324,7 @@ function renderMaintBody_(){
         <div class="row-top">
           <div style="width:24px; text-align:center; font-weight:800; color:${r.flagged || r.cycle>=MAINT_THRESHOLD_?'var(--accent)':'var(--ink-soft)'};">${r.flagged ? '⚠' : i+1}</div>
           <div style="flex:1; min-width:0;">
-            <div class="row-name">${escHtml_(r.name)}${r.flagged ? ` <span class="mini-badge warn" style="white-space:nowrap;">⚠ 누락·파손 ${fmtShortDate_(r.flaggedAt)}</span>` : ''}</div>
+            <div class="row-name" style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">${escHtml_(r.gameName)}${r.sticker ? ` <span class="sc-sticker" title="식별 스티커">🏷️ ${escHtml_(r.sticker)}</span>` : ''}${r.flagged ? ` <span class="mini-badge warn" style="white-space:nowrap;">⚠ 누락·파손 ${fmtShortDate_(r.flaggedAt)}</span>` : ''}</div>
             <div class="mini-bar"><i style="width:${Math.round(r.cycle/maxCycle*100)}%"></i></div>
             <div class="row-sub">점검 이후 <b style="color:var(--ink);">${r.cycle}회</b> · 누적 ${r.total}회 · 마지막 점검 ${fmtShortDate_(r.last)}</div>
           </div>
@@ -7392,7 +7393,7 @@ function printMaintenance_(){
     <p class="print-sub">출력일 ${today.getFullYear()}-${pad2_(today.getMonth()+1)}-${pad2_(today.getDate())} · 누락·파손 신고 + 점검 이후 스캔 ${MAINT_THRESHOLD_}회 이상 · 총 ${rows.length}개</p>
     <table class="print-table">
       <thead><tr><th style="width:28px;">✔</th><th style="width:34px;">순위</th><th>게임</th><th style="width:70px;">점검 이후</th><th style="width:60px;">누적</th><th style="width:70px;">마지막 점검</th><th style="width:38%;">점검 메모</th></tr></thead>
-      <tbody>${rows.map((r,i)=>`<tr><td>☐</td><td>${r.flagged ? '⚠' : i+1}</td><td><b>${escHtml_(r.name)}</b>${r.flagged ? ' (누락·파손 신고)' : ''}</td><td>${r.cycle}회</td><td>${r.total}회</td><td>${fmtShortDate_(r.last)}</td><td class="pt-memo" style="font-size:10.5px; color:#666;">${escHtml_(r.memo)}</td></tr>`).join('')}</tbody>
+      <tbody>${rows.map((r,i)=>`<tr><td>☐</td><td>${r.flagged ? '⚠' : i+1}</td><td><b>${escHtml_(r.gameName)}</b>${r.sticker ? ` <span style="display:inline-block; border:1.5px solid #000; border-radius:999px; padding:0 7px; font-weight:800;">${escHtml_(r.sticker)}</span>` : ''}${r.flagged ? ' (누락·파손 신고)' : ''}</td><td>${r.cycle}회</td><td>${r.total}회</td><td>${fmtShortDate_(r.last)}</td><td class="pt-memo" style="font-size:10.5px; color:#666;">${escHtml_(r.memo)}</td></tr>`).join('')}</tbody>
     </table>`;
   document.body.classList.add('printing-maint');
   const cleanup = ()=>{ document.body.classList.remove('printing-maint'); area.innerHTML = ''; };
