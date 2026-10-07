@@ -1203,6 +1203,19 @@ function getReturnGuideCommonNoticeLines_(){
  */
 const POSITIONS_ = ['점주','점장','매니저','트레이너','버트너','본사'];
 
+/** 권한 관리: 본사 계정처럼 모든 매장 데이터를 골라 볼 수 있게 하는 스위치 (직책이 "본사"면 항상 켜짐) */
+function allStoresToggleHtml_(p, col){
+  if (p.position === '본사') return `<span class="mini-badge" title="직책이 본사인 계정은 모든 매장을 볼 수 있습니다">🏢 본사 · 전체 매장</span>`;
+  return `<label class="mini-badge" style="cursor:pointer; display:inline-flex; align-items:center; gap:4px;" title="켜면 이 계정이 모든 매장의 홈·히스토리·정기 점검·보유 게임을 골라 볼 수 있습니다">
+    <input type="checkbox" ${p.allStores===true?'checked':''} onchange="setAllStores_('${jsq_(p.email)}','${col}', this.checked)" style="margin:0;"> 🏢 전체 매장</label>`;
+}
+async function setAllStores_(email, col, on){
+  try{
+    await updateDoc(doc(db, col, email), { allStores: !!on });
+    if (auth.currentUser?.email?.toLowerCase() === email && myProfile_){ myProfile_.allStores = !!on; }
+  }catch(e){ alert('저장하지 못했습니다: ' + e.message); renderAccessManagement(); }
+}
+
 async function openAccessManagement(){
   if (!confirmLeaveDetail_()) return;
   leavePresence_();
@@ -1263,8 +1276,9 @@ async function renderAccessManagement(){
       <div class="access-section-title">편집자 (${editors.length})</div>
       ${editors.map(e=>`
         <div class="access-row">
-          <span class="access-email-only">${e.name ? `${escHtml_(e.name)} · ` : ''}${escHtml_(e.email)}</span>
+          <span class="access-email-only">${e.name ? `${escHtml_(e.name)} · ${e.storeCode ? `${escHtml_(storeName_(e.storeCode))} · ` : ''}` : ''}${escHtml_(e.email)}</span>
           <div class="access-actions">
+            ${allStoresToggleHtml_(e, 'editors')}
             <button class="btn btn-ghost2" style="width:auto; padding:4px 8px; font-size:11.5px;" onclick="removeAccess('${e.email}','editors')">제거</button>
           </div>
         </div>
@@ -1277,6 +1291,7 @@ async function renderAccessManagement(){
         <div class="access-row">
           <span class="access-email-only">${v.name ? `${escHtml_(v.name)} · ${escHtml_(storeName_(v.storeCode))} · ` : ''}${escHtml_(v.email)}</span>
           <div class="access-actions">
+            ${allStoresToggleHtml_(v, 'viewers')}
             <button class="btn btn-ghost2" style="width:auto; padding:4px 8px; font-size:11.5px;" onclick="removeAccess('${v.email}','viewers')">제거</button>
           </div>
         </div>
@@ -6970,11 +6985,11 @@ async function loadStoreContext_(){
   }catch(e){ console.warn('매장 목록을 불러오지 못했습니다', e); }
   let code = (myProfile_ && myProfile_.storeCode) || '';
   if (canSwitchStore_()){
-    // 본사급 편집자만 매장을 바꿔 볼 수 있습니다 (마지막으로 본 매장을 기억)
-    if (!storeList_.some(s=>s.code===code)){
-      try{ code = localStorage.getItem('rb_active_store') || ''; }catch(e){ code = ''; }
-    }
-    if (!storeList_.some(s=>s.code===code)) code = storeList_.length===1 ? storeList_[0].code : '';
+    // 본사 계정은 매장을 자유롭게 바꿔 볼 수 있습니다. 마지막으로 본 매장 → 소속 매장 → 첫 번째 매장 순으로 엽니다.
+    let remembered = '';
+    try{ remembered = localStorage.getItem('rb_active_store') || ''; }catch(e){}
+    if (storeList_.some(s=>s.code===remembered)) code = remembered;
+    if (!storeList_.some(s=>s.code===code)) code = storeList_.length ? storeList_[0].code : '';
   }else if (!storeList_.some(s=>s.code===code)){
     code = ''; // 소속 매장이 지정되지 않은 계정은 어떤 매장 데이터도 볼 수 없습니다
   }
@@ -6997,9 +7012,11 @@ async function loadStoreData_(){
   updateMaintBadge_();
 }
 
-/** 매장을 바꿔 볼 수 있는 계정인지: 편집자 중 소속 매장이 없거나 allStores:true 인 본사급만 가능 */
+/** 모든 매장을 골라 볼 수 있는 본사 계정인지:
+ *  권한 관리에서 "전체 매장"을 켠 계정(allStores:true), 직책이 "본사"인 계정, 소속 매장이 없는 편집자 */
 function canSwitchStore_(){
-  return myApprovedRole === 'editor' && !!myProfile_ && (myProfile_.allStores === true || !myProfile_.storeCode);
+  if (!myProfile_) return false;
+  return myProfile_.allStores === true || myProfile_.position === '본사' || (myApprovedRole === 'editor' && !myProfile_.storeCode);
 }
 
 async function setActiveStore_(code){
@@ -7016,8 +7033,8 @@ async function switchStore_(code){
 
 function storeBarHtml_(){
   const locked = !canSwitchStore_();
-  return `
-    <select ${locked?'disabled':''} onchange="switchStore_(this.value)" title="매장">
+  return `${locked ? '' : '<span class="row-sub" style="font-weight:800;">🏢 매장</span>'}
+    <select ${locked?'disabled':''} onchange="switchStore_(this.value)" title="${locked ? '소속 매장' : '본사 계정: 매장을 골라 볼 수 있습니다'}" ${locked?'':'style="font-weight:700; border-color:var(--ink-soft);"'}>
       <option value="">매장 선택</option>
       ${storeList_.map(s=>`<option value="${escHtml_(s.code)}" ${s.code===activeStoreCode_?'selected':''}>${escHtml_(s.name)}</option>`).join('')}
     </select>`;
@@ -7115,7 +7132,6 @@ function homeBodyHtml_(scans){
   const owned = games.filter(g=>ownedQty_(g.id) > 0);
   const boxes = owned.reduce((n,g)=> n + ownedQty_(g.id), 0);
   const needSticker = owned.filter(g=>needsSticker_(g.id));
-  const noGuide = owned.filter(g=>!(g.returnGuide && g.returnGuide.published === true));
 
   const diff = (a, b)=> {
     if (!b) return a ? '' : '';
@@ -7147,11 +7163,6 @@ function homeBodyHtml_(scans){
     <div class="home-todo" onclick="openOwnedGames_('need')">
       <div class="home-todo-head"><b>🏷️ 식별 스티커 지정 필요 ${needSticker.length}개</b><span class="row-sub">2개 이상 보유 게임</span><span class="home-go">보유 게임 관리 →</span></div>
       <div class="home-todo-items">${needSticker.slice(0,5).map(g=>`<span>${escHtml_(g.name)}<span class="row-sub">${getOwnedStickers_(g.id).length}/${ownedQty_(g.id)}</span></span>`).join('')}${needSticker.length>5?`<span class="row-sub">외 ${needSticker.length-5}개</span>`:''}</div>
-    </div>`);
-  if (noGuide.length) todo.push(`
-    <div class="home-todo" onclick="renderList()">
-      <div class="home-todo-head"><b>📄 반납대 가이드가 아직 없는 보유 게임 ${noGuide.length}개</b><span class="row-sub">QR을 찍어도 가이드가 열리지 않습니다</span></div>
-      <div class="home-todo-items">${noGuide.slice(0,6).map(g=>`<span>${escHtml_(g.name)}</span>`).join('')}${noGuide.length>6?`<span class="row-sub">외 ${noGuide.length-6}개</span>`:''}</div>
     </div>`);
 
   // 최근 14일 스캔 추이 (단일 계열 막대)
@@ -8157,7 +8168,7 @@ Object.assign(window, {
   toggleWorkComplete, deleteGame, setListWorkFilter_, onTopSearchInput,
   toggleGuideDone, updateGameNote, changeGameName_, changeGameId_,
   openDashboard, closeDashboard, setDashboardFilter, toggleGuideDoneFor,
-  openAccessManagement, approveRequest, rejectRequest, addDirectAccess, removeAccess, addStore, removeStore,
+  openAccessManagement, setAllStores_, approveRequest, rejectRequest, addDirectAccess, removeAccess, addStore, removeStore,
   openMigrationTool, startMigration_,
   previewGameReplaceFiles_, updateGameReplaceId_, startGameReplace_,
   openPurchaseGuide, togglePurchaseGameSelect, selectAllTop50Games, deselectAllPurchaseGames, exportGameCaseCountsCsv_,
