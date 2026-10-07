@@ -355,6 +355,10 @@
   .st-bar select, .st-bar input[type=date]{padding:8px 10px; border:1px solid var(--line); border-radius:8px; font-size:13px; font-family:var(--sans); background:var(--surface);}
   .chip-btn{border:1px solid var(--line); background:var(--surface); color:var(--ink-soft); font-size:12.5px; font-weight:700; padding:7px 13px; border-radius:999px; cursor:pointer; font-family:var(--sans);}
   .chip-btn.on{background:var(--ink); color:#fff; border-color:var(--ink);}
+  .owned-units{margin-top:8px; display:flex; flex-direction:column; gap:5px;}
+  .owned-unit{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+  .owned-unit .chip-btn{padding:5px 10px; font-size:12px;}
+  .mc-tag.rep{background:var(--bg); color:var(--ink-mid); border:1px solid var(--line-strong);}
   .mc-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:4px;}
   .mc-wd{font-size:11px; font-weight:700; color:var(--ink-soft); text-align:center; padding:2px 0;}
   .mc-day{all:unset; box-sizing:border-box; min-height:58px; border:1px solid var(--line); border-radius:8px; background:var(--surface); padding:4px 5px; cursor:pointer; display:flex; flex-direction:column; gap:2px; font-family:var(--sans);}
@@ -7067,7 +7071,7 @@ async function backfillFirstScan_(){
   if (!code || firstScanBackfillDone_.has(code)) return false;
   firstScanBackfillDone_.add(code);
   const missing = new Set();
-  gameStatsMap_.forEach((v, key)=>{ if (!v.firstScanAt && !v.firstScanUnknown && (v.totalScans||0) > 0) missing.add(key); });
+  gameStatsMap_.forEach((v, key)=>{ if (!v.firstScanAt && !v.firstScanUnknown && !v.replacedAt && (v.totalScans||0) > 0) missing.add(key); });
   if (!missing.size) return false;
   const found = new Map();
   try{
@@ -7103,6 +7107,42 @@ function firstScanOf_(gameId, stickerCode){
   return t;
 }
 function firstScanText_(ms){ return ms ? `처음 이용 ${dayKey_(ms)}` : ''; }
+/** 박스(점검 단위) 하나의 처음 이용 상태 문구 */
+function unitFirstText_(gameId, code){
+  const st = gameStatsMap_.get(unitKey_(String(gameId), code ? String(code) : ''));
+  if (st && st.firstScanAt) return firstScanText_(st.firstScanAt);
+  if (st && st.replacedAt) return `${fmtShortDate_(st.replacedAt)} 새 게임으로 교체 · 다음 스캔부터 기록`;
+  if (st && (st.totalScans||0) > 0) return '처음 이용 날짜 모름';
+  return '아직 스캔 전';
+}
+
+/** 새 게임으로 교체: 식별 스티커(또는 게임)는 그대로 쓰되, 그 박스의 "처음 이용" 날짜를 지우고 다음 스캔부터 다시 기록합니다.
+ *  새 박스이므로 점검 이후 횟수와 누락·파손 표시도 초기화하고, 점검 이력(checks)에 교체 기록을 남깁니다.
+ *  누적 스캔 횟수와 스캔 기록(히스토리·랭킹)은 그대로 둡니다. */
+async function replaceUnit_(gameId, code){
+  if (!activeStoreCode_) return;
+  gameId = String(gameId); code = code ? String(code) : '';
+  const key = unitKey_(gameId, code);
+  const label = code ? stickerLabel_(gameId, code) : '';
+  const name = gameNameById_(gameId) + (label ? ` · ${label}` : '');
+  if (!confirm(`"${name}"을(를) 새 게임으로 교체했나요?\n\n이 박스의 처음 이용 날짜를 지우고 다음 스캔부터 다시 기록합니다. 점검 이후 횟수와 누락·파손 표시도 초기화되고, 누적 스캔 기록은 그대로 남습니다.`)) return;
+  const st = gameStatsMap_.get(key) || {};
+  const now = Date.now();
+  const by = (auth.currentUser?.email || '').toLowerCase();
+  const patch = { gameId, gameName: gameNameById_(gameId), stickerCode: code || null, stickerLabel: label || null,
+    firstScanAt: null, firstScanUnknown: false, replacedAt: now, replacedBy: by,
+    cycleScans: 0, flagged: false, flaggedAt: null, flaggedBy: null };
+  try{
+    await addDoc(collection(db, 'stores', activeStoreCode_, 'gameStats', key, 'checks'), { at: now, by, type: 'replace', cycleScans: st.cycleScans||0, prevFirstScanAt: st.firstScanAt || null });
+    await setDoc(doc(db, 'stores', activeStoreCode_, 'gameStats', key), patch, { merge: true });
+    gameStatsMap_.set(key, { ...st, ...patch });
+    maintCalCache_ = {};
+    updateMaintBadge_();
+    toast_(`${name}: 새 게임으로 교체했습니다`);
+    if (document.getElementById('ownedBody')) renderOwnedList_();
+    if (document.getElementById('maintBody')) renderMaintBody_();
+  }catch(e){ console.error(e); alert('교체 처리에 실패했습니다. 잠시 후 다시 시도해주세요.'); }
+}
 
 /** 모든 매장을 골라 볼 수 있는 본사 계정인지:
  *  권한 관리에서 "전체 매장"을 켠 계정(allStores:true), 직책이 "본사"인 계정, 소속 매장이 없는 편집자 */
@@ -7381,8 +7421,8 @@ function logQrScan_(g, stickerCode){
       const by = (auth.currentUser?.email || '').toLowerCase();
       await addDoc(collection(db, 'stores', activeStoreCode_, 'scans'), { gameId:id, gameName:g.name||'', sticker:code||null, color:label||null, ts:now, by });
       const st = gameStatsMap_.get(unit) || { totalScans:0, cycleScans:0 };
-      // 처음 스캔되는 단위면 "처음 이용" 시각을 남깁니다 (예전 기록이 있는 단위는 스캔 로그에서 따로 채움)
-      const first = (!st.firstScanAt && !(st.totalScans > 0)) ? { firstScanAt: now } : {};
+      // 처음 스캔되는 단위(또는 새 게임으로 교체한 뒤 첫 스캔)면 "처음 이용" 시각을 남깁니다 (예전 기록이 있는 단위는 스캔 로그에서 따로 채움)
+      const first = (!st.firstScanAt && (!(st.totalScans > 0) || st.replacedAt)) ? { firstScanAt: now } : {};
       await setDoc(doc(db, 'stores', activeStoreCode_, 'gameStats', unit),
         { gameId:id, gameName:g.name||'', stickerCode:code||null, stickerLabel:label||null, totalScans:increment(1), cycleScans:increment(1), lastScanAt:now, ...first }, { merge:true });
       gameStatsMap_.set(unit, { ...st, ...first, gameId:id, gameName:g.name||'', stickerCode:code||null, stickerLabel:label||null, totalScans:(st.totalScans||0)+1, cycleScans:(st.cycleScans||0)+1, lastScanAt:now });
@@ -7664,7 +7704,7 @@ function getMaintRows_(){
     const gid = v.gameId || id;
     const label = v.stickerCode ? (getOwnedStickers_(gid).find(x=>x.code===String(v.stickerCode))?.label || v.stickerLabel || `#${v.stickerCode}`) : '';
     const gname = gameNameById_(gid, v.gameName);
-    rows.push({ id, gameName: gname, sticker: label, name: gname + (label ? ` · ${label}` : ''), cycle: v.cycleScans||0, total: v.totalScans||0, last: v.lastCheckedAt||0, first: v.firstScanAt||0, memo: v.memo||'', flagged: !!v.flagged, flaggedAt: v.flaggedAt||0 });
+    rows.push({ id, gameName: gname, sticker: label, name: gname + (label ? ` · ${label}` : ''), cycle: v.cycleScans||0, total: v.totalScans||0, last: v.lastCheckedAt||0, first: v.firstScanAt||0, gid: String(gid), code: v.stickerCode ? String(v.stickerCode) : '', memo: v.memo||'', flagged: !!v.flagged, flaggedAt: v.flaggedAt||0 });
   });
   // 누락·파손 신고된 게임은 스캔 횟수와 상관없이 맨 위에, 그다음 많이 찍힌 순
   rows.sort((a,b)=> (b.flagged - a.flagged) || (b.flagged ? b.flaggedAt - a.flaggedAt : 0) || b.cycle - a.cycle || b.total - a.total);
@@ -7713,6 +7753,10 @@ function renderMaintBody_(){
             <textarea style="width:100%; min-height:70px; padding:8px 10px; border:1px solid var(--line); border-radius:8px; font-size:13px; font-family:var(--sans); resize:vertical;" placeholder="점검하면서 확인한 내용을 적어주세요 (예: 타일 2장 마모)" onchange="saveMaintMemo_('${jsq_(r.id)}', this.value)">${escHtml_(r.memo)}</textarea>
             <div class="row-sub" style="margin:10px 0 5px; font-weight:700;">점검 이력</div>
             <div id="maintHist" class="row-sub">불러오는 중...</div>
+            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:10px;">
+              <span class="row-sub" style="flex:1;">${escHtml_(unitFirstText_(r.gid, r.code))}</span>
+              <button class="chip-btn" onclick="replaceUnit_('${jsq_(r.gid)}','${jsq_(r.code)}')">🔁 새 게임으로 교체</button>
+            </div>
           </div>` : ''}
       </div>`).join('') : `<div class="empty">${maintShowAll_?'스캔 기록이 있는 게임이 없습니다.':`점검 대상(${MAINT_THRESHOLD_}회 이상 또는 누락·파손 신고)인 게임이 아직 없습니다.`}</div>`}`;
   if (maintOpen_) loadMaintHistory_(maintOpen_);
@@ -7729,7 +7773,9 @@ async function loadMaintHistory_(id){
     const list = []; snap.forEach(d=>list.push(d.data()));
     const el2 = document.getElementById('maintHist');
     if (!el2 || maintOpen_ !== id) return;
-    el2.innerHTML = list.length ? list.map(c=>`<div style="padding:5px 0; border-bottom:1px solid var(--line);"><b style="color:var(--ink);">${dayKey_(c.at)}</b> · 점검 직전 ${c.cycleScans||0}회${c.by?` · ${escHtml_(String(c.by).split('@')[0])}`:''}${c.memo?`<div style="white-space:pre-wrap; margin-top:2px;">${escHtml_(c.memo)}</div>`:''}</div>`).join('') : '아직 점검 이력이 없습니다.';
+    el2.innerHTML = list.length ? list.map(c=> c.type === 'replace'
+      ? `<div style="padding:5px 0; border-bottom:1px solid var(--line);"><b style="color:var(--ink);">${dayKey_(c.at)}</b> · 🔁 새 게임으로 교체${c.by?` · ${escHtml_(String(c.by).split('@')[0])}`:''}</div>`
+      : `<div style="padding:5px 0; border-bottom:1px solid var(--line);"><b style="color:var(--ink);">${dayKey_(c.at)}</b> · 점검 직전 ${c.cycleScans||0}회${c.by?` · ${escHtml_(String(c.by).split('@')[0])}`:''}${c.memo?`<div style="white-space:pre-wrap; margin-top:2px;">${escHtml_(c.memo)}</div>`:''}</div>`).join('') : '아직 점검 이력이 없습니다.';
   }catch(e){ el.textContent = '이력을 불러오지 못했습니다.'; }
 }
 
@@ -7762,7 +7808,7 @@ async function loadMaintCalEvents_(monthStart){
   const d = new Date(monthStart);
   const from = monthStart, to = new Date(d.getFullYear(), d.getMonth() + 1, 1).getTime() - 1;
   const events = [];
-  const units = [...gameStatsMap_.entries()].filter(([, v]) => (v.lastCheckedAt||0) >= from);
+  const units = [...gameStatsMap_.entries()].filter(([, v]) => (v.lastCheckedAt||0) >= from || (v.replacedAt||0) >= from);
   const lists = await Promise.all(units.map(async ([id, v]) => {
     const snap = await getDocs(query(collection(db, 'stores', activeStoreCode_, 'gameStats', id, 'checks'), where('at', '>=', from), where('at', '<=', to)));
     const out = [];
@@ -7771,6 +7817,7 @@ async function loadMaintCalEvents_(monthStart){
   }));
   lists.flat().forEach(c => {
     if ((c.at||0) < from || (c.at||0) > to) return;
+    if (c.type === 'replace'){ events.push({ type: 'replace', at: c.at, id: c.id, gid: c.gid, gameName: c.gameName, sticker: c.sticker, by: c.by || '' }); return; }
     events.push({ type: 'check', at: c.at, id: c.id, gid: c.gid, gameName: c.gameName, sticker: c.sticker, by: c.by || '', cycle: c.cycleScans || 0, memo: c.memo || '', wasFlagged: !!c.flagged });
     // 점검으로 해결된 누락·파손 신고도 신고한 날짜에 표시합니다
     if (c.flagged && c.flaggedAt >= from && c.flaggedAt <= to) events.push({ type: 'flag', at: c.flaggedAt, id: c.id, gid: c.gid, gameName: c.gameName, sticker: c.sticker, resolvedAt: c.at });
@@ -7817,16 +7864,21 @@ async function renderMaintCalendar_(){
   for (let n = 1; n <= days; n++){
     const k = dayKey_(new Date(d0.getFullYear(), d0.getMonth(), n).getTime());
     const evs = byDay[k] || [];
-    const c = evs.filter(e => e.type === 'check').length, f = evs.filter(e => e.type === 'flag').length;
+    const c = evs.filter(e => e.type === 'check').length, f = evs.filter(e => e.type === 'flag').length, rp = evs.filter(e => e.type === 'replace').length;
     cells.push(`<button class="mc-day ${k===todayKey?'today':''} ${k===maintCalDay_?'sel':''}" data-day="${k}" onclick="pickMaintCalDay_('${k}')">
       <span class="mc-n">${n}</span>
       ${c ? `<span class="mc-tag ok" title="점검 완료 ${c}건">✔ ${c}</span>` : ''}
       ${f ? `<span class="mc-tag warn" title="누락·파손 신고 ${f}건">⚠ ${f}</span>` : ''}
+      ${rp ? `<span class="mc-tag rep" title="새 게임으로 교체 ${rp}건">🔁 ${rp}</span>` : ''}
     </button>`);
   }
   const who = e => e.by ? escHtml_(String(e.by).split('@')[0]) : '';
   const evRow = e => {
     const name = `${escHtml_(e.gameName)}${e.sticker ? ` <span class="sc-sticker">🏷️ ${escHtml_(e.sticker)}</span>` : ''}`;
+    if (e.type === 'replace') return `<div class="row-card clickable" onclick="openGame('${jsq_(e.gid)}')">
+        <div class="row-name" style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;"><span class="mini-badge">🔁 새 게임으로 교체</span> ${name}</div>
+        <div class="row-sub">${fmtTime_(e.at)}${who(e) ? ` · ${who(e)}` : ''} · 처음 이용 날짜 초기화</div>
+      </div>`;
     if (e.type === 'flag') return `<div class="row-card clickable" onclick="openGame('${jsq_(e.gid)}')">
         <div class="row-name" style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;"><span class="mini-badge warn">⚠ 누락·파손 신고</span> ${name}</div>
         <div class="row-sub">${fmtTime_(e.at)}${who(e) ? ` · ${who(e)}` : ''} · ${e.open ? '<b style="color:var(--accent);">아직 점검 전</b>' : `${fmtShortDate_(e.resolvedAt)} 점검으로 해결`}</div>
@@ -7846,7 +7898,7 @@ async function renderMaintCalendar_(){
       <div class="stat-box"><div class="row-sub">누락·파손 신고</div><div class="n">${flags.length}건</div></div>
     </div>
     <div class="mc-grid">${['일','월','화','수','목','금','토'].map(w=>`<div class="mc-wd">${w}</div>`).join('')}${cells.join('')}</div>
-    <div class="row-sub" style="margin:8px 0 14px;">✔ 점검 완료 · ⚠ 누락·파손 신고 — 날짜를 누르면 그날 기록만 봅니다.</div>
+    <div class="row-sub" style="margin:8px 0 14px;">✔ 점검 완료 · ⚠ 누락·파손 신고 · 🔁 새 게임으로 교체 — 날짜를 누르면 그날 기록만 봅니다.</div>
     <h3 style="font-size:14px; margin:0 0 8px;">${maintCalDay_ ? escHtml_(fmtDayLabel_(maintCalDay_)) : `${d0.getMonth()+1}월 전체 기록`} <span class="row-sub">${listEvents.length}건</span>${maintCalDay_ ? ` <button class="chip-btn" style="margin-left:6px;" onclick="pickMaintCalDay_('${maintCalDay_}')">전체 보기</button>` : ''}</h3>
     <div id="maintCalList">${listEvents.length ? listEvents.map(evRow).join('') : `<div class="empty">${maintCalDay_ ? '이 날은 점검 기록이 없습니다.' : '이 달에는 점검 기록이 없습니다.'}</div>`}</div>`;
 }
@@ -7985,7 +8037,7 @@ function renderOwnedList_(){
       return `
       <div class="row-card" style="${owned?'':'opacity:.7;'}${need?'border-color:var(--accent);':''}">
         <div class="row-top">
-          <div style="flex:1; min-width:0;"><div class="row-name">${escHtml_(g.name||'')}</div><div class="row-sub">ID ${escHtml_(id)}${metaBits?` · ${escHtml_(metaBits)}`:''}${firstScanOf_(id) ? ` · ${firstScanText_(firstScanOf_(id))}` : ''}</div></div>
+          <div style="flex:1; min-width:0;"><div class="row-name">${escHtml_(g.name||'')}</div><div class="row-sub">ID ${escHtml_(id)}${metaBits?` · ${escHtml_(metaBits)}`:''}</div></div>
           <label style="display:flex; align-items:center; gap:6px; font-size:12.5px; font-weight:700;">보유
             <input type="number" min="0" max="99" inputmode="numeric" value="${qty}" style="width:58px; padding:5px 6px; border:1px solid var(--line); border-radius:8px; font-size:13px; text-align:right;" onchange="setOwnedQty_('${jsq_(id)}', this.value)">개</label>
         </div>
@@ -7998,6 +8050,14 @@ function renderOwnedList_(){
             : `<button class="chip-btn" style="border-style:dashed; color:var(--accent); border-color:var(--accent);" onclick="toggleOwnedPicker_('${jsq_(id)}')">+ 스티커</button>`}
           ${need ? `<span class="mini-badge warn">스티커 ${qty - stickers.length}개 더 정해주세요</span>`
             : qty === 1 && !stickers.length ? `<span class="rg-card-hint">1개 보유는 스티커 없이 운영해도 됩니다</span>` : ''}
+        </div>
+        <div class="owned-units">
+          ${(stickers.length ? stickers.map(st=>({ code: st.code, label: st.label })) : [{ code: '', label: '' }]).map(u=>`
+            <div class="owned-unit">
+              ${u.label ? `<span class="sc-sticker">🏷️ ${escHtml_(u.label)}</span>` : ''}
+              <span class="row-sub" style="flex:1;">${escHtml_(unitFirstText_(id, u.code))}</span>
+              <button class="chip-btn" onclick="replaceUnit_('${jsq_(id)}','${jsq_(u.code)}')" title="같은 스티커를 새 박스에 붙여 쓸 때 처음 이용 날짜를 초기화합니다">🔁 새 게임으로 교체</button>
+            </div>`).join('')}
         </div>
         ` : ''}
       </div>`;
@@ -8390,7 +8450,7 @@ Object.assign(window, {
   updateEstMinutes_,
   toggleReturnViewer_, enterReturnViewer_, exitReturnViewer_,
   renderHome_, switchStore_, toggleMoreMenu_, closeMoreMenu_, openScanHistory_, setHistRange_, openGameFromHistory_,
-  openIdleGames_, setIdleDays_, openScanRanking_, setRankRange_, setRankCustom_, selectRankGame_, openMaintenance_, toggleMaintShowAll_, toggleMaintDetail_, setMaintView_, moveMaintCal_, pickMaintCalDay_,
+  openIdleGames_, setIdleDays_, openScanRanking_, setRankRange_, setRankCustom_, selectRankGame_, openMaintenance_, toggleMaintShowAll_, toggleMaintDetail_, setMaintView_, moveMaintCal_, pickMaintCalDay_, replaceUnit_,
   saveMaintMemo_, completeMaint_, printMaintenance_, openOwnedGames_, setOwnedQty_, setOwnedFilter_, downloadOwnedXlsx_, parseOwnedXlsx_, applyOwnedXlsx_, ownedXlsxCancel_, toggleOwnedPicker_, addOwnedColor_, removeOwnedColor_,
   openGameDbAdmin_, addSingleGame_, downloadGameXlsxTemplate_, parseGameXlsx_, applyGameXlsx_, updateGameMeta_, renderOwnedList_, renderGdbList_, setOwnedSearch_, setGdbSearch_,
   renderList, openGame, createNewGame, switchMode, setRole,
