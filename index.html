@@ -355,6 +355,17 @@
   .st-bar select, .st-bar input[type=date]{padding:8px 10px; border:1px solid var(--line); border-radius:8px; font-size:13px; font-family:var(--sans); background:var(--surface);}
   .chip-btn{border:1px solid var(--line); background:var(--surface); color:var(--ink-soft); font-size:12.5px; font-weight:700; padding:7px 13px; border-radius:999px; cursor:pointer; font-family:var(--sans);}
   .chip-btn.on{background:var(--ink); color:#fff; border-color:var(--ink);}
+  .mc-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:4px;}
+  .mc-wd{font-size:11px; font-weight:700; color:var(--ink-soft); text-align:center; padding:2px 0;}
+  .mc-day{all:unset; box-sizing:border-box; min-height:58px; border:1px solid var(--line); border-radius:8px; background:var(--surface); padding:4px 5px; cursor:pointer; display:flex; flex-direction:column; gap:2px; font-family:var(--sans);}
+  .mc-day.out{visibility:hidden;}
+  .mc-day.today .mc-n{background:var(--ink); color:var(--surface); border-radius:999px; padding:0 5px;}
+  .mc-day.sel{border-color:var(--accent); box-shadow:0 0 0 1.5px var(--accent);}
+  .mc-n{font-size:11.5px; font-weight:700; color:var(--ink-soft); align-self:flex-start;}
+  .mc-tag{font-size:10.5px; font-weight:800; border-radius:5px; padding:1px 4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .mc-tag.ok{background:var(--done-bg); color:var(--ink); border:1px solid var(--done-line);}
+  .mc-tag.warn{background:var(--accent-soft); color:var(--accent);}
+  @media (max-width:520px){ .mc-day{min-height:50px; padding:3px;} .mc-tag{font-size:9.5px; padding:0 3px;} }
   .stat-row{display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:8px; margin-bottom:14px;}
   .stat-box{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:10px 13px;}
   .stat-box .n{font-size:20px; font-weight:800; color:var(--accent);}
@@ -7507,6 +7518,10 @@ function rankTrendHtml_(gameId){
 // ---------- 정기 점검 ----------
 let maintShowAll_ = false;
 let maintOpen_ = null;
+let maintView_ = 'list';      // 'list' | 'calendar'
+let maintCalMonth_ = null;    // 달력에 보이는 달의 1일 (ms)
+let maintCalDay_ = null;      // 달력에서 고른 날짜 'YYYY-MM-DD'
+let maintCalCache_ = {};      // `${매장}|${월}` -> 그 달의 이벤트 목록
 
 function getMaintRows_(){
   const rows = [];
@@ -7524,6 +7539,7 @@ function getMaintRows_(){
 
 async function openMaintenance_(){
   if (!prepPage_('maint', openMaintenance_)) return;
+  maintCalCache_ = {};
   appEl.innerHTML = `${pageHeadHtml_('🔧 정기 점검', `마지막 점검 이후 QR로 ${MAINT_THRESHOLD_}회 이상 찍힌 게임이 자동으로 점검 대상이 되고, 많이 찍힌 순서로 정렬됩니다. 같은 게임을 여러 개 운영하면 식별 스티커별로 따로 셉니다. 게임을 누르면 메모와 점검 이력이 보입니다.`)}
     <div class="st-bar">${storeBarHtml_()}</div><div id="maintBody"><p style="padding:20px 4px;">불러오는 중...</p></div>`;
   if (!activeStoreCode_){ document.getElementById('maintBody').innerHTML = noStoreHtml_(); return; }
@@ -7534,6 +7550,7 @@ async function openMaintenance_(){
 function renderMaintBody_(){
   const body = document.getElementById('maintBody');
   if (!body) return;
+  if (maintView_ === 'calendar'){ renderMaintCalendar_(); return; }
   const rows = getMaintRows_();
   const maxCycle = Math.max(MAINT_THRESHOLD_, ...rows.map(r=>r.cycle));
   body.innerHTML = `
@@ -7541,6 +7558,7 @@ function renderMaintBody_(){
       <span style="font-size:13px; color:var(--ink-soft);">점검 대상 <b style="color:var(--accent);">${[...gameStatsMap_.values()].filter(v=>v.flagged || (v.cycleScans||0)>=MAINT_THRESHOLD_).length}</b>개 · 기준 ${MAINT_THRESHOLD_}회 이상 또는 ⚠ 누락·파손 신고</span>
       <label style="display:flex; align-items:center; gap:5px; font-size:12.5px; cursor:pointer;"><input type="checkbox" ${maintShowAll_?'checked':''} onchange="toggleMaintShowAll_(this.checked)"> ${MAINT_THRESHOLD_}회 미만도 보기</label>
       <span style="flex:1;"></span>
+      <button class="btn btn-ghost2 btn-sm" onclick="setMaintView_('calendar')" title="지난 점검 기록을 달력으로 보기">📅 달력</button>
       <button class="btn btn-ghost2 btn-sm" onclick="printMaintenance_()">🖨️ A4 출력</button>
     </div>
     ${rows.length ? rows.map((r,i)=>`
@@ -7580,6 +7598,124 @@ async function loadMaintHistory_(id){
   }catch(e){ el.textContent = '이력을 불러오지 못했습니다.'; }
 }
 
+// ---------- 정기 점검 달력 ----------
+// 점검을 완료할 때마다 gameStats/{단위}/checks 에 남는 기록을 달력으로 모아 보여줍니다.
+// 점검한 적이 있는 단위(lastCheckedAt 있음)만 그 달 범위로 조회하고, 달마다 한 번만 불러옵니다.
+function setMaintView_(v){
+  maintView_ = v;
+  if (v === 'calendar' && !maintCalMonth_){ const d = new Date(); maintCalMonth_ = new Date(d.getFullYear(), d.getMonth(), 1).getTime(); }
+  renderMaintBody_();
+}
+function moveMaintCal_(delta){
+  const d = new Date(maintCalMonth_);
+  maintCalMonth_ = delta === 0 ? new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime() : new Date(d.getFullYear(), d.getMonth() + delta, 1).getTime();
+  maintCalDay_ = null;
+  renderMaintCalendar_();
+}
+function pickMaintCalDay_(key){ maintCalDay_ = maintCalDay_ === key ? null : key; renderMaintCalendar_(); }
+
+function maintUnitInfo_(id, v){
+  v = v || gameStatsMap_.get(id) || {};
+  const gid = v.gameId || String(id).split('__')[0];
+  const label = v.stickerCode ? (getOwnedStickers_(gid).find(x=>x.code===String(v.stickerCode))?.label || v.stickerLabel || `#${v.stickerCode}`) : '';
+  return { gid, gameName: gameNameById_(gid, v.gameName), sticker: label };
+}
+
+async function loadMaintCalEvents_(monthStart){
+  const key = `${activeStoreCode_}|${monthStart}`;
+  if (maintCalCache_[key]) return maintCalCache_[key];
+  const d = new Date(monthStart);
+  const from = monthStart, to = new Date(d.getFullYear(), d.getMonth() + 1, 1).getTime() - 1;
+  const events = [];
+  const units = [...gameStatsMap_.entries()].filter(([, v]) => (v.lastCheckedAt||0) >= from);
+  const lists = await Promise.all(units.map(async ([id, v]) => {
+    const snap = await getDocs(query(collection(db, 'stores', activeStoreCode_, 'gameStats', id, 'checks'), where('at', '>=', from), where('at', '<=', to)));
+    const out = [];
+    snap.forEach(c => out.push({ id, ...maintUnitInfo_(id, v), ...c.data() }));
+    return out;
+  }));
+  lists.flat().forEach(c => {
+    if ((c.at||0) < from || (c.at||0) > to) return;
+    events.push({ type: 'check', at: c.at, id: c.id, gid: c.gid, gameName: c.gameName, sticker: c.sticker, by: c.by || '', cycle: c.cycleScans || 0, memo: c.memo || '', wasFlagged: !!c.flagged });
+    // 점검으로 해결된 누락·파손 신고도 신고한 날짜에 표시합니다
+    if (c.flagged && c.flaggedAt >= from && c.flaggedAt <= to) events.push({ type: 'flag', at: c.flaggedAt, id: c.id, gid: c.gid, gameName: c.gameName, sticker: c.sticker, resolvedAt: c.at });
+  });
+  // 아직 점검하지 않은 신고
+  gameStatsMap_.forEach((v, id) => {
+    if (v.flagged && v.flaggedAt >= from && v.flaggedAt <= to) events.push({ type: 'flag', at: v.flaggedAt, id, ...maintUnitInfo_(id, v), by: v.flaggedBy || '', open: true });
+  });
+  events.sort((a, b) => b.at - a.at);
+  maintCalCache_[key] = events;
+  return events;
+}
+
+async function renderMaintCalendar_(){
+  const body = document.getElementById('maintBody');
+  if (!body) return;
+  const month = maintCalMonth_;
+  const d0 = new Date(month);
+  const head = `
+    <div class="st-bar">
+      <button class="btn btn-ghost2 btn-sm" onclick="setMaintView_('list')">← 점검 목록</button>
+      <span style="flex:1;"></span>
+      <button class="chip-btn" onclick="moveMaintCal_(-1)" title="이전 달">◀</button>
+      <b style="font-size:15px; min-width:96px; text-align:center;">${d0.getFullYear()}년 ${d0.getMonth()+1}월</b>
+      <button class="chip-btn" onclick="moveMaintCal_(1)" title="다음 달">▶</button>
+      <button class="chip-btn" onclick="moveMaintCal_(0)">이번 달</button>
+    </div>`;
+  const key = `${activeStoreCode_}|${month}`;
+  if (!maintCalCache_[key]) body.innerHTML = head + '<p style="padding:20px 4px;">불러오는 중...</p>';
+  let events;
+  try{ events = await loadMaintCalEvents_(month); }
+  catch(e){ console.error(e); body.innerHTML = head + '<div class="empty">점검 기록을 불러오지 못했습니다.</div>'; return; }
+  if (maintView_ !== 'calendar' || maintCalMonth_ !== month || !document.getElementById('maintBody')) return;
+
+  const byDay = {};
+  events.forEach(ev => { (byDay[dayKey_(ev.at)] = byDay[dayKey_(ev.at)] || []).push(ev); });
+  const checks = events.filter(e => e.type === 'check');
+  const flags = events.filter(e => e.type === 'flag');
+  const todayKey = dayKey_(Date.now());
+  const firstWd = d0.getDay();
+  const days = new Date(d0.getFullYear(), d0.getMonth() + 1, 0).getDate();
+  const cells = [];
+  for (let i = 0; i < firstWd; i++) cells.push('<div class="mc-day out"></div>');
+  for (let n = 1; n <= days; n++){
+    const k = dayKey_(new Date(d0.getFullYear(), d0.getMonth(), n).getTime());
+    const evs = byDay[k] || [];
+    const c = evs.filter(e => e.type === 'check').length, f = evs.filter(e => e.type === 'flag').length;
+    cells.push(`<button class="mc-day ${k===todayKey?'today':''} ${k===maintCalDay_?'sel':''}" data-day="${k}" onclick="pickMaintCalDay_('${k}')">
+      <span class="mc-n">${n}</span>
+      ${c ? `<span class="mc-tag ok" title="점검 완료 ${c}건">✔ ${c}</span>` : ''}
+      ${f ? `<span class="mc-tag warn" title="누락·파손 신고 ${f}건">⚠ ${f}</span>` : ''}
+    </button>`);
+  }
+  const who = e => e.by ? escHtml_(String(e.by).split('@')[0]) : '';
+  const evRow = e => {
+    const name = `${escHtml_(e.gameName)}${e.sticker ? ` <span class="sc-sticker">🏷️ ${escHtml_(e.sticker)}</span>` : ''}`;
+    if (e.type === 'flag') return `<div class="row-card clickable" onclick="openGame('${jsq_(e.gid)}')">
+        <div class="row-name" style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;"><span class="mini-badge warn">⚠ 누락·파손 신고</span> ${name}</div>
+        <div class="row-sub">${fmtTime_(e.at)}${who(e) ? ` · ${who(e)}` : ''} · ${e.open ? '<b style="color:var(--accent);">아직 점검 전</b>' : `${fmtShortDate_(e.resolvedAt)} 점검으로 해결`}</div>
+      </div>`;
+    return `<div class="row-card clickable" onclick="openGame('${jsq_(e.gid)}')">
+        <div class="row-name" style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;"><span class="mini-badge" style="background:var(--done-bg); border-color:var(--done-line);">✔ 점검 완료</span> ${name}${e.wasFlagged ? ' <span class="mini-badge warn">신고 처리</span>' : ''}</div>
+        <div class="row-sub">${fmtTime_(e.at)}${who(e) ? ` · ${who(e)}` : ''} · 점검 직전 ${e.cycle}회 사용</div>
+        ${e.memo ? `<div class="row-sub" style="white-space:pre-wrap; margin-top:3px; color:var(--ink);">📝 ${escHtml_(e.memo)}</div>` : ''}
+      </div>`;
+  };
+  const listEvents = maintCalDay_ ? (byDay[maintCalDay_] || []) : events;
+  const games = new Set(checks.map(e => e.gid)).size;
+  body.innerHTML = head + `
+    <div class="stat-row">
+      <div class="stat-box"><div class="row-sub">${d0.getMonth()+1}월 점검 완료</div><div class="n">${checks.length}건</div></div>
+      <div class="stat-box"><div class="row-sub">점검한 게임</div><div class="n">${games}개</div></div>
+      <div class="stat-box"><div class="row-sub">누락·파손 신고</div><div class="n">${flags.length}건</div></div>
+    </div>
+    <div class="mc-grid">${['일','월','화','수','목','금','토'].map(w=>`<div class="mc-wd">${w}</div>`).join('')}${cells.join('')}</div>
+    <div class="row-sub" style="margin:8px 0 14px;">✔ 점검 완료 · ⚠ 누락·파손 신고 — 날짜를 누르면 그날 기록만 봅니다.</div>
+    <h3 style="font-size:14px; margin:0 0 8px;">${maintCalDay_ ? escHtml_(fmtDayLabel_(maintCalDay_)) : `${d0.getMonth()+1}월 전체 기록`} <span class="row-sub">${listEvents.length}건</span>${maintCalDay_ ? ` <button class="chip-btn" style="margin-left:6px;" onclick="pickMaintCalDay_('${maintCalDay_}')">전체 보기</button>` : ''}</h3>
+    <div id="maintCalList">${listEvents.length ? listEvents.map(evRow).join('') : `<div class="empty">${maintCalDay_ ? '이 날은 점검 기록이 없습니다.' : '이 달에는 점검 기록이 없습니다.'}</div>`}</div>`;
+}
+
 async function saveMaintMemo_(id, val){
   try{
     await setDoc(doc(db, 'stores', activeStoreCode_, 'gameStats', id), { memo: val, memoUpdatedAt: Date.now() }, { merge: true });
@@ -7600,6 +7736,7 @@ async function completeMaint_(id){
     await setDoc(doc(db, 'stores', activeStoreCode_, 'gameStats', id), { cycleScans: 0, lastCheckedAt: now, lastCheckedBy: by, flagged: false, flaggedAt: null, flaggedBy: null }, { merge: true });
     gameStatsMap_.set(id, { ...st, cycleScans: 0, lastCheckedAt: now, lastCheckedBy: by, flagged: false, flaggedAt: null, flaggedBy: null });
     updateMaintBadge_();
+    maintCalCache_ = {};
     if (maintOpen_ === id) maintOpen_ = null;
     renderMaintBody_();
     refreshHomeBody_();
@@ -8117,7 +8254,7 @@ Object.assign(window, {
   updateEstMinutes_,
   toggleReturnViewer_, enterReturnViewer_, exitReturnViewer_,
   renderHome_, switchStore_, toggleMoreMenu_, closeMoreMenu_, openScanHistory_, setHistRange_, openGameFromHistory_,
-  openScanRanking_, setRankRange_, setRankCustom_, selectRankGame_, openMaintenance_, toggleMaintShowAll_, toggleMaintDetail_,
+  openScanRanking_, setRankRange_, setRankCustom_, selectRankGame_, openMaintenance_, toggleMaintShowAll_, toggleMaintDetail_, setMaintView_, moveMaintCal_, pickMaintCalDay_,
   saveMaintMemo_, completeMaint_, printMaintenance_, openOwnedGames_, setOwnedQty_, setOwnedFilter_, downloadOwnedXlsx_, parseOwnedXlsx_, applyOwnedXlsx_, ownedXlsxCancel_, toggleOwnedPicker_, addOwnedColor_, removeOwnedColor_,
   openGameDbAdmin_, addSingleGame_, downloadGameXlsxTemplate_, parseGameXlsx_, applyGameXlsx_, updateGameMeta_, renderOwnedList_, renderGdbList_, setOwnedSearch_, setGdbSearch_,
   renderList, openGame, createNewGame, switchMode, setRole,
