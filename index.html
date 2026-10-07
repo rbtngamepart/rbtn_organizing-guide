@@ -7057,6 +7057,53 @@ async function loadStoreData_(){
   updateMaintBadge_();
 }
 
+/** "처음 이용" 시각: 이 기능 전에 쌓인 단위는 firstScanAt 이 없으므로, 매장 스캔 로그를 오래된 순으로
+ *  500건씩 읽어 단위별 가장 이른 스캔 시각을 찾아 채웁니다. 빠진 단위를 다 찾으면 바로 멈추고,
+ *  로그에서도 못 찾은 단위는 firstScanUnknown 으로 표시해 다시 찾지 않습니다. (세션당 매장별 1번)
+ *  모든 단위가 채워진 뒤에는 아무것도 읽지 않습니다. */
+const firstScanBackfillDone_ = new Set();
+async function backfillFirstScan_(){
+  const code = activeStoreCode_;
+  if (!code || firstScanBackfillDone_.has(code)) return false;
+  firstScanBackfillDone_.add(code);
+  const missing = new Set();
+  gameStatsMap_.forEach((v, key)=>{ if (!v.firstScanAt && !v.firstScanUnknown && (v.totalScans||0) > 0) missing.add(key); });
+  if (!missing.size) return false;
+  const found = new Map();
+  try{
+    let after = -1;
+    for (let page = 0; page < 40 && found.size < missing.size; page++){
+      const snap = await getDocs(query(collection(db, 'stores', code, 'scans'), where('ts', '>', after), orderBy('ts', 'asc'), limit(500)));
+      if (!snap.docs.length) break;
+      snap.forEach(d=>{
+        const x = d.data();
+        const key = unitKey_(String(x.gameId), x.sticker ? String(x.sticker) : '');
+        if (missing.has(key) && !found.has(key) && x.ts) found.set(key, x.ts);
+        after = Math.max(after, x.ts || 0);
+      });
+      if (snap.docs.length < 500) break;
+    }
+    if (activeStoreCode_ !== code) return false;
+    await Promise.all([...missing].map(key=>{
+      const patch = found.has(key) ? { firstScanAt: found.get(key) } : { firstScanUnknown: true };
+      gameStatsMap_.set(key, { ...(gameStatsMap_.get(key)||{}), ...patch });
+      return setDoc(doc(db, 'stores', code, 'gameStats', key), patch, { merge: true });
+    }));
+    return true;
+  }catch(e){ console.warn('처음 이용 날짜를 채우지 못했습니다', e); firstScanBackfillDone_.delete(code); return false; }
+}
+/** 게임의 처음 이용(첫 스캔) 시각: 스티커별 단위 중 가장 이른 값. 모르면 0 */
+function firstScanOf_(gameId, stickerCode){
+  let t = 0;
+  gameStatsMap_.forEach((v, key)=>{
+    if (String(v.gameId || String(key).split('__')[0]) !== String(gameId)) return;
+    if (stickerCode != null && String(v.stickerCode||'') !== String(stickerCode)) return;
+    if (v.firstScanAt && (!t || v.firstScanAt < t)) t = v.firstScanAt;
+  });
+  return t;
+}
+function firstScanText_(ms){ return ms ? `처음 이용 ${dayKey_(ms)}` : ''; }
+
 /** 모든 매장을 골라 볼 수 있는 본사 계정인지:
  *  권한 관리에서 "전체 매장"을 켠 계정(allStores:true), 직책이 "본사"인 계정, 소속 매장이 없는 편집자 */
 function canSwitchStore_(){
@@ -7333,10 +7380,12 @@ function logQrScan_(g, stickerCode){
     try{
       const by = (auth.currentUser?.email || '').toLowerCase();
       await addDoc(collection(db, 'stores', activeStoreCode_, 'scans'), { gameId:id, gameName:g.name||'', sticker:code||null, color:label||null, ts:now, by });
-      await setDoc(doc(db, 'stores', activeStoreCode_, 'gameStats', unit),
-        { gameId:id, gameName:g.name||'', stickerCode:code||null, stickerLabel:label||null, totalScans:increment(1), cycleScans:increment(1), lastScanAt:now }, { merge:true });
       const st = gameStatsMap_.get(unit) || { totalScans:0, cycleScans:0 };
-      gameStatsMap_.set(unit, { ...st, gameId:id, gameName:g.name||'', stickerCode:code||null, stickerLabel:label||null, totalScans:(st.totalScans||0)+1, cycleScans:(st.cycleScans||0)+1, lastScanAt:now });
+      // 처음 스캔되는 단위면 "처음 이용" 시각을 남깁니다 (예전 기록이 있는 단위는 스캔 로그에서 따로 채움)
+      const first = (!st.firstScanAt && !(st.totalScans > 0)) ? { firstScanAt: now } : {};
+      await setDoc(doc(db, 'stores', activeStoreCode_, 'gameStats', unit),
+        { gameId:id, gameName:g.name||'', stickerCode:code||null, stickerLabel:label||null, totalScans:increment(1), cycleScans:increment(1), lastScanAt:now, ...first }, { merge:true });
+      gameStatsMap_.set(unit, { ...st, ...first, gameId:id, gameName:g.name||'', stickerCode:code||null, stickerLabel:label||null, totalScans:(st.totalScans||0)+1, cycleScans:(st.cycleScans||0)+1, lastScanAt:now });
       updateMaintBadge_();
     }catch(e){ console.warn('스캔 기록 저장 실패 (Firestore 규칙 게시가 필요할 수 있습니다)', e); }
   })();
@@ -7568,6 +7617,7 @@ async function openIdleGames_(){
   const body = document.getElementById('idleBody');
   if (!activeStoreCode_){ body.innerHTML = noStoreHtml_(); return; }
   await loadStoreData_();
+  await backfillFirstScan_();
   if (!document.getElementById('idleBody')) return;
   const ownedCount = games.filter(g=>ownedQty_(g.id) > 0).length;
   if (!ownedCount){ body.innerHTML = `<div class="empty">이 매장에 보유 게임으로 등록된 게임이 없습니다. 더보기 → 🗂️ 보유 게임 관리에서 먼저 등록해주세요.</div>`; return; }
@@ -7589,11 +7639,11 @@ async function openIdleGames_(){
       <div class="stat-box"><div class="row-sub">보유 게임</div><div class="n" style="color:var(--ink);">${ownedCount}개</div></div>
     </div>
     <h3 style="font-size:14px; margin:4px 0 8px;">💤 ${idleDays_}일 넘게 이용 없음 <span class="row-sub">오래된 순</span></h3>
-    ${idle.length ? idle.map(r=>row(r, r.last ? `마지막 이용 <b style="color:var(--ink);">${dayKey_(r.last)}</b> (${ago(r.last)}일 전) · 누적 ${r.total}회` : `마지막 이용 날짜 기록 없음 · 누적 ${r.total}회`)).join('')
+    ${idle.length ? idle.map(r=>row(r, (r.last ? `마지막 이용 <b style="color:var(--ink);">${dayKey_(r.last)}</b> (${ago(r.last)}일 전) · 누적 ${r.total}회` : `마지막 이용 날짜 기록 없음 · 누적 ${r.total}회`) + (firstScanOf_(r.id) ? ` · ${firstScanText_(firstScanOf_(r.id))}` : ''))).join('')
       : `<div class="empty">최근 ${idleDays_}일 동안 이용 기록이 없는 보유 게임이 없습니다.</div>`}
     ${spare.length ? `
     <h3 style="font-size:14px; margin:18px 0 8px;">📦 여분이 남는 게임 <span class="row-sub">여러 개 보유 중 ${idleDays_}일 동안 일부만 이용</span></h3>
-    ${spare.map(r=>row(r, `${r.qty}개 중 ${r.used}개만 이용 · 이용 없는 스티커 ${r.unused.map(l=>`<span class="sc-sticker">🏷️ ${escHtml_(l)}</span>`).join(' ')}`)).join('')}` : ''}
+    ${spare.map(r=>row(r, `${firstScanOf_(r.id) ? `${firstScanText_(firstScanOf_(r.id))} · ` : ''}${r.qty}개 중 ${r.used}개만 이용 · 이용 없는 스티커 ${r.unused.map(l=>`<span class="sc-sticker">🏷️ ${escHtml_(l)}</span>`).join(' ')}`)).join('')}` : ''}
     ${never.length ? `
     <h3 style="font-size:14px; margin:18px 0 8px;">❔ 스캔 기록 없음 <span class="row-sub">QR 라벨을 아직 안 붙였거나 새로 들어온 게임일 수 있습니다</span></h3>
     ${never.map(r=>row(r, '아직 QR로 찍힌 기록이 없습니다')).join('')}` : ''}`;
@@ -7614,7 +7664,7 @@ function getMaintRows_(){
     const gid = v.gameId || id;
     const label = v.stickerCode ? (getOwnedStickers_(gid).find(x=>x.code===String(v.stickerCode))?.label || v.stickerLabel || `#${v.stickerCode}`) : '';
     const gname = gameNameById_(gid, v.gameName);
-    rows.push({ id, gameName: gname, sticker: label, name: gname + (label ? ` · ${label}` : ''), cycle: v.cycleScans||0, total: v.totalScans||0, last: v.lastCheckedAt||0, memo: v.memo||'', flagged: !!v.flagged, flaggedAt: v.flaggedAt||0 });
+    rows.push({ id, gameName: gname, sticker: label, name: gname + (label ? ` · ${label}` : ''), cycle: v.cycleScans||0, total: v.totalScans||0, last: v.lastCheckedAt||0, first: v.firstScanAt||0, memo: v.memo||'', flagged: !!v.flagged, flaggedAt: v.flaggedAt||0 });
   });
   // 누락·파손 신고된 게임은 스캔 횟수와 상관없이 맨 위에, 그다음 많이 찍힌 순
   rows.sort((a,b)=> (b.flagged - a.flagged) || (b.flagged ? b.flaggedAt - a.flaggedAt : 0) || b.cycle - a.cycle || b.total - a.total);
@@ -7629,6 +7679,7 @@ async function openMaintenance_(){
   if (!activeStoreCode_){ document.getElementById('maintBody').innerHTML = noStoreHtml_(); return; }
   await loadStoreData_();
   renderMaintBody_();
+  if (await backfillFirstScan_()) renderMaintBody_();
 }
 
 function renderMaintBody_(){
@@ -7652,7 +7703,7 @@ function renderMaintBody_(){
           <div style="flex:1; min-width:0;">
             <div class="row-name" style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">${escHtml_(r.gameName)}${r.sticker ? ` <span class="sc-sticker" title="식별 스티커">🏷️ ${escHtml_(r.sticker)}</span>` : ''}${r.flagged ? ` <span class="mini-badge warn" style="white-space:nowrap;">⚠ 누락·파손 ${fmtShortDate_(r.flaggedAt)}</span>` : ''}</div>
             <div class="mini-bar"><i style="width:${Math.round(r.cycle/maxCycle*100)}%"></i></div>
-            <div class="row-sub">점검 이후 <b style="color:var(--ink);">${r.cycle}회</b> · 누적 ${r.total}회 · 마지막 점검 ${fmtShortDate_(r.last)}</div>
+            <div class="row-sub">점검 이후 <b style="color:var(--ink);">${r.cycle}회</b> · 누적 ${r.total}회 · 마지막 점검 ${fmtShortDate_(r.last)}${r.first ? ` · ${firstScanText_(r.first)}` : ''}</div>
           </div>
           <button class="btn btn-primary2 btn-sm" onclick="event.stopPropagation(); completeMaint_('${jsq_(r.id)}')">점검 완료</button>
         </div>
@@ -7883,6 +7934,7 @@ async function openOwnedGames_(filter){
   await loadStoreData_();
   renderOwnedXlsxPanel_();
   renderOwnedList_();
+  if (await backfillFirstScan_()) renderOwnedList_();
 }
 
 function renderOwnedXlsxPanel_(){
@@ -7933,7 +7985,7 @@ function renderOwnedList_(){
       return `
       <div class="row-card" style="${owned?'':'opacity:.7;'}${need?'border-color:var(--accent);':''}">
         <div class="row-top">
-          <div style="flex:1; min-width:0;"><div class="row-name">${escHtml_(g.name||'')}</div><div class="row-sub">ID ${escHtml_(id)}${metaBits?` · ${escHtml_(metaBits)}`:''}</div></div>
+          <div style="flex:1; min-width:0;"><div class="row-name">${escHtml_(g.name||'')}</div><div class="row-sub">ID ${escHtml_(id)}${metaBits?` · ${escHtml_(metaBits)}`:''}${firstScanOf_(id) ? ` · ${firstScanText_(firstScanOf_(id))}` : ''}</div></div>
           <label style="display:flex; align-items:center; gap:6px; font-size:12.5px; font-weight:700;">보유
             <input type="number" min="0" max="99" inputmode="numeric" value="${qty}" style="width:58px; padding:5px 6px; border:1px solid var(--line); border-radius:8px; font-size:13px; text-align:right;" onchange="setOwnedQty_('${jsq_(id)}', this.value)">개</label>
         </div>
