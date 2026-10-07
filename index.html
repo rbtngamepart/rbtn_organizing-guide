@@ -534,7 +534,10 @@
   .rg-edit-card .anno-item-photo-btn, .rg-edit-row .anno-item-photo-btn{width:64px; height:64px; flex:0 0 64px; border-radius:8px; background:var(--stage-bg); display:flex; align-items:center; justify-content:center; font-size:11.5px;}
 
   /* ---- 반납대 가이드: 누락·파손 신고 버튼 (① 제목 줄 오른쪽, 화면을 늘리지 않게 작게) ---- */
-  .rg-report-btn{margin-left:auto; border:1px solid var(--line-strong); background:var(--surface); color:var(--ink-mid); border-radius:999px; padding:3px 10px; font-size:11.5px; font-weight:700; cursor:pointer; font-family:var(--sans); white-space:nowrap;}
+  .rg-report-btn.on, .rg-report-btn.on:hover{background:var(--accent); border-color:var(--accent); color:#fff;}
+  .rg-report-btn{white-space:nowrap;}
+  .viewer-title-wrap #reportBtnSlot{flex:0 0 auto;}
+  .rg-report-btn{margin-left:0; border:1px solid var(--line-strong); background:var(--surface); color:var(--ink-mid); border-radius:999px; padding:3px 10px; font-size:11.5px; font-weight:700; cursor:pointer; font-family:var(--sans); white-space:nowrap;}
   .rg-report-btn:hover{color:var(--accent); border-color:var(--accent);}
 
   /* ---- 확대 보기(라이트박스) ---- */
@@ -2503,7 +2506,7 @@ function openQrPrintTool_(){
       <h2>🖨️ QR 라벨 인쇄</h2>
       <p class="pg-desc">
         게임을 검색해서 선택하고 필요한 수량을 입력하세요. A4·20×20mm·한 장 104칸(8×13) 라벨지 기준이며,
-        한 칸 안에 <b>QR(위)과 게임 이름·식별 스티커(아래)</b>를 함께 인쇄합니다.
+        한 칸 안에 <b>QR(위)과 게임 이름·식별 스티커(아래 한 줄, 길면 …로 줄임)</b>를 함께 인쇄합니다.
         QR에는 사이트 주소 없이 게임 코드만 들어가서 외부인이 찍어도 가이드가 열리지 않고, 반납대 뷰어에서 스캐너로 찍을 때만 열립니다.
         "보유 게임 관리"에서 식별 스티커를 등록한 게임은 오른쪽에서 인쇄할 스티커를 고를 수 있습니다 (수량은 스티커마다 적용).
         인쇄 배율은 "100%"(실제 크기)로, "페이지에 맞춤"은 꺼주세요. 처음에는 일반 A4로 먼저 뽑아 칸 위치를 확인하세요.
@@ -2709,11 +2712,11 @@ function buildQrLabelImage_(qrDataUrl, gameName, stickerLabel){
     const img = new Image();
     img.onload = ()=>{
       const SIZE = 480;                 // 20mm = 480px (1mm = 24px)
-      const qrPx = 336;                 // QR 14mm
-      const qrTop = 14;                 // 위 여백 약 0.6mm
-      const textTop = qrTop + qrPx + 6; // QR 바로 아래부터 글자 영역 (약 5mm)
-      const textBottom = SIZE - 10;
-      const maxW = SIZE - 28;
+      const qrPx = 360;                 // QR 15mm
+      const qrTop = 12;                 // 위 여백 0.5mm
+      const lineY = (qrTop + qrPx + SIZE) / 2 + 2; // QR 아래 남은 공간의 가운데에 글자 한 줄
+      const maxW = SIZE - 24;
+      const FONT_PX = 48;               // 약 2mm
       const canvas = document.createElement('canvas');
       canvas.width = SIZE; canvas.height = SIZE;
       const ctx = canvas.getContext('2d');
@@ -2721,34 +2724,39 @@ function buildQrLabelImage_(qrDataUrl, gameName, stickerLabel){
       ctx.imageSmoothingEnabled = false;
       ctx.drawImage(img, (SIZE-qrPx)/2, qrTop, qrPx, qrPx);
       ctx.imageSmoothingEnabled = true;
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#000';
-      const font = (px)=> `800 ${px}px 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif`;
-      const fit = (text, startPx, minPx)=>{ // 폭에 맞을 때까지 글자를 줄이고, 그래도 넘치면 뒤를 …로 줄임
-        let px = startPx; ctx.font = font(px);
-        while (px > minPx && ctx.measureText(text).width > maxW){ px -= 2; ctx.font = font(px); }
+      ctx.font = `800 ${FONT_PX}px 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif`;
+      ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+      const w = (t)=> ctx.measureText(t).width;
+      // 주어진 폭에 안 들어가면 뒤를 잘라 "…"를 붙입니다.
+      const ellipsize = (text, width)=>{
+        text = String(text||'');
+        if (w(text) <= width) return text;
         let t = text;
-        while (t.length > 1 && ctx.measureText(t).width > maxW){ t = t.slice(0, -2) + '…'; }
-        return { t, px };
+        while (t.length && w(t + '…') > width) t = t.slice(0, -1);
+        return t ? t + '…' : '…';
       };
-      const areaH = textBottom - textTop;
-      if (stickerLabel){
-        // 두 줄: 게임 이름 / 검은 바탕의 스티커 값 (붙일 때 가장 중요한 정보라 눈에 띄게)
-        const nm = fit(gameName || '', 42, 30);
-        ctx.font = font(nm.px);
-        ctx.fillText(nm.t, SIZE/2, textTop + areaH*0.27);
-        const st = fit(stickerLabel, 40, 28);
-        ctx.font = font(st.px);
-        const w = Math.min(maxW, ctx.measureText(st.t).width + 24), h = st.px + 8, cy = textTop + areaH*0.74;
+
+      // 한 줄: [게임 이름] [■ 식별 스티커] — 스티커는 붙일 때 가장 중요한 정보라 검은 바탕으로 눈에 띄게 둡니다.
+      const PAD = 10, GAP = 10;
+      let name = String(gameName||''), sticker = stickerLabel ? String(stickerLabel) : '';
+      if (sticker){
+        const pillW = (t)=> w(t) + PAD*2;
+        // 둘 다 들어가지 않으면 스티커는 최대 절반까지만 쓰게 줄이고, 남는 폭에 게임 이름을 줄여 넣습니다.
+        if (w(name) + GAP + pillW(sticker) > maxW){
+          if (pillW(sticker) > maxW/2) sticker = ellipsize(sticker, maxW/2 - PAD*2);
+          name = ellipsize(name, maxW - GAP - pillW(sticker));
+        }
+        const total = (name ? w(name) + GAP : 0) + pillW(sticker);
+        let x = (SIZE - total) / 2;
+        if (name){ ctx.fillStyle = '#000'; ctx.fillText(name, x, lineY); x += w(name) + GAP; }
+        const h = FONT_PX + 10;
         ctx.fillStyle = '#000';
-        roundRectPath_(ctx, SIZE/2 - w/2, cy - h/2, w, h, 8); ctx.fill();
-        ctx.fillStyle = '#fff'; ctx.fillText(st.t, SIZE/2, cy + 1);
+        roundRectPath_(ctx, x, lineY - h/2, pillW(sticker), h, 8); ctx.fill();
+        ctx.fillStyle = '#fff'; ctx.fillText(sticker, x + PAD, lineY + 1);
       } else {
-        // 스티커가 없으면 게임 이름을 최대 두 줄로 크게
-        ctx.font = font(44);
-        let lines = wrapCanvasTextByChar_(ctx, gameName || '', maxW);
-        if (lines.length > 2){ lines = [lines[0], fit(lines.slice(1).join(''), 44, 44).t]; }
-        if (lines.length === 1){ const f = fit(lines[0], 50, 32); ctx.font = font(f.px); ctx.fillText(f.t, SIZE/2, textTop + areaH/2); }
-        else { lines.forEach((ln, i)=> ctx.fillText(ln, SIZE/2, textTop + areaH*(i ? 0.73 : 0.27))); }
+        name = ellipsize(name, maxW);
+        ctx.fillStyle = '#000';
+        ctx.fillText(name, (SIZE - w(name)) / 2, lineY);
       }
       resolve(canvas.toDataURL('image/png'));
     };
@@ -2912,7 +2920,7 @@ function openHelpModal(){
         <li><b>표 탭</b> — 케이스종류·구성품·수량·비고를 표로 확인할 수 있습니다.</li>
         <li><b>구매 가이드</b> — 하단 "⋯ 더보기 → 🛒 구매 가이드"에서 필요한 케이스 수량과 구매 링크를 확인할 수 있습니다. "보유 재고"를 넣으면 더 사야 할 수량만, 단가를 넣으면 예상 금액도 계산합니다.</li>
         <li><b>⭐ 즐겨찾기 · 최근 본 게임</b> — 카드나 게임 제목 옆의 ☆을 누르면 즐겨찾기에 추가됩니다. 목록 맨 위에 즐겨찾기와 최근 본 게임이 바로가기로 나옵니다 (이 기기에만 저장).</li>
-        <li><b>⚠ 누락·파손 신고</b> — 반납대 가이드 "① 필수 구성품 확인" 제목 옆의 "⚠ 누락·파손 신고"를 누르고 내용을 적으면 편집자에게 전달됩니다.</li>
+        <li><b>⚠ 누락·파손</b> — 게임 제목(과 식별 스티커) 바로 오른쪽의 "⚠ 누락·파손"을 한 번 누르면, 내용을 적지 않아도 그 게임(스캔한 스티커 박스)이 스캔 횟수와 상관없이 "🔧 정기 점검" 목록 맨 위에 올라갑니다. 문제 있는 게임을 빠르게 표시해 둘 때 쓰세요. 다시 누르면 취소되고, 정기 점검에서 "점검 완료"를 누르면 표시가 풀립니다.</li>
         <li><b>🔗 QR · 식별 스티커</b> — 게임 박스의 QR에는 사이트 주소 없이 게임 코드(와 식별 스티커)만 들어 있어서, 반납대 뷰어(하단 📷)를 켜고 스캐너로 찍을 때만 가이드가 열립니다. QR 라벨은 "⋯ 더보기 → 🖨️ QR 라벨 인쇄"에서 만들며, 한 칸에 QR과 게임 이름·식별 스티커가 함께 인쇄됩니다. 같은 게임을 여러 개 운영하면 "🗂️ 보유 게임 관리"에서 박스마다 붙인 식별 스티커 값(예: 빨강, 파랑 하트)을 등록하세요. 랭킹은 게임 단위로, 정기 점검은 스티커별로 셉니다.</li>
         <li><b>🗂️ 보유 게임 · 엑셀 업로드</b> — "⋯ 더보기 → 🗂️ 보유 게임 관리"에서 게임별 보유 수량을 넣습니다. 한 번에 넣으려면 "엑셀로 보유 수량 한 번에 올리기"에서 전체 게임 목록 양식을 받아 보유 수량 칸만 채워 업로드하세요. 2개 이상 보유한 게임은 "⚠ 스티커 지정 필요"에 모이니, 박스별 식별 스티커 값을 정해주세요.</li>
         <li><b>🔍 크게 보기 · 🖨️ 인쇄</b> — 사진 탭의 "크게 보기"나 구성품·반납대 사진을 누르면 화면 가득 띄워 두 손가락(또는 휠)으로 확대할 수 있습니다. 🖨️ 인쇄는 사진과 체크리스트 표, 반납대 필수 구성품, QR을 한 장으로 정리해 인쇄합니다.</li>
@@ -3440,6 +3448,7 @@ function renderDetail(){
             ${favBtn}
             <h2 style="margin:0;">${escHtml_(g.name || '(이름 없음)')}</h2>
             <span class="scan-chips" id="scanChipsSlot">${scanChipsHtml_(g)}</span>
+            <span id="reportBtnSlot">${reportBtnHtml_()}</span>
             <span style="font-size:12px; font-weight:600; font-family:var(--sans); color:var(--ink-mid);">ID ${escHtml_(g.id)}</span>
             <button class="btn btn-ghost2" style="width:auto; padding:3px 8px; font-size:11px;" onclick="changeGameName_()">이름 변경</button>
             <button class="btn btn-ghost2" style="width:auto; padding:3px 8px; font-size:11px;" onclick="changeGameId_()">ID 변경</button>
@@ -3483,6 +3492,7 @@ function renderDetail(){
         <div class="viewer-title-wrap">
           <h2 class="viewer-title">${escHtml_(g.name || '')}</h2>
           <span class="scan-chips" id="scanChipsSlot">${scanChipsHtml_(g)}</span>
+          <span id="reportBtnSlot">${reportBtnHtml_()}</span>
         </div>
         <span class="viewer-tools">
           ${favBtn}
@@ -5977,8 +5987,7 @@ function renderReturnGuideViewer_(g, rg){
   const cards = [];
   cards.push(`
     <div class="rg-card">
-      <h3>① 필수 구성품 확인 <span class="case-badge case-ITEM" style="font-size:10.5px; padding:2px 8px;">${rg.requiredItems.length}종</span>
-        <button class="rg-report-btn" onclick="submitMissingReport_()" title="빠진 구성품이나 파손·오염을 편집자에게 알립니다">⚠ 누락·파손 신고</button></h3>
+      <h3>① 필수 구성품 확인 <span class="case-badge case-ITEM" style="font-size:10.5px; padding:2px 8px;">${rg.requiredItems.length}종</span></h3>
       ${rg.requiredItems.length ? `<div class="rg-items">${rg.requiredItems.map(itemCard).join('')}</div>` : `<p style="color:var(--ink-soft); font-size:13px;">필수 수량 확인 없음</p>`}
     </div>`);
   if (rg.sortingSteps.length) cards.push(`
@@ -6369,34 +6378,51 @@ document.addEventListener('keydown', (e)=>{
 
 /**
  * ============================================================
- * 반납대 가이드 누락·파손 신고
+ * 반납대 가이드 누락·파손 신고 (한 번 누르면 정기 점검 대상으로 올림)
  * ============================================================
- * 반납대에서는 QR 스캔 이후 추가 조작을 최소화해야 하므로 구성품별 체크는 두지 않고,
- * 문제가 있을 때만 "⚠ 누락·파손 신고" 한 번으로 내용을 적어 게임 문서(missingReports)에 1건을 추가합니다.
+ * 매장에서는 문제 있는 게임을 포스트잇을 붙여 빼두는데, 여유가 없을 때 표시만 빠르게 남기는 용도입니다.
+ * 내용은 따로 입력받지 않고, 지금 보고 있는 게임(스캔했다면 그 식별 스티커까지)을 이 매장의 점검 단위로
+ * "신고됨" 표시해서, 스캔 횟수(20회)와 상관없이 정기 점검 목록 맨 위에 보이게 합니다.
+ * "점검 완료"를 누르면 표시가 풀립니다.
  */
+function currentReportUnit_(){
+  const g = currentGame_(); if (!g) return null;
+  const code = (currentScan_ && currentScan_.gameId === String(g.id)) ? (currentScan_.sticker || '') : '';
+  return { g, code, unit: unitKey_(g.id, code), label: code ? stickerLabel_(g.id, code) : '' };
+}
+function isUnitFlagged_(unit){ return !!(gameStatsMap_.get(unit) || {}).flagged; }
+
+/** 게임 제목(과 식별 스티커) 바로 오른쪽에 붙는 신고 버튼 */
+function reportBtnHtml_(){
+  const u = currentReportUnit_();
+  if (!u || !activeStoreCode_) return '';
+  const on = isUnitFlagged_(u.unit);
+  return `<button class="rg-report-btn ${on?'on':''}" onclick="submitMissingReport_()" title="${on ? '정기 점검 대상으로 표시되어 있습니다 (누르면 취소)' : '누락·파손이 있으면 눌러서 정기 점검 대상으로 바로 올립니다'}">⚠ ${on ? '신고됨' : '누락·파손'}</button>`;
+}
+function refreshReportBtn_(){
+  const slot = document.getElementById('reportBtnSlot');
+  if (slot) slot.innerHTML = reportBtnHtml_();
+}
+
 async function submitMissingReport_(){
-  const g = currentGame_(); if (!g) return;
-  const memo = prompt(`"${g.name || g.id}"의 빠진 구성품이나 파손·오염 내용을 적어주세요 (예: 귀족 타일 2장 없음):`, '');
-  if (memo === null) return;
-  if (!memo.trim()){ alert('신고할 내용을 적어주세요.'); return; }
-  const report = {
-    id: `${Date.now()}_${Math.random().toString(36).slice(2,7)}`,
-    at: Date.now(),
-    email: auth.currentUser?.email?.toLowerCase() || '',
-    name: (myProfile_ && myProfile_.name) || '',
-    storeCode: activeStoreCode_ || (myProfile_ && myProfile_.storeCode) || '',
-    items: [],
-    memo: memo.trim(),
-    resolved: false
-  };
+  const u = currentReportUnit_(); if (!u || !activeStoreCode_) return;
+  const st = gameStatsMap_.get(u.unit) || {};
+  const name = `${u.g.name || u.g.id}${u.label ? ` ${u.label}` : ''}`;
+  const on = !st.flagged;
+  if (!on && !confirm(`"${name}"의 누락·파손 표시를 취소할까요?`)) return;
+  const now = Date.now();
+  const by = (auth.currentUser?.email || '').toLowerCase();
+  const data = on
+    ? { gameId: String(u.g.id), gameName: u.g.name || '', stickerCode: u.code || null, stickerLabel: u.label || null, flagged: true, flaggedAt: now, flaggedBy: by }
+    : { flagged: false, flaggedAt: null, flaggedBy: null };
   try{
-    // 문서 전체가 아니라 missingReports에 1건만 추가합니다 (매장 뷰어도 이 필드만 바꿀 수 있도록 Firestore 규칙에서 허용).
-    await updateDoc(doc(db, 'games', g.id), { missingReports: arrayUnion(report) });
-    g.missingReports = [...(g.missingReports||[]), report];
-    refreshReportBanner_();
-    toast_('누락 신고를 접수했습니다');
+    await setDoc(doc(db, 'stores', activeStoreCode_, 'gameStats', u.unit), data, { merge: true });
+    gameStatsMap_.set(u.unit, { ...st, ...data });
+    updateMaintBadge_();
+    refreshReportBtn_();
+    toast_(on ? `"${name}"을(를) 정기 점검 대상으로 올렸습니다` : '누락·파손 표시를 취소했습니다');
   }catch(e){
-    alert('누락 신고를 저장하지 못했습니다: ' + e.message);
+    alert('저장하지 못했습니다: ' + e.message);
   }
 }
 
@@ -7009,7 +7035,7 @@ function updateMaintBadge_(){
   const el = document.getElementById('maintBadge');
   if (!el) return;
   let n = 0;
-  gameStatsMap_.forEach(v=>{ if ((v.cycleScans||0) >= MAINT_THRESHOLD_) n++; });
+  gameStatsMap_.forEach(v=>{ if (v.flagged || (v.cycleScans||0) >= MAINT_THRESHOLD_) n++; });
   el.textContent = n > 99 ? '99+' : String(n);
   el.style.display = n > 0 ? 'flex' : 'none';
 }
@@ -7089,6 +7115,7 @@ function scanChipsHtml_(g){
 function refreshScanChips_(){
   const slot = document.getElementById('scanChipsSlot');
   if (slot) slot.innerHTML = scanChipsHtml_(games.find(x=>x.id===currentGameId));
+  refreshReportBtn_();
 }
 
 async function fetchScans_(fromMs, toMs){
@@ -7260,13 +7287,14 @@ let maintOpen_ = null;
 function getMaintRows_(){
   const rows = [];
   gameStatsMap_.forEach((v, id)=>{
-    if ((v.cycleScans||0) <= 0 && !(maintShowAll_ && (v.totalScans||0) > 0)) return;
+    if (!v.flagged && (v.cycleScans||0) <= 0 && !(maintShowAll_ && (v.totalScans||0) > 0)) return;
     const gid = v.gameId || id;
     const label = v.stickerCode ? (getOwnedStickers_(gid).find(x=>x.code===String(v.stickerCode))?.label || v.stickerLabel || `#${v.stickerCode}`) : '';
-    rows.push({ id, name: gameNameById_(gid, v.gameName) + (label ? ` · ${label}` : ''), cycle: v.cycleScans||0, total: v.totalScans||0, last: v.lastCheckedAt||0, memo: v.memo||'' });
+    rows.push({ id, name: gameNameById_(gid, v.gameName) + (label ? ` · ${label}` : ''), cycle: v.cycleScans||0, total: v.totalScans||0, last: v.lastCheckedAt||0, memo: v.memo||'', flagged: !!v.flagged, flaggedAt: v.flaggedAt||0 });
   });
-  rows.sort((a,b)=> b.cycle - a.cycle || b.total - a.total);
-  return maintShowAll_ ? rows : rows.filter(r=>r.cycle >= MAINT_THRESHOLD_);
+  // 누락·파손 신고된 게임은 스캔 횟수와 상관없이 맨 위에, 그다음 많이 찍힌 순
+  rows.sort((a,b)=> (b.flagged - a.flagged) || (b.flagged ? b.flaggedAt - a.flaggedAt : 0) || b.cycle - a.cycle || b.total - a.total);
+  return maintShowAll_ ? rows : rows.filter(r=>r.flagged || r.cycle >= MAINT_THRESHOLD_);
 }
 
 async function openMaintenance_(){
@@ -7285,7 +7313,7 @@ function renderMaintBody_(){
   const maxCycle = Math.max(MAINT_THRESHOLD_, ...rows.map(r=>r.cycle));
   body.innerHTML = `
     <div class="st-bar">
-      <span style="font-size:13px; color:var(--ink-soft);">점검 대상 <b style="color:var(--accent);">${[...gameStatsMap_.values()].filter(v=>(v.cycleScans||0)>=MAINT_THRESHOLD_).length}</b>개 · 기준 ${MAINT_THRESHOLD_}회 이상</span>
+      <span style="font-size:13px; color:var(--ink-soft);">점검 대상 <b style="color:var(--accent);">${[...gameStatsMap_.values()].filter(v=>v.flagged || (v.cycleScans||0)>=MAINT_THRESHOLD_).length}</b>개 · 기준 ${MAINT_THRESHOLD_}회 이상 또는 ⚠ 누락·파손 신고</span>
       <label style="display:flex; align-items:center; gap:5px; font-size:12.5px; cursor:pointer;"><input type="checkbox" ${maintShowAll_?'checked':''} onchange="toggleMaintShowAll_(this.checked)"> ${MAINT_THRESHOLD_}회 미만도 보기</label>
       <span style="flex:1;"></span>
       <button class="btn btn-ghost2 btn-sm" onclick="printMaintenance_()">🖨️ A4 출력</button>
@@ -7293,9 +7321,9 @@ function renderMaintBody_(){
     ${rows.length ? rows.map((r,i)=>`
       <div class="row-card clickable" onclick="toggleMaintDetail_('${jsq_(r.id)}')" style="${maintOpen_===r.id?'border-color:var(--accent);':''}">
         <div class="row-top">
-          <div style="width:24px; text-align:center; font-weight:800; color:${r.cycle>=MAINT_THRESHOLD_?'var(--accent)':'var(--ink-soft)'};">${i+1}</div>
+          <div style="width:24px; text-align:center; font-weight:800; color:${r.flagged || r.cycle>=MAINT_THRESHOLD_?'var(--accent)':'var(--ink-soft)'};">${r.flagged ? '⚠' : i+1}</div>
           <div style="flex:1; min-width:0;">
-            <div class="row-name">${escHtml_(r.name)}</div>
+            <div class="row-name">${escHtml_(r.name)}${r.flagged ? ` <span class="mini-badge warn" style="white-space:nowrap;">⚠ 누락·파손 ${fmtShortDate_(r.flaggedAt)}</span>` : ''}</div>
             <div class="mini-bar"><i style="width:${Math.round(r.cycle/maxCycle*100)}%"></i></div>
             <div class="row-sub">점검 이후 <b style="color:var(--ink);">${r.cycle}회</b> · 누적 ${r.total}회 · 마지막 점검 ${fmtShortDate_(r.last)}</div>
           </div>
@@ -7308,7 +7336,7 @@ function renderMaintBody_(){
             <div class="row-sub" style="margin:10px 0 5px; font-weight:700;">점검 이력</div>
             <div id="maintHist" class="row-sub">불러오는 중...</div>
           </div>` : ''}
-      </div>`).join('') : `<div class="empty">${maintShowAll_?'스캔 기록이 있는 게임이 없습니다.':`점검 대상(${MAINT_THRESHOLD_}회 이상)인 게임이 아직 없습니다.`}</div>`}`;
+      </div>`).join('') : `<div class="empty">${maintShowAll_?'스캔 기록이 있는 게임이 없습니다.':`점검 대상(${MAINT_THRESHOLD_}회 이상 또는 누락·파손 신고)인 게임이 아직 없습니다.`}</div>`}`;
   if (maintOpen_) loadMaintHistory_(maintOpen_);
 }
 function toggleMaintShowAll_(v){ maintShowAll_ = v; renderMaintBody_(); }
@@ -7339,13 +7367,13 @@ async function saveMaintMemo_(id, val){
 async function completeMaint_(id){
   const st = gameStatsMap_.get(id) || {};
   const name = (getMaintRows_().find(r=>r.id===id) || {}).name || gameNameById_(st.gameId || id, st.gameName);
-  if (!confirm(`"${name}" 점검을 완료 처리할까요?\n\n점검 이후 횟수만 0으로 초기화되고, 누적 스캔 기록(히스토리·랭킹)은 그대로 유지됩니다.`)) return;
+  if (!confirm(`"${name}" 점검을 완료 처리할까요?\n\n점검 이후 횟수와 누락·파손 표시만 초기화되고, 누적 스캔 기록(히스토리·랭킹)은 그대로 유지됩니다.`)) return;
   const now = Date.now();
   const by = (auth.currentUser?.email || '').toLowerCase();
   try{
-    await addDoc(collection(db, 'stores', activeStoreCode_, 'gameStats', id, 'checks'), { at: now, by, cycleScans: st.cycleScans||0, memo: st.memo||'' });
-    await setDoc(doc(db, 'stores', activeStoreCode_, 'gameStats', id), { cycleScans: 0, lastCheckedAt: now, lastCheckedBy: by }, { merge: true });
-    gameStatsMap_.set(id, { ...st, cycleScans: 0, lastCheckedAt: now, lastCheckedBy: by });
+    await addDoc(collection(db, 'stores', activeStoreCode_, 'gameStats', id, 'checks'), { at: now, by, cycleScans: st.cycleScans||0, memo: st.memo||'', ...(st.flagged ? { flagged: true, flaggedAt: st.flaggedAt||null } : {}) });
+    await setDoc(doc(db, 'stores', activeStoreCode_, 'gameStats', id), { cycleScans: 0, lastCheckedAt: now, lastCheckedBy: by, flagged: false, flaggedAt: null, flaggedBy: null }, { merge: true });
+    gameStatsMap_.set(id, { ...st, cycleScans: 0, lastCheckedAt: now, lastCheckedBy: by, flagged: false, flaggedAt: null, flaggedBy: null });
     updateMaintBadge_();
     if (maintOpen_ === id) maintOpen_ = null;
     renderMaintBody_();
@@ -7354,17 +7382,17 @@ async function completeMaint_(id){
 
 /** 지금 정렬된 점검 대상을 A4 점검표로 만들어 브라우저 인쇄 창을 엽니다 (프린터는 인쇄 창에서 선택). */
 function printMaintenance_(){
-  const rows = getMaintRows_().filter(r=>r.cycle >= MAINT_THRESHOLD_);
-  if (!rows.length){ alert(`출력할 점검 대상(${MAINT_THRESHOLD_}회 이상)이 없습니다.`); return; }
+  const rows = getMaintRows_().filter(r=>r.flagged || r.cycle >= MAINT_THRESHOLD_);
+  if (!rows.length){ alert(`출력할 점검 대상(${MAINT_THRESHOLD_}회 이상 또는 누락·파손 신고)이 없습니다.`); return; }
   const storeName = (storeList_.find(s=>s.code===activeStoreCode_)||{}).name || '';
   const today = new Date();
   const area = document.getElementById('printArea');
   area.innerHTML = `
     <h1 class="print-title">정기 게임 점검표${storeName?` · ${escHtml_(storeName)}`:''}</h1>
-    <p class="print-sub">출력일 ${today.getFullYear()}-${pad2_(today.getMonth()+1)}-${pad2_(today.getDate())} · 점검 이후 스캔 ${MAINT_THRESHOLD_}회 이상 · 많이 찍힌 순 · 총 ${rows.length}개</p>
+    <p class="print-sub">출력일 ${today.getFullYear()}-${pad2_(today.getMonth()+1)}-${pad2_(today.getDate())} · 누락·파손 신고 + 점검 이후 스캔 ${MAINT_THRESHOLD_}회 이상 · 총 ${rows.length}개</p>
     <table class="print-table">
       <thead><tr><th style="width:28px;">✔</th><th style="width:34px;">순위</th><th>게임</th><th style="width:70px;">점검 이후</th><th style="width:60px;">누적</th><th style="width:70px;">마지막 점검</th><th style="width:38%;">점검 메모</th></tr></thead>
-      <tbody>${rows.map((r,i)=>`<tr><td>☐</td><td>${i+1}</td><td><b>${escHtml_(r.name)}</b></td><td>${r.cycle}회</td><td>${r.total}회</td><td>${fmtShortDate_(r.last)}</td><td class="pt-memo" style="font-size:10.5px; color:#666;">${escHtml_(r.memo)}</td></tr>`).join('')}</tbody>
+      <tbody>${rows.map((r,i)=>`<tr><td>☐</td><td>${r.flagged ? '⚠' : i+1}</td><td><b>${escHtml_(r.name)}</b>${r.flagged ? ' (누락·파손 신고)' : ''}</td><td>${r.cycle}회</td><td>${r.total}회</td><td>${fmtShortDate_(r.last)}</td><td class="pt-memo" style="font-size:10.5px; color:#666;">${escHtml_(r.memo)}</td></tr>`).join('')}</tbody>
     </table>`;
   document.body.classList.add('printing-maint');
   const cleanup = ()=>{ document.body.classList.remove('printing-maint'); area.innerHTML = ''; };
