@@ -73,7 +73,11 @@
   .viewer-back{background:var(--surface); border:1.5px solid var(--line-strong); color:var(--ink-mid); border-radius:8px; width:34px; height:34px; flex-shrink:0; font-size:15px; cursor:pointer; display:flex; align-items:center; justify-content:center;}
   .viewer-back:hover{background:var(--bg); color:var(--ink);}
   .est-badge{flex:0 0 auto; background:#fdeceb; color:var(--accent); font-weight:800; font-size:15px; padding:5px 12px; border-radius:999px; white-space:nowrap;}
-  .viewer-title{margin:0; font-size:16px; flex:1; min-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .viewer-title-wrap{flex:1; min-width:120px; display:flex; align-items:center; gap:8px;}
+  .viewer-title{margin:0; font-size:16px; flex:0 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .viewer-title-wrap .scan-chips{flex:0 0 auto;}
+  .viewer-title-wrap .sc-sticker{font-size:14px; padding:3px 12px;}
+  .sc-sticker.unknown{border-style:dashed; color:var(--ink-soft);}
   .app > h2{font-size:19px; letter-spacing:-0.01em;}
 
   .game-list{display:grid; grid-template-columns:repeat(auto-fill, minmax(230px,1fr)); gap:14px;}
@@ -2873,7 +2877,7 @@ function openHelpModal(){
         <li><b>구매 가이드</b> — 하단 "⋯ 더보기 → 🛒 구매 가이드"에서 필요한 케이스 수량과 구매 링크를 확인할 수 있습니다. "보유 재고"를 넣으면 더 사야 할 수량만, 단가를 넣으면 예상 금액도 계산합니다.</li>
         <li><b>⭐ 즐겨찾기 · 최근 본 게임</b> — 카드나 게임 제목 옆의 ☆을 누르면 즐겨찾기에 추가됩니다. 목록 맨 위에 즐겨찾기와 최근 본 게임이 바로가기로 나옵니다 (이 기기에만 저장).</li>
         <li><b>⚠ 누락·파손 신고</b> — 반납대 가이드 "① 필수 구성품 확인" 제목 옆의 "⚠ 누락·파손 신고"를 누르고 내용을 적으면 편집자에게 전달됩니다.</li>
-        <li><b>🔗 QR · 식별 스티커</b> — 게임 박스의 QR에는 사이트 주소 없이 게임 코드(와 식별 스티커)만 들어 있어서, 반납대 뷰어(하단 📷)를 켜고 스캐너로 찍을 때만 가이드가 열립니다. QR 라벨은 "⋯ 더보기 → 🖨️ QR 라벨 인쇄"에서 만들며, 한 칸에 QR과 게임 이름·식별 스티커가 함께 인쇄됩니다. 같은 게임을 여러 개 운영하면 "🗂️ 보유 게임 관리"에서 박스마다 붙인 식별 스티커 값(예: 빨강, A)을 등록하세요. 랭킹은 게임 단위로, 정기 점검은 스티커별로 셉니다.</li>
+        <li><b>🔗 QR · 식별 스티커</b> — 게임 박스의 QR에는 사이트 주소 없이 게임 코드(와 식별 스티커)만 들어 있어서, 반납대 뷰어(하단 📷)를 켜고 스캐너로 찍을 때만 가이드가 열립니다. QR 라벨은 "⋯ 더보기 → 🖨️ QR 라벨 인쇄"에서 만들며, 한 칸에 QR과 게임 이름·식별 스티커가 함께 인쇄됩니다. 같은 게임을 여러 개 운영하면 "🗂️ 보유 게임 관리"에서 박스마다 붙인 식별 스티커 값(예: 빨강, 파랑 하트)을 등록하세요. 랭킹은 게임 단위로, 정기 점검은 스티커별로 셉니다.</li>
         <li><b>🗂️ 보유 게임 · 엑셀 업로드</b> — "⋯ 더보기 → 🗂️ 보유 게임 관리"에서 게임별 보유 수량을 넣습니다. 한 번에 넣으려면 "엑셀로 보유 수량 한 번에 올리기"에서 전체 게임 목록 양식을 받아 보유 수량 칸만 채워 업로드하세요. 2개 이상 보유한 게임은 "⚠ 스티커 지정 필요"에 모이니, 박스별 식별 스티커 값을 정해주세요.</li>
         <li><b>🔍 크게 보기 · 🖨️ 인쇄</b> — 사진 탭의 "크게 보기"나 구성품·반납대 사진을 누르면 화면 가득 띄워 두 손가락(또는 휠)으로 확대할 수 있습니다. 🖨️ 인쇄는 사진과 체크리스트 표, 반납대 필수 구성품, QR을 한 장으로 정리해 인쇄합니다.</li>
         <li><b>🌓 화면 테마</b> — 상단의 🌓 버튼으로 자동(기기 설정) · 밝게 · 어둡게를 바꿀 수 있습니다.</li>
@@ -3399,12 +3403,12 @@ function renderDetail(){
           <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:4px;">
             ${favBtn}
             <h2 style="margin:0;">${escHtml_(g.name || '(이름 없음)')}</h2>
+            <span class="scan-chips" id="scanChipsSlot">${scanChipsHtml_(g)}</span>
             <span style="font-size:12px; font-weight:600; font-family:var(--sans); color:var(--ink-mid);">ID ${escHtml_(g.id)}</span>
             <button class="btn btn-ghost2" style="width:auto; padding:3px 8px; font-size:11px;" onclick="changeGameName_()">이름 변경</button>
             <button class="btn btn-ghost2" style="width:auto; padding:3px 8px; font-size:11px;" onclick="changeGameId_()">ID 변경</button>
             <button class="btn btn-ghost2" style="width:auto; padding:3px 8px; font-size:11px;" onclick="openGameQrModal_('${jsq_(g.id)}')" title="스캔하면 바로 이 게임의 반납대 가이드로 이동하는 QR코드">📱 QR코드</button>
             <button class="btn btn-ghost2" style="width:auto; padding:3px 8px; font-size:11px;" onclick="printGameGuide_()" title="사진·표·체크리스트·QR을 한 장으로 정리해서 인쇄합니다">🖨️ 인쇄</button>
-            <div class="scan-chips" id="scanChipsSlot">${scanChipsHtml_(g)}</div>
           </div>
           <label style="display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--ink-soft); cursor:pointer;">
             <input type="checkbox" ${g.guideDone?'checked':''} onchange="toggleGuideDone(this.checked)"> 가이드 제작 완료
@@ -3440,14 +3444,16 @@ function renderDetail(){
     appEl.innerHTML = `
       <div class="viewer-head">
         <button class="viewer-back" onclick="renderList()" title="목록으로">←</button>
-        <h2 class="viewer-title">${escHtml_(g.name || '')}</h2>
+        <div class="viewer-title-wrap">
+          <h2 class="viewer-title">${escHtml_(g.name || '')}</h2>
+          <span class="scan-chips" id="scanChipsSlot">${scanChipsHtml_(g)}</span>
+        </div>
         <span class="viewer-tools">
           ${favBtn}
           <button class="viewer-back" onclick="openGameQrModal_('${jsq_(g.id)}')" title="이 게임으로 바로 들어오는 링크 · QR코드">🔗</button>
           <button class="viewer-back" onclick="printGameGuide_()" title="사진·표·체크리스트·QR을 한 장으로 정리해서 인쇄">🖨️</button>
         </span>
         ${estMinutesBadgeHtml_(g)}
-        <div class="scan-chips" id="scanChipsSlot">${scanChipsHtml_(g)}</div>
         <div class="tabs" style="margin:0;">
           <button class="${currentMode==='photo'?'active':''}" onclick="switchMode('photo')">사진</button>
           <button class="${currentMode==='table'?'active':''}" onclick="switchMode('table')">표</button>
@@ -6973,7 +6979,7 @@ function updateMaintBadge_(){
 }
 
 // ---------- QR 스캔 기록 + 식별 스티커 ----------
-// 같은 게임을 매장에 여러 개 두면 박스마다 식별 스티커(매장이 자유롭게 정한 글자, 예: "빨강", "A", "2호")를 붙입니다.
+// 같은 게임을 매장에 여러 개 두면 박스마다 식별 스티커(매장이 자유롭게 정한 글자, 예: "빨강", "파랑 하트")를 붙입니다.
 // 스티커마다 짧은 숫자 코드(1, 2, 3…)를 매기고, QR에는 게임ID와 이 코드만 담습니다 (스캐너가 한글을 못 보내는 경우 대비).
 // 랭킹(인기 게임)은 게임 단위로, 정기 점검은 "게임 + 스티커" 단위로 셉니다.
 
@@ -6985,10 +6991,19 @@ function getOwnedStickers_(gameId){
   if (Array.isArray(o.colors)) return o.colors.map((name, i)=>({ code: String(i+1), label: name }));
   return [];
 }
+/** 스티커 코드 → 매장에서 정한 이름. 보유 수량을 0으로 바꿔 둔 게임이어도 정해 둔 이름은 찾아 줍니다.
+ *  끝내 못 찾으면 null (화면에는 "#코드"로 표시). */
+function findStickerLabel_(gameId, code){
+  if (!code) return null;
+  const o = ownedGamesMap_.get(String(gameId));
+  if (!o) return null;
+  const list = Array.isArray(o.stickers) ? o.stickers : Array.isArray(o.colors) ? o.colors.map((name, i)=>({ code: String(i+1), label: name })) : [];
+  const st = list.find(x=>x && String(x.code) === String(code));
+  return st ? st.label : null;
+}
 function stickerLabel_(gameId, code){
   if (!code) return '';
-  const st = getOwnedStickers_(gameId).find(x=>x.code === String(code));
-  return st ? st.label : `#${code}`;
+  return findStickerLabel_(gameId, code) || `#${code}`;
 }
 /** 정기 점검을 세는 단위의 키 (스티커가 없으면 게임ID 그대로 — 예전 기록과 호환) */
 function unitKey_(gameId, code){ return code ? `${gameId}__${code}` : String(gameId); }
@@ -6998,14 +7013,25 @@ function unitKey_(gameId, code){ return code ? `${gameId}__${code}` : String(gam
 function logQrScan_(g, stickerCode){
   const id = String(g.id);
   const code = stickerCode ? String(stickerCode) : '';
-  const label = stickerLabel_(id, code);
-  currentScan_ = { gameId:id, sticker:code, label };
+  let label = stickerLabel_(id, code);
+  const scan = currentScan_ = { gameId:id, sticker:code, label, known: !code || !!findStickerLabel_(id, code) };
   if (!activeStoreCode_) return;
   const unit = unitKey_(id, code);
   const now = Date.now();
-  if (lastScanLoggedAt_[unit] && now - lastScanLoggedAt_[unit] < 5000) return; // 새로고침 등으로 겹쳐 기록되는 것 방지
-  lastScanLoggedAt_[unit] = now;
+  const dup = lastScanLoggedAt_[unit] && now - lastScanLoggedAt_[unit] < 5000; // 새로고침 등으로 겹쳐 기록되는 것 방지
+  if (!dup) lastScanLoggedAt_[unit] = now;
   (async ()=>{
+    // 반납대 기기는 로그인할 때 보유 게임을 한 번 불러오므로, 그 뒤 다른 기기에서 등록한 스티커는 모를 수 있습니다.
+    // 이름을 못 찾으면 이 게임의 보유 정보만 다시 불러와서 스티커 이름으로 바꿔 보여주고 기록합니다.
+    if (!scan.known){
+      try{
+        const snap = await getDoc(doc(db, 'stores', activeStoreCode_, 'ownedGames', id));
+        if (snap.exists()) ownedGamesMap_.set(id, snap.data());
+        const found = findStickerLabel_(id, code);
+        if (found){ label = found; scan.label = found; scan.known = true; refreshScanChips_(); }
+      }catch(e){ console.warn('식별 스티커 이름을 다시 불러오지 못했습니다', e); }
+    }
+    if (dup) return;
     try{
       const by = (auth.currentUser?.email || '').toLowerCase();
       await addDoc(collection(db, 'stores', activeStoreCode_, 'scans'), { gameId:id, gameName:g.name||'', sticker:code||null, color:label||null, ts:now, by });
@@ -7018,10 +7044,15 @@ function logQrScan_(g, stickerCode){
   })();
 }
 
-/** 방금 스캔한 박스의 식별 스티커를 게임 이름 옆에 보여줍니다 (QR에 들어 있으므로 따로 고를 필요 없음). */
+/** 방금 스캔한 박스의 식별 스티커 이름을 게임 이름 바로 오른쪽에 보여줍니다 (QR에 들어 있으므로 따로 고를 필요 없음). */
 function scanChipsHtml_(g){
   if (!g || !currentScan_ || currentScan_.gameId !== String(g.id) || !currentScan_.sticker) return '';
+  if (!currentScan_.known) return `<span class="sc-sticker unknown" title="이 매장의 보유 게임 관리에 없는 스티커 번호입니다">🏷️ 미등록 스티커 #${escHtml_(currentScan_.sticker)}</span>`;
   return `<span class="sc-sticker" title="스캔한 박스의 식별 스티커">🏷️ ${escHtml_(currentScan_.label)}</span>`;
+}
+function refreshScanChips_(){
+  const slot = document.getElementById('scanChipsSlot');
+  if (slot) slot.innerHTML = scanChipsHtml_(games.find(x=>x.id===currentGameId));
 }
 
 async function fetchScans_(fromMs, toMs){
@@ -7332,7 +7363,7 @@ function needsSticker_(gameId){
 async function openOwnedGames_(){
   if (!prepPage_('more', openOwnedGames_)) return;
   ownedSearch_ = ''; ownedPickerFor_ = null; ownedXlsxParsed_ = null;
-  appEl.innerHTML = `${pageHeadHtml_('🗂️ 보유 게임 관리', '이 매장에서 보유한 게임의 수량을 넣으세요. 같은 게임이 2개 이상이면 박스마다 붙일 식별 스티커 값(예: 빨강, A, 2호)을 정해야 합니다. QR 라벨 인쇄에서 스티커별 QR을 만들 수 있고, 정기 점검은 스티커별로 따로 셉니다.')}
+  appEl.innerHTML = `${pageHeadHtml_('🗂️ 보유 게임 관리', '이 매장에서 보유한 게임의 수량을 넣으세요. 같은 게임이 2개 이상이면 박스마다 붙일 식별 스티커 값(예: 빨강, 파랑 하트)을 정해야 합니다. QR 라벨 인쇄에서 스티커별 QR을 만들 수 있고, 정기 점검은 스티커별로 따로 셉니다.')}
     <div class="st-bar">${storeBarHtml_()}<input type="text" class="pg-search" style="margin:0; flex:1; min-width:160px;" placeholder="게임 이름 검색 (초성 가능)" oninput="setOwnedSearch_(this.value)"></div>
     <div id="ownedXlsxPanel"></div>
     <div id="ownedBody"></div>`;
@@ -7399,7 +7430,7 @@ function renderOwnedList_(){
           <span class="row-sub" style="font-weight:700;">식별 스티커${qty>=2 ? ` ${stickers.length}/${qty}` : ''}</span>
           ${stickers.map(st=>`<span class="sc-sticker">${escHtml_(st.label)} <button style="border:none; background:none; cursor:pointer; color:var(--ink-soft); font-size:13px; padding:0 0 0 2px;" onclick="removeOwnedColor_('${jsq_(id)}','${jsq_(st.code)}')" title="삭제">✕</button></span>`).join('')}
           ${ownedPickerFor_===id
-            ? `<span style="display:inline-flex; gap:6px; align-items:center;"><input type="text" id="stickerInput_${escHtml_(id)}" maxlength="20" placeholder="예: 빨강, A, 2호" style="width:130px; padding:6px 8px; border:1px solid var(--line); border-radius:8px; font-size:12.5px;" onkeydown="if(event.key==='Enter') addOwnedColor_('${jsq_(id)}', this.value)"><button class="chip-btn on" onclick="addOwnedColor_('${jsq_(id)}', document.getElementById('stickerInput_${jsq_(id)}').value)">추가</button><button class="chip-btn" onclick="toggleOwnedPicker_('${jsq_(id)}')">취소</button></span>`
+            ? `<span style="display:inline-flex; gap:6px; align-items:center;"><input type="text" id="stickerInput_${escHtml_(id)}" maxlength="20" placeholder="예: 빨강, 파랑 하트" style="width:130px; padding:6px 8px; border:1px solid var(--line); border-radius:8px; font-size:12.5px;" onkeydown="if(event.key==='Enter') addOwnedColor_('${jsq_(id)}', this.value)"><button class="chip-btn on" onclick="addOwnedColor_('${jsq_(id)}', document.getElementById('stickerInput_${jsq_(id)}').value)">추가</button><button class="chip-btn" onclick="toggleOwnedPicker_('${jsq_(id)}')">취소</button></span>`
             : `<button class="chip-btn" style="border-style:dashed; color:var(--accent); border-color:var(--accent);" onclick="toggleOwnedPicker_('${jsq_(id)}')">+ 스티커</button>`}
           ${need ? `<span class="mini-badge warn">스티커 ${qty - stickers.length}개 더 정해주세요</span>`
             : qty === 1 && !stickers.length ? `<span class="rg-card-hint">1개 보유는 스티커 없이 운영해도 됩니다</span>` : ''}
