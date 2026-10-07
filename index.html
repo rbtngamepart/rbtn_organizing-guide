@@ -340,6 +340,7 @@
 
   /* ---- 스캔 색상 칩 / 매장 영역 / 공통 페이지 요소 ---- */
   .scan-chips{display:flex; align-items:center; gap:8px; flex-wrap:nowrap; overflow-x:auto; max-width:100%;}
+  .sc-sticker{display:inline-flex; align-items:center; gap:2px; border:1.5px solid var(--ink); border-radius:999px; padding:2px 10px; font-size:12.5px; font-weight:800; color:var(--ink); background:var(--surface); white-space:nowrap;}
   .scan-chips .sc-lb{font-size:11px; font-weight:700; color:var(--ink-soft); white-space:nowrap;}
   .sc-chip{width:44px; height:44px; flex:0 0 44px; border-radius:50%; border:3px solid #fff; box-shadow:0 0 0 1.5px var(--line-strong); cursor:pointer; display:flex; align-items:center; justify-content:center; color:#fff; font-size:19px; font-weight:800; padding:0; font-family:var(--sans);}
   .sc-chip.sel{box-shadow:0 0 0 3px var(--ink);}
@@ -610,16 +611,6 @@
 
     <div class="topbar-spacer"></div>
 
-    <div class="nav-dropdown">
-      <button class="btn btn-ghost2" onclick="toggleNavDropdown_('toolsMenu')">🛠️ 도구 <span class="nav-caret">▾</span></button>
-      <div class="nav-dropdown-menu" id="toolsMenu">
-        <button onclick="closeAllNavDropdowns_(); openPurchaseGuide();">🛒 구매 가이드</button>
-        <button onclick="closeAllNavDropdowns_(); openQrPrintTool_();">🖨️ QR 인쇄</button>
-        <div class="nav-menu-divider"></div>
-        <button onclick="closeAllNavDropdowns_(); openHelpModal();">❓ 이용 방법</button>
-      </div>
-    </div>
-
     <div class="nav-dropdown" id="adminMenuWrap" style="display:none;">
       <button class="btn btn-ghost2" onclick="toggleNavDropdown_('adminMenu')">⚙️ 관리자 <span class="nav-caret">▾</span></button>
       <div class="nav-dropdown-menu" id="adminMenu">
@@ -646,6 +637,9 @@
   <div class="more-menu" id="moreMenu">
     <button onclick="closeMoreMenu_(); openScanRanking_();">🏆 랭킹 · 기간별 인기 게임</button>
     <button onclick="closeMoreMenu_(); openOwnedGames_();">🗂️ 보유 게임 관리</button>
+    <button onclick="closeMoreMenu_(); openQrPrintTool_();">🖨️ QR 라벨 인쇄</button>
+    <button onclick="closeMoreMenu_(); openPurchaseGuide();">🛒 구매 가이드</button>
+    <button onclick="closeMoreMenu_(); openHelpModal();">❓ 이용 방법</button>
     <button id="moreMenuGameDb" onclick="closeMoreMenu_(); openGameDbAdmin_();">➕ 게임 DB 관리 · 엑셀 업로드 <span class="more-adm">관리자</span></button>
   </div>
   <nav class="bottom-nav" id="bottomNav">
@@ -2208,8 +2202,8 @@ function buildGameDeepLink_(gameId, mode){
   return url.toString();
 }
 
-/** 게임 상세 화면에서 QR코드 버튼을 누르면, 이 게임으로 바로 이동하는 QR코드를 보여줍니다.
- *  QR코드를 인쇄해서 게임 상자에 붙여두면, 스캔 즉시 반납대 가이드가 열립니다. */
+/** 게임 상세 화면에서 QR코드 버튼을 누르면, 이 게임의 매장 QR(RB/게임ID)을 보여줍니다.
+ *  반납대 뷰어를 켜고 스캐너로 찍으면 반납대 가이드가 열립니다. 직원끼리 바로 여는 링크는 따로 복사할 수 있습니다. */
 async function openGameQrModal_(gameId){
   const g = games.find(x=>String(x.id)===String(gameId));
   if (!g) return;
@@ -2222,12 +2216,13 @@ async function openGameQrModal_(gameId){
   backdrop.innerHTML = `
     <div class="modal" style="max-width:340px; text-align:center;">
       <h3 style="margin-top:0;">${escHtml_(g.name || '(이름 없음)')} QR코드</h3>
-      <p style="font-size:11.5px; color:var(--ink-soft); margin-bottom:12px;">이 QR코드를 스캔하면 로그인 후 바로 이 게임의 반납대 가이드로 이동합니다. 인쇄해서 게임 상자에 붙여두세요.</p>
+      <p style="font-size:11.5px; color:var(--ink-soft); margin-bottom:12px;">반납대 뷰어를 켜고 스캐너로 이 QR을 찍으면 반납대 가이드가 열립니다. QR에는 사이트 주소 없이 게임 코드만 들어 있어 외부인이 찍어도 가이드가 보이지 않습니다. 식별 스티커별 QR은 "QR 라벨 인쇄"에서 만드세요.</p>
       <div id="qrCodeBox" style="display:flex; justify-content:center; align-items:center; min-height:200px; margin-bottom:12px;"><span style="font-size:12px; color:var(--ink-soft);">QR코드를 만드는 중...</span></div>
-      <input type="text" readonly value="${link}" style="width:100%; box-sizing:border-box; padding:6px 8px; border:1px solid var(--line); border-radius:6px; font-size:11px; margin-bottom:10px;" onclick="this.select()">
+      <div style="font-family:var(--mono); font-size:12px; margin-bottom:8px;">${escHtml_(buildQrPayload_(g.id))}</div>
+      <input type="text" readonly value="${escHtml_(link)}" title="직원용 바로가기 링크 (로그인 필요)" style="width:100%; box-sizing:border-box; padding:6px 8px; border:1px solid var(--line); border-radius:6px; font-size:11px; margin-bottom:10px;" onclick="this.select()">
       <div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
         <button class="btn btn-ghost2" style="width:auto;" onclick="downloadGameQr_('${g.id}')">🖼️ QR 이미지 저장</button>
-        <button class="btn btn-ghost2" style="width:auto;" onclick="copyGameQrLink_('${g.id}')">🔗 링크 복사</button>
+        <button class="btn btn-ghost2" style="width:auto;" onclick="copyGameQrLink_('${g.id}')" title="직원끼리 공유하는 바로가기 링크 (로그인 필요)">🔗 링크 복사</button>
         ${navigator.share ? `<button class="btn btn-ghost2" style="width:auto;" onclick="shareGameQrLink_('${g.id}')">📤 공유</button>` : ''}
       </div>
       <div class="modal-actions">
@@ -2241,7 +2236,7 @@ async function openGameQrModal_(gameId){
     const box = document.getElementById('qrCodeBox');
     if (!box) return; // 그 사이 팝업을 닫았으면 중단
     box.innerHTML = '';
-    new QRCode(box, { text: link, width: 200, height: 200, correctLevel: QRCode.CorrectLevel.M });
+    new QRCode(box, { text: buildQrPayload_(g.id), width: 200, height: 200, correctLevel: QRCode.CorrectLevel.M });
   }catch(e){
     const box = document.getElementById('qrCodeBox');
     if (box) box.innerHTML = `<span style="font-size:12px; color:#C1440E;">QR코드를 만들지 못했습니다: ${e.message}</span>`;
@@ -2380,15 +2375,34 @@ function renderReturnViewerStandby_(){
 
 /** 스캐너가 보내온 문자열에서 게임 ID를 뽑아냅니다. QR에 전체 주소가 담겨 있어도,
  *  게임 ID만 담겨 있어도 둘 다 대응합니다. */
-function extractGameIdFromScan_(raw){
+/**
+ * 매장 QR에 담는 내용. 사이트 주소는 넣지 않고 "RB/게임ID" 또는 "RB/게임ID/스티커코드"만 담습니다.
+ * 손님이 휴대폰으로 찍어도 짧은 글자만 보이고 가이드로 들어갈 수 없으며, 반납대 뷰어를 켠 상태에서
+ * 스캐너로 찍을 때만 이 앱이 내용을 해석해 해당 가이드를 엽니다. (글자가 짧아 20mm 라벨에서도 QR이 성글고 잘 읽힘)
+ */
+const QR_PAYLOAD_PREFIX_ = 'RB/';
+function buildQrPayload_(gameId, stickerCode){
+  return QR_PAYLOAD_PREFIX_ + gameId + (stickerCode ? '/' + stickerCode : '');
+}
+
+/** 스캐너가 보내온 글자에서 게임ID와 식별 스티커 코드를 꺼냅니다.
+ *  새 형식(RB/게임ID/코드), 예전에 인쇄한 주소형 QR(?game=), 게임ID만 담긴 QR을 모두 받습니다. */
+function parseScanPayload_(raw){
+  raw = String(raw||'').trim();
   if (!raw) return null;
+  if (raw.toUpperCase().startsWith(QR_PAYLOAD_PREFIX_)){
+    const rest = raw.slice(QR_PAYLOAD_PREFIX_.length);
+    const i = rest.indexOf('/'); // 게임ID에는 "/"를 쓸 수 없으므로 첫 "/" 뒤는 스티커 코드입니다
+    const gameId = i === -1 ? rest : rest.slice(0, i);
+    const sticker = i === -1 ? '' : rest.slice(i+1);
+    return gameId ? { gameId, sticker } : null;
+  }
   try{
     const u = new URL(raw);
     const id = u.searchParams.get('game');
-    if (id) return id;
-    return null; // URL 형태인데 game 파라미터가 없으면 우리 QR이 아닙니다
+    return id ? { gameId: id, sticker: u.searchParams.get('s') || '' } : null; // URL인데 game이 없으면 우리 QR이 아님
   }catch(e){
-    return raw; // URL이 아니면 게임 ID 그 자체로 취급합니다
+    return { gameId: raw, sticker: '' }; // 게임 ID만 담긴 경우
   }
 }
 
@@ -2405,7 +2419,8 @@ function handleQrScanInput_(raw){
   lastQrScanRaw_ = raw;
   lastQrScanAt_ = now;
 
-  const gameId = extractGameIdFromScan_(raw);
+  const parsed = parseScanPayload_(raw);
+  const gameId = parsed && parsed.gameId;
   if (!gameId){
     renderGuideAccessError_('게임 QR코드를 다시 확인해주세요.');
     return;
@@ -2420,7 +2435,7 @@ function handleQrScanInput_(raw){
     renderGuideAccessError_('현재 사용할 수 없는 가이드입니다.');
     return;
   }
-  logQrScan_(g);
+  logQrScan_(g, parsed.sticker);
   openGame(g.id, 'return');
 }
 
@@ -2436,10 +2451,10 @@ const QR_PAGE_W_MM = 210, QR_PAGE_H_MM = 297; // A4
 let qrPrintSelected_ = new Map(); // 게임ID(문자열) -> 필요 수량
 let qrPrintSearch_ = '';
 
+let qrPrintStickerSel_ = new Map(); // 게임ID -> Set(인쇄할 식별 스티커 코드)
+
 function openQrPrintTool_(){
-  if (!confirmLeaveDetail_()) return;
-  leavePresence_();
-  currentGameId = null;
+  if (!prepPage_('more', openQrPrintTool_)) return;
   qrPrintSearch_ = '';
 
   appEl.innerHTML = `
@@ -2447,14 +2462,14 @@ function openQrPrintTool_(){
     <div class="pg-head">
       <h2>🖨️ QR 라벨 인쇄</h2>
       <p class="pg-desc">
-        게임을 검색해서 선택하고 필요한 수량을 입력하세요. A4·20×20mm·한 장 104칸(8×13) 라벨지 기준입니다.
-        라벨지 칸에는 게임 이름을 넣을 자리가 없어서, <b>라벨은 QR만 꽉 차게</b> 인쇄하고
-        <b>어느 칸이 어떤 게임인지는 "부착 안내" 용지</b>(라벨지와 똑같은 칸 배치, 일반 A4)로 따로 뽑습니다.
-        라벨지 옆에 부착 안내를 나란히 두고 같은 위치의 라벨을 떼어 붙이면 됩니다.
-        같은 게임의 QR은 가이드를 수정해도 항상 그대로입니다.
+        게임을 검색해서 선택하고 필요한 수량을 입력하세요. A4·20×20mm·한 장 104칸(8×13) 라벨지 기준이며,
+        한 칸 안에 <b>QR(위)과 게임 이름·식별 스티커(아래)</b>를 함께 인쇄합니다.
+        QR에는 사이트 주소 없이 게임 코드만 들어가서 외부인이 찍어도 가이드가 열리지 않고, 반납대 뷰어에서 스캐너로 찍을 때만 열립니다.
+        "보유 게임 관리"에서 식별 스티커를 등록한 게임은 오른쪽에서 인쇄할 스티커를 고를 수 있습니다 (수량은 스티커마다 적용).
         인쇄 배율은 "100%"(실제 크기)로, "페이지에 맞춤"은 꺼주세요. 처음에는 일반 A4로 먼저 뽑아 칸 위치를 확인하세요.
       </p>
     </div>
+    <div class="st-bar">${storeBarHtml_()}<span class="rg-card-hint">식별 스티커는 선택한 매장 기준으로 불러옵니다</span></div>
     <div class="pg-body">
       <div class="pg-panel">
         <h3>게임 검색·선택</h3>
@@ -2470,15 +2485,11 @@ function openQrPrintTool_(){
             <span style="color:var(--ink-soft);">이미 몇 칸 쓴 라벨지를 이어 쓸 때 (1 = 첫 칸, 왼쪽 위부터 →방향)</span>
           </label>
           <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
-            <input type="checkbox" id="qrPrintNewRow" onchange="renderQrPrintSelectedList_()"> 게임이 바뀔 때마다 새 줄에서 시작
-            <span style="color:var(--ink-soft);">(라벨은 조금 더 쓰지만 줄 단위로 구분돼 붙이기 쉬움)</span>
+            <input type="checkbox" id="qrPrintNewRow" onchange="renderQrPrintSelectedList_()"> 게임(스티커)이 바뀔 때마다 새 줄에서 시작
           </label>
         </div>
         <p id="qrPrintTotalInfo" style="font-size:12.5px; color:var(--ink-soft); margin-bottom:14px;"></p>
-        <div style="display:flex; gap:8px; flex-wrap:wrap;">
-          <button class="btn btn-primary2" style="width:auto;" onclick="generateQrLabelsPdf_()">① QR 라벨 PDF (라벨지에 인쇄)</button>
-          <button class="btn btn-ghost2" style="width:auto;" onclick="generateQrGuidePdf_()">② 부착 안내 PDF (일반 A4)</button>
-        </div>
+        <button class="btn btn-primary2" style="width:auto;" onclick="generateQrLabelsPdf_()">QR 라벨 PDF 만들기</button>
         <div id="qrPrintStatus" style="margin-top:12px; font-size:12.5px; color:var(--ink-soft); white-space:pre-wrap;"></div>
       </div>
     </div>
@@ -2504,11 +2515,12 @@ function renderQrPrintGameList_(){
 
   listEl.innerHTML = visibleGames.map(g=>{
     const checked = qrPrintSelected_.has(String(g.id));
+    const n = getOwnedStickers_(g.id).length;
     return `
       <label class="pg-game-row">
-        <input type="checkbox" ${checked?'checked':''} onchange="toggleQrPrintGameSelect_('${g.id}', this.checked)">
-        <span class="pg-game-name">${g.name}</span>
-        <span class="pg-game-id">ID ${g.id}</span>
+        <input type="checkbox" ${checked?'checked':''} onchange="toggleQrPrintGameSelect_('${jsq_(g.id)}', this.checked)">
+        <span class="pg-game-name">${escHtml_(g.name)}${n ? ` <span class="rg-card-hint">🏷️ 스티커 ${n}</span>` : ''}</span>
+        <span class="pg-game-id">ID ${escHtml_(g.id)}</span>
       </label>`;
   }).join('') || '<p style="font-size:12.5px; color:var(--ink-soft);">검색 결과가 없습니다.</p>';
 }
@@ -2517,9 +2529,20 @@ function toggleQrPrintGameSelect_(id, checked){
   id = String(id);
   if (checked){
     if (!qrPrintSelected_.has(id)) qrPrintSelected_.set(id, 1);
+    // 식별 스티커가 있는 게임은 처음엔 모든 스티커를 골라 두고, 필요 없는 것만 해제합니다.
+    qrPrintStickerSel_.set(id, new Set(getOwnedStickers_(id).map(st=>st.code)));
   } else {
     qrPrintSelected_.delete(id);
+    qrPrintStickerSel_.delete(id);
   }
+  renderQrPrintSelectedList_();
+}
+
+function toggleQrPrintSticker_(id, code, on){
+  id = String(id);
+  const set = qrPrintStickerSel_.get(id) || new Set();
+  if (on) set.add(String(code)); else set.delete(String(code));
+  qrPrintStickerSel_.set(id, set);
   renderQrPrintSelectedList_();
 }
 
@@ -2533,8 +2556,17 @@ function updateQrPrintQty_(id, qty){
 function removeQrPrintGame_(id){
   id = String(id);
   qrPrintSelected_.delete(id);
+  qrPrintStickerSel_.delete(id);
   renderQrPrintGameList_();
   renderQrPrintSelectedList_();
+}
+
+/** 이 게임에서 실제로 인쇄할 스티커 코드 목록. 스티커가 없거나 하나도 고르지 않으면 [''](스티커 없는 QR) */
+function qrPrintCodesFor_(id){
+  const stickers = getOwnedStickers_(id);
+  const sel = qrPrintStickerSel_.get(String(id));
+  const codes = stickers.filter(st => sel && sel.has(st.code)).map(st=>st.code);
+  return codes.length ? codes : [''];
 }
 
 function renderQrPrintSelectedList_(){
@@ -2551,17 +2583,24 @@ function renderQrPrintSelectedList_(){
     el.innerHTML = `
       <table style="width:100%; border-collapse:collapse; font-size:12.5px;">
         <thead><tr style="text-align:left; border-bottom:1px solid var(--line);">
-          <th style="padding:4px 6px;">게임명</th><th style="padding:4px 6px;">필요 수량</th><th></th>
+          <th style="padding:4px 6px;">게임명 · 식별 스티커</th><th style="padding:4px 6px;">수량</th><th></th>
         </tr></thead>
         <tbody>
           ${ids.map(id=>{
             const g = games.find(x=>String(x.id)===id);
             const qty = qrPrintSelected_.get(id);
+            const stickers = getOwnedStickers_(id);
+            const sel = qrPrintStickerSel_.get(id) || new Set();
             return `
-              <tr style="border-bottom:1px solid var(--line);">
-                <td style="padding:6px;">${g ? g.name : `(삭제된 게임 ${id})`}</td>
-                <td style="padding:6px;"><input type="number" min="1" max="999" value="${qty}" style="width:60px; padding:4px 6px; border:1px solid var(--line); border-radius:6px;" onchange="updateQrPrintQty_('${id}', this.value)"></td>
-                <td style="padding:6px;"><button class="btn btn-ghost2" style="width:auto; padding:3px 8px; font-size:11px;" onclick="removeQrPrintGame_('${id}')">삭제</button></td>
+              <tr style="border-bottom:1px solid var(--line); vertical-align:top;">
+                <td style="padding:6px;">
+                  <div style="font-weight:700;">${escHtml_(g ? g.name : `(삭제된 게임 ${id})`)}</div>
+                  ${stickers.length ? `<div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:5px;">${stickers.map(st=>`
+                    <label class="sc-sticker" style="cursor:pointer;"><input type="checkbox" ${sel.has(st.code)?'checked':''} onchange="toggleQrPrintSticker_('${jsq_(id)}','${jsq_(st.code)}', this.checked)" style="margin:0 3px 0 0;">${escHtml_(st.label)}</label>`).join('')}
+                    ${sel.size ? '' : '<span class="rg-card-hint">스티커를 고르지 않으면 스티커 없는 QR로 인쇄</span>'}</div>` : ''}
+                </td>
+                <td style="padding:6px; white-space:nowrap;"><input type="number" min="1" max="999" value="${qty}" style="width:60px; padding:4px 6px; border:1px solid var(--line); border-radius:6px;" onchange="updateQrPrintQty_('${jsq_(id)}', this.value)">${sel.size > 1 ? `<div class="rg-card-hint">스티커당</div>` : ''}</td>
+                <td style="padding:6px;"><button class="btn btn-ghost2" style="width:auto; padding:3px 8px; font-size:11px;" onclick="removeQrPrintGame_('${jsq_(id)}')">삭제</button></td>
               </tr>`;
           }).join('')}
         </tbody>
@@ -2569,10 +2608,9 @@ function renderQrPrintSelectedList_(){
     `;
   }
 
-  const total = ids.reduce((sum,id)=> sum + (qrPrintSelected_.get(id)||0), 0);
   const slots = qrLabelSlots_();
   const pages = slots.length ? Math.floor(slots[slots.length-1].cell / QR_LABELS_PER_PAGE) + 1 : 0;
-  if (infoEl) infoEl.textContent = total ? `총 라벨 수: ${total}개 · 라벨지 ${pages}장 (한 장당 ${QR_LABELS_PER_PAGE}칸 기준)` : '';
+  if (infoEl) infoEl.textContent = slots.length ? `총 라벨 수: ${slots.length}개 · 라벨지 ${pages}장 (한 장당 ${QR_LABELS_PER_PAGE}칸 기준)` : '';
 }
 
 /** jsPDF를 처음 쓸 때만 CDN에서 불러옵니다 (QR 라벨 PDF 생성용). */
@@ -2591,21 +2629,24 @@ function loadJsPDF_(){
 }
 
 /**
- * 라벨지의 칸마다 어떤 게임의 몇 번째 라벨이 들어가는지 정합니다. 라벨 PDF와 부착 안내 PDF가
- * 반드시 같은 배치를 쓰도록 이 함수 하나로 계산합니다. cell은 첫 장 왼쪽 위 칸부터 0,1,2… 로 이어지는 번호입니다.
+ * 라벨지의 칸마다 어떤 게임(과 식별 스티커)의 라벨이 들어가는지 정합니다.
+ * cell은 첫 장 왼쪽 위 칸부터 0,1,2… 로 이어지는 번호입니다.
  */
 function qrLabelSlots_(){
   const start = Math.max(1, Math.min(QR_LABELS_PER_PAGE, parseInt(document.getElementById('qrPrintStartCell')?.value, 10) || 1)) - 1;
   const newRow = !!document.getElementById('qrPrintNewRow')?.checked;
   const slots = [];
   let cell = start;
-  [...qrPrintSelected_.keys()].forEach((id, gi)=>{
+  [...qrPrintSelected_.keys()].forEach(id=>{
     const g = games.find(x=>String(x.id)===id);
     if (!g) return;
     const qty = qrPrintSelected_.get(id) || 0;
     if (!qty) return;
-    if (newRow && slots.length && cell % QR_LABEL_COLS) cell += QR_LABEL_COLS - (cell % QR_LABEL_COLS);
-    for (let i=0; i<qty; i++) slots.push({ cell: cell++, game: g, n: i+1, qty, group: gi });
+    qrPrintCodesFor_(id).forEach(code=>{
+      if (newRow && slots.length && cell % QR_LABEL_COLS) cell += QR_LABEL_COLS - (cell % QR_LABEL_COLS);
+      const label = stickerLabel_(id, code);
+      for (let i=0; i<qty; i++) slots.push({ cell: cell++, game: g, code, label });
+    });
   });
   return slots;
 }
@@ -2620,21 +2661,55 @@ function qrCellPosMm_(cell){
   };
 }
 
-/** QR만 라벨 한 칸(정사각형)을 꽉 채우도록 그립니다. 라벨지 칸에는 글자를 넣을 단차가 없으므로
- *  게임 이름은 넣지 않고(부착 안내 PDF로 대신 안내), 스캔이 잘 되도록 둘레에 얇은 흰 여백만 둡니다. */
-function buildQrLabelImage_(qrDataUrl){
+/** 라벨 한 칸(20×20mm)을 그립니다: 위쪽에 QR, 아래쪽에 게임 이름과 식별 스티커.
+ *  QR에는 짧은 코드(RB/게임ID/스티커)만 들어가서 작게 인쇄해도 잘 읽힙니다.
+ *  jsPDF 기본 글꼴은 한글이 없어서 글자도 캔버스에 그려 이미지로 넣습니다. */
+function buildQrLabelImage_(qrDataUrl, gameName, stickerLabel){
   return new Promise((resolve, reject)=>{
     const img = new Image();
     img.onload = ()=>{
-      const SIZE = 480, pad = 22; // 20mm 칸 기준 약 0.9mm 여백
+      const SIZE = 480;                 // 20mm = 480px (1mm = 24px)
+      const qrPx = 336;                 // QR 14mm
+      const qrTop = 14;                 // 위 여백 약 0.6mm
+      const textTop = qrTop + qrPx + 6; // QR 바로 아래부터 글자 영역 (약 5mm)
+      const textBottom = SIZE - 10;
+      const maxW = SIZE - 28;
       const canvas = document.createElement('canvas');
-      canvas.width = SIZE;
-      canvas.height = SIZE;
+      canvas.width = SIZE; canvas.height = SIZE;
       const ctx = canvas.getContext('2d');
-      ctx.fillStyle = '#fff';
-      ctx.fillRect(0, 0, SIZE, SIZE);
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, SIZE, SIZE);
       ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(img, pad, pad, SIZE - pad*2, SIZE - pad*2);
+      ctx.drawImage(img, (SIZE-qrPx)/2, qrTop, qrPx, qrPx);
+      ctx.imageSmoothingEnabled = true;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#000';
+      const font = (px)=> `800 ${px}px 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif`;
+      const fit = (text, startPx, minPx)=>{ // 폭에 맞을 때까지 글자를 줄이고, 그래도 넘치면 뒤를 …로 줄임
+        let px = startPx; ctx.font = font(px);
+        while (px > minPx && ctx.measureText(text).width > maxW){ px -= 2; ctx.font = font(px); }
+        let t = text;
+        while (t.length > 1 && ctx.measureText(t).width > maxW){ t = t.slice(0, -2) + '…'; }
+        return { t, px };
+      };
+      const areaH = textBottom - textTop;
+      if (stickerLabel){
+        // 두 줄: 게임 이름 / 검은 바탕의 스티커 값 (붙일 때 가장 중요한 정보라 눈에 띄게)
+        const nm = fit(gameName || '', 42, 30);
+        ctx.font = font(nm.px);
+        ctx.fillText(nm.t, SIZE/2, textTop + areaH*0.27);
+        const st = fit(stickerLabel, 40, 28);
+        ctx.font = font(st.px);
+        const w = Math.min(maxW, ctx.measureText(st.t).width + 24), h = st.px + 8, cy = textTop + areaH*0.74;
+        ctx.fillStyle = '#000';
+        roundRectPath_(ctx, SIZE/2 - w/2, cy - h/2, w, h, 8); ctx.fill();
+        ctx.fillStyle = '#fff'; ctx.fillText(st.t, SIZE/2, cy + 1);
+      } else {
+        // 스티커가 없으면 게임 이름을 최대 두 줄로 크게
+        ctx.font = font(44);
+        let lines = wrapCanvasTextByChar_(ctx, gameName || '', maxW);
+        if (lines.length > 2){ lines = [lines[0], fit(lines.slice(1).join(''), 44, 44).t]; }
+        if (lines.length === 1){ const f = fit(lines[0], 50, 32); ctx.font = font(f.px); ctx.fillText(f.t, SIZE/2, textTop + areaH/2); }
+        else { lines.forEach((ln, i)=> ctx.fillText(ln, SIZE/2, textTop + areaH*(i ? 0.73 : 0.27))); }
+      }
       resolve(canvas.toDataURL('image/png'));
     };
     img.onerror = ()=>reject(new Error('QR 이미지를 불러오지 못했습니다'));
@@ -2653,18 +2728,18 @@ async function generateQrLabelsPdf_(){
     [, jsPDF] = await Promise.all([loadQRCodeLib_(), loadJsPDF_()]);
   }catch(e){ qrPrintStatus_('❌ ' + e.message); return; }
 
-  // 같은 게임의 라벨 이미지는 한 번만 만들어서 필요한 수량만큼 재사용합니다.
-  const imgByGame = {};
+  // 같은 게임·스티커의 라벨 이미지는 한 번만 만들어서 필요한 수량만큼 재사용합니다.
+  const imgByUnit = {};
   for (const sl of slots){
-    const id = String(sl.game.id);
-    if (id in imgByGame) continue;
-    imgByGame[id] = null;
+    const key = unitKey_(sl.game.id, sl.code);
+    if (key in imgByUnit) continue;
+    imgByUnit[key] = null;
     try{
-      const qrSrc = await makeQrDataUrl_(buildGameDeepLink_(sl.game.id, 'return'), 480);
-      if (qrSrc) imgByGame[id] = await buildQrLabelImage_(qrSrc);
-    }catch(e){ /* 실패하면 이 게임은 빈 칸으로 둡니다 */ }
+      const qrSrc = await makeQrDataUrl_(buildQrPayload_(sl.game.id, sl.code), 480);
+      if (qrSrc) imgByUnit[key] = await buildQrLabelImage_(qrSrc, sl.game.name, sl.label);
+    }catch(e){ /* 실패하면 이 칸은 비워 둡니다 */ }
   }
-  const failed = Object.keys(imgByGame).filter(id=>!imgByGame[id]);
+  const failed = Object.keys(imgByUnit).filter(k=>!imgByUnit[k]);
 
   qrPrintStatus_(`PDF를 만드는 중... (라벨 ${slots.length}개)`);
   const doc = new jsPDF({ unit:'mm', format:'a4' });
@@ -2672,13 +2747,12 @@ async function generateQrLabelsPdf_(){
   slots.forEach(sl=>{
     const pos = qrCellPosMm_(sl.cell);
     while (curPage < pos.page){ doc.addPage(); curPage++; }
-    const img = imgByGame[String(sl.game.id)];
+    const img = imgByUnit[unitKey_(sl.game.id, sl.code)];
     if (img) doc.addImage(img, 'PNG', pos.x, pos.y, QR_LABEL_MM, QR_LABEL_MM);
   });
   doc.save(`QR라벨_${new Date().toISOString().slice(0,10)}.pdf`);
   qrPrintStatus_(`✅ 라벨 ${slots.length}개 · ${curPage+1}장짜리 PDF를 다운로드했습니다.` +
-    (failed.length ? `\n⚠ QR을 만들지 못한 게임 ${failed.length}개는 빈 칸으로 남겼습니다.` : '') +
-    `\n붙일 때는 "② 부착 안내 PDF"를 일반 용지로 뽑아 라벨지 옆에 두세요 (같은 칸 = 같은 게임).`);
+    (failed.length ? `\n⚠ QR을 만들지 못한 ${failed.length}종은 빈 칸으로 남겼습니다.` : ''));
 }
 
 /** 칸이 좁아서 띄어쓰기 없는 긴 이름도 글자 단위로 줄을 나눕니다 (띄어쓰기가 있으면 그 자리를 우선). */
@@ -2693,67 +2767,6 @@ function wrapCanvasTextByChar_(ctx, text, maxWidth){
     if (cur) lines.push(cur);
   });
   return lines.length ? lines : [''];
-}
-
-/**
- * 부착 안내 PDF: 라벨지와 똑같은 칸 배치에 게임 이름·ID·"n/수량"을 적어 일반 A4로 인쇄합니다.
- * 같은 게임 묶음은 같은 바탕색으로, 게임이 바뀌면 바탕색이 번갈아 바뀌어 경계가 바로 보입니다.
- * jsPDF 기본 글꼴은 한글이 없어서, 각 장을 캔버스에 그린 뒤 이미지로 PDF에 넣습니다.
- */
-async function generateQrGuidePdf_(){
-  const slots = qrLabelSlots_();
-  if (!slots.length){ alert('인쇄할 게임을 먼저 선택해주세요.'); return; }
-  let jsPDF;
-  try{ jsPDF = await loadJsPDF_(); }catch(e){ qrPrintStatus_('❌ ' + e.message); return; }
-  qrPrintStatus_('부착 안내를 만드는 중...');
-
-  const PX = 6; // 1mm = 6px (약 150dpi)
-  const pageCount = Math.floor(slots[slots.length-1].cell / QR_LABELS_PER_PAGE) + 1;
-  const doc = new jsPDF({ unit:'mm', format:'a4' });
-  const shades = ['#FFFFFF', '#E9EEF6'];
-  for (let p=0; p<pageCount; p++){
-    if (p) doc.addPage();
-    const canvas = document.createElement('canvas');
-    canvas.width = QR_PAGE_W_MM*PX; canvas.height = QR_PAGE_H_MM*PX;
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-    const pageSlots = slots.filter(sl => Math.floor(sl.cell / QR_LABELS_PER_PAGE) === p);
-    const byCell = new Map(pageSlots.map(sl=>[sl.cell % QR_LABELS_PER_PAGE, sl]));
-
-    // 위쪽 여백에 제목
-    const top = qrCellPosMm_(p*QR_LABELS_PER_PAGE).y;
-    ctx.fillStyle = '#000'; ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
-    ctx.font = `700 ${5*PX}px sans-serif`;
-    ctx.fillText(`QR 라벨 부착 안내 · ${p+1} / ${pageCount}장`, qrCellPosMm_(0).x*PX, (top-7)*PX);
-    ctx.font = `${3.2*PX}px sans-serif`; ctx.fillStyle = '#444';
-    ctx.fillText('라벨지 옆에 두고, 같은 위치의 라벨을 떼어 해당 게임에 붙이세요. 바탕색이 바뀌는 곳이 게임이 바뀌는 곳입니다.', qrCellPosMm_(0).x*PX, (top-2.5)*PX);
-
-    for (let c=0; c<QR_LABELS_PER_PAGE; c++){
-      const pos = qrCellPosMm_(p*QR_LABELS_PER_PAGE + c);
-      const x = pos.x*PX, y = pos.y*PX, w = QR_LABEL_MM*PX;
-      const sl = byCell.get(c);
-      ctx.fillStyle = sl ? shades[sl.group % 2] : '#F4F4F4';
-      ctx.fillRect(x, y, w, w);
-      ctx.strokeStyle = '#999'; ctx.lineWidth = 1; ctx.strokeRect(x+0.5, y+0.5, w-1, w-1);
-      if (!sl){ continue; }
-      // 게임 이름 (최대 3줄, 넘치면 …)
-      ctx.fillStyle = '#000'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-      const fs = 3*PX;
-      ctx.font = `700 ${fs}px sans-serif`;
-      let lines = wrapCanvasTextByChar_(ctx, sl.game.name || '', w - 1.6*PX);
-      if (lines.length > 3){ lines = lines.slice(0, 3); lines[2] = lines[2].replace(/.$/, '…'); }
-      const lineH = fs*1.15;
-      const blockTop = y + 1.5*PX;
-      lines.forEach((ln, i)=> ctx.fillText(ln, x + w/2, blockTop + i*lineH));
-      ctx.font = `${2.4*PX}px sans-serif`; ctx.fillStyle = '#555'; ctx.textBaseline = 'bottom';
-      ctx.fillText(`ID ${sl.game.id}`, x + w/2, y + w - 4.2*PX);
-      ctx.font = `700 ${2.6*PX}px sans-serif`; ctx.fillStyle = '#C1440E';
-      ctx.fillText(`${sl.n} / ${sl.qty}`, x + w/2, y + w - 1.2*PX);
-    }
-    doc.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, QR_PAGE_W_MM, QR_PAGE_H_MM);
-  }
-  doc.save(`QR라벨_부착안내_${new Date().toISOString().slice(0,10)}.pdf`);
-  qrPrintStatus_(`✅ 부착 안내 ${pageCount}장을 다운로드했습니다. 라벨 PDF와 같은 칸 배치입니다.`);
 }
 
 async function startBulkDownload_(){
@@ -2857,10 +2870,10 @@ function openHelpModal(){
         <li><b>게임 찾기</b> — 목록 상단 검색창에 이름(초성도 가능)을 입력하면 바로 필터링됩니다. 왼쪽 위 RED BUTTON 로고를 누르면 언제든 목록으로 돌아옵니다.</li>
         <li><b>사진 탭</b> — 실제 사진 위에 케이스종류(알파벳)와 위치가 표시됩니다. 점선으로 표시된 라벨은 실제 라벨기 인쇄 모습입니다. 사진이 여러 장이면 좌우를 클릭하거나 화면을 좌우로 밀어서 넘길 수 있습니다.</li>
         <li><b>표 탭</b> — 케이스종류·구성품·수량·비고를 표로 확인할 수 있습니다.</li>
-        <li><b>구매 가이드</b> — 상단 "🛠️ 도구 → 🛒 구매 가이드"에서 필요한 케이스 수량과 구매 링크를 확인할 수 있습니다. "보유 재고"를 넣으면 더 사야 할 수량만, 단가를 넣으면 예상 금액도 계산합니다.</li>
+        <li><b>구매 가이드</b> — 하단 "⋯ 더보기 → 🛒 구매 가이드"에서 필요한 케이스 수량과 구매 링크를 확인할 수 있습니다. "보유 재고"를 넣으면 더 사야 할 수량만, 단가를 넣으면 예상 금액도 계산합니다.</li>
         <li><b>⭐ 즐겨찾기 · 최근 본 게임</b> — 카드나 게임 제목 옆의 ☆을 누르면 즐겨찾기에 추가됩니다. 목록 맨 위에 즐겨찾기와 최근 본 게임이 바로가기로 나옵니다 (이 기기에만 저장).</li>
         <li><b>⚠ 누락·파손 신고</b> — 반납대 가이드 "① 필수 구성품 확인" 제목 옆의 "⚠ 누락·파손 신고"를 누르고 내용을 적으면 편집자에게 전달됩니다.</li>
-        <li><b>🔗 링크 · QR</b> — 게임 화면의 🔗(편집자는 "📱 QR코드")에서 이 게임의 반납대 가이드로 바로 들어오는 링크를 복사·공유하거나 QR 이미지를 저장할 수 있습니다. 여러 게임의 QR 라벨은 "🛠️ 도구 → 🖨️ QR 인쇄"에서 한 번에 만듭니다. 라벨에는 QR만 인쇄되고, 어느 칸이 어떤 게임인지는 함께 뽑는 "부착 안내" 용지(같은 칸 배치)로 확인합니다.</li>
+        <li><b>🔗 QR · 식별 스티커</b> — 게임 박스의 QR에는 사이트 주소 없이 게임 코드(와 식별 스티커)만 들어 있어서, 반납대 뷰어(하단 📷)를 켜고 스캐너로 찍을 때만 가이드가 열립니다. QR 라벨은 "⋯ 더보기 → 🖨️ QR 라벨 인쇄"에서 만들며, 한 칸에 QR과 게임 이름·식별 스티커가 함께 인쇄됩니다. 같은 게임을 여러 개 운영하면 "🗂️ 보유 게임 관리"에서 박스마다 붙인 식별 스티커 값(예: 빨강, A)을 등록하세요. 랭킹은 게임 단위로, 정기 점검은 스티커별로 셉니다.</li>
         <li><b>🔍 크게 보기 · 🖨️ 인쇄</b> — 사진 탭의 "크게 보기"나 구성품·반납대 사진을 누르면 화면 가득 띄워 두 손가락(또는 휠)으로 확대할 수 있습니다. 🖨️ 인쇄는 사진과 체크리스트 표, 반납대 필수 구성품, QR을 한 장으로 정리해 인쇄합니다.</li>
         <li><b>🌓 화면 테마</b> — 상단의 🌓 버튼으로 자동(기기 설정) · 밝게 · 어둡게를 바꿀 수 있습니다.</li>
         <li><b>⌨️ 단축키</b> — <span class="kbd">/</span> 검색, <span class="kbd">←</span><span class="kbd">→</span> 사진 넘기기, <span class="kbd">F</span> 크게 보기, <span class="kbd">Esc</span> 창 닫기·선택 해제, <span class="kbd">?</span> 이 도움말.</li>
@@ -6452,7 +6465,7 @@ async function printGameGuide_(){
     }catch(e){ console.error('인쇄용 사진 만들기 실패', e); }
   }
   let qrSrc = null;
-  try{ qrSrc = await makeQrDataUrl_(buildGameDeepLink_(g.id, 'return'), 240); }catch(e){}
+  try{ qrSrc = await makeQrDataUrl_(buildQrPayload_(g.id), 240); }catch(e){}
 
   const cases = g.cases || [];
   const rows = casesInTypeOrder_(cases).map(ci=>{
@@ -6798,12 +6811,6 @@ async function showHistoryPreview_(gameId, historyId){
 // 데이터 위치: stores/{매장코드}/scans, gameStats, ownedGames  (게임 자체 정보는 기존 games 그대로)
 // ============================================================
 const MAINT_THRESHOLD_ = 20; // 점검 이후 스캔이 이 횟수 이상이면 "점검 대상"
-const STICKER_COLORS_ = [
-  { name:'빨강', hex:'#E4141B' }, { name:'주황', hex:'#F97316' }, { name:'노랑', hex:'#FACC15', light:true },
-  { name:'초록', hex:'#16A34A' }, { name:'하늘', hex:'#38BDF8' }, { name:'파랑', hex:'#2563EB' },
-  { name:'보라', hex:'#7C3AED' }, { name:'분홍', hex:'#EC4899' }, { name:'검정', hex:'#1B1C1A' },
-  { name:'흰색', hex:'#FFFFFF', light:true }, { name:'회색', hex:'#9CA3AF' },
-];
 const INTRO_OPTS_ = ['필수', '권장', '선택'];
 const DIFF_OPTS_ = ['Very Easy', 'Easy', 'Normal', 'Semi-Hard', 'Hard', 'Extreme'];
 const GRADE_OPTS_ = (()=>{ const out=[]; ['S','A','B','C','D','E','F'].forEach(l=>['+','','-'].forEach(m=>out.push(l+m))); return out; })();
@@ -6811,9 +6818,9 @@ const GRADE_OPTS_ = (()=>{ const out=[]; ['S','A','B','C','D','E','F'].forEach(l
 let storeList_ = [];
 let myProfile_ = null;
 let activeStoreCode_ = '';
-let ownedGamesMap_ = new Map();   // 게임ID -> { owned, colors[] }  (현재 매장)
-let gameStatsMap_ = new Map();    // 게임ID -> { totalScans, cycleScans, lastCheckedAt, memo, ... } (현재 매장)
-let currentScan_ = null;          // 방금 스캔한 게임 { gameId, scanId, color, ready }
+let ownedGamesMap_ = new Map();   // 게임ID -> { owned, stickers:[{code,label}] }  (현재 매장, 옛 데이터는 colors[])
+let gameStatsMap_ = new Map();    // 점검 단위 키(게임ID 또는 게임ID__스티커코드) -> { gameId, stickerCode, totalScans, cycleScans, ... } (현재 매장)
+let currentScan_ = null;          // 방금 스캔한 게임 { gameId, sticker, label }
 let pageReloader_ = null;
 let lastScanLoggedAt_ = {};
 
@@ -6835,8 +6842,6 @@ function fmtDayLabel_(key){
 }
 function fmtTime_(ms){ const d=new Date(ms); return `${pad2_(d.getHours())}:${pad2_(d.getMinutes())}`; }
 function fmtShortDate_(ms){ if(!ms) return '-'; const d=new Date(ms); return `${d.getMonth()+1}/${d.getDate()}`; }
-function colorInfo_(name){ return STICKER_COLORS_.find(c=>c.name===name) || { name, hex:'#C7C7BE' }; }
-function colorDotHtml_(name){ if(!name) return ''; const c=colorInfo_(name); return `<span class="cdot" style="background:${c.hex};" title="${escHtml_(name)}"></span>`; }
 function gameNameById_(id, fallback){ const g=games.find(x=>String(x.id)===String(id)); return g ? (g.name||'') : (fallback||`(삭제된 게임 ${id})`); }
 function matchGameSearch_(g, q){
   if (!q) return true;
@@ -6966,62 +6971,56 @@ function updateMaintBadge_(){
   el.style.display = n > 0 ? 'flex' : 'none';
 }
 
-// ---------- QR 스캔 기록 + 식별 스티커 색상 ----------
-function getOwnedColors_(gameId){
-  const o = ownedGamesMap_.get(String(gameId));
-  return (o && o.owned !== false && Array.isArray(o.colors)) ? o.colors : [];
-}
+// ---------- QR 스캔 기록 + 식별 스티커 ----------
+// 같은 게임을 매장에 여러 개 두면 박스마다 식별 스티커(매장이 자유롭게 정한 글자, 예: "빨강", "A", "2호")를 붙입니다.
+// 스티커마다 짧은 숫자 코드(1, 2, 3…)를 매기고, QR에는 게임ID와 이 코드만 담습니다 (스캐너가 한글을 못 보내는 경우 대비).
+// 랭킹(인기 게임)은 게임 단위로, 정기 점검은 "게임 + 스티커" 단위로 셉니다.
 
-/** QR 스캔 한 번을 기록하고, 이 게임의 점검 카운트(누적/점검 이후)를 1 올립니다.
- *  색상 칩이 바로 보이도록 currentScan_은 즉시(동기적으로) 만들고, 저장은 이어서 비동기로 처리합니다. */
-function logQrScan_(g){
+/** 이 매장에서 이 게임에 등록한 식별 스티커 목록 [{code, label}] (옛 데이터의 colors 배열도 함께 읽습니다) */
+function getOwnedStickers_(gameId){
+  const o = ownedGamesMap_.get(String(gameId));
+  if (!o || o.owned === false) return [];
+  if (Array.isArray(o.stickers)) return o.stickers.filter(st=>st && st.code);
+  if (Array.isArray(o.colors)) return o.colors.map((name, i)=>({ code: String(i+1), label: name }));
+  return [];
+}
+function stickerLabel_(gameId, code){
+  if (!code) return '';
+  const st = getOwnedStickers_(gameId).find(x=>x.code === String(code));
+  return st ? st.label : `#${code}`;
+}
+/** 정기 점검을 세는 단위의 키 (스티커가 없으면 게임ID 그대로 — 예전 기록과 호환) */
+function unitKey_(gameId, code){ return code ? `${gameId}__${code}` : String(gameId); }
+
+/** QR 스캔 한 번을 기록합니다. 스캔 기록에는 게임ID와 스티커를 남기고(랭킹은 게임 단위로 집계),
+ *  점검 카운트(누적/점검 이후)는 "게임 + 스티커" 단위로 1 올립니다. */
+function logQrScan_(g, stickerCode){
   const id = String(g.id);
-  currentScan_ = { gameId:id, scanId:null, color:null, ready:Promise.resolve() };
+  const code = stickerCode ? String(stickerCode) : '';
+  const label = stickerLabel_(id, code);
+  currentScan_ = { gameId:id, sticker:code, label };
   if (!activeStoreCode_) return;
+  const unit = unitKey_(id, code);
   const now = Date.now();
-  if (lastScanLoggedAt_[id] && now - lastScanLoggedAt_[id] < 5000) return; // 새로고침 등으로 겹쳐 기록되는 것 방지
-  lastScanLoggedAt_[id] = now;
-  const cs = currentScan_;
-  cs.ready = (async ()=>{
+  if (lastScanLoggedAt_[unit] && now - lastScanLoggedAt_[unit] < 5000) return; // 새로고침 등으로 겹쳐 기록되는 것 방지
+  lastScanLoggedAt_[unit] = now;
+  (async ()=>{
     try{
       const by = (auth.currentUser?.email || '').toLowerCase();
-      const r = await addDoc(collection(db, 'stores', activeStoreCode_, 'scans'), { gameId:id, gameName:g.name||'', color:null, ts:now, by });
-      cs.scanId = r.id;
-      await setDoc(doc(db, 'stores', activeStoreCode_, 'gameStats', id),
-        { gameName:g.name||'', totalScans:increment(1), cycleScans:increment(1), lastScanAt:now }, { merge:true });
-      const st = gameStatsMap_.get(id) || { totalScans:0, cycleScans:0 };
-      gameStatsMap_.set(id, { ...st, gameName:g.name||'', totalScans:(st.totalScans||0)+1, cycleScans:(st.cycleScans||0)+1, lastScanAt:now });
+      await addDoc(collection(db, 'stores', activeStoreCode_, 'scans'), { gameId:id, gameName:g.name||'', sticker:code||null, color:label||null, ts:now, by });
+      await setDoc(doc(db, 'stores', activeStoreCode_, 'gameStats', unit),
+        { gameId:id, gameName:g.name||'', stickerCode:code||null, stickerLabel:label||null, totalScans:increment(1), cycleScans:increment(1), lastScanAt:now }, { merge:true });
+      const st = gameStatsMap_.get(unit) || { totalScans:0, cycleScans:0 };
+      gameStatsMap_.set(unit, { ...st, gameId:id, gameName:g.name||'', stickerCode:code||null, stickerLabel:label||null, totalScans:(st.totalScans||0)+1, cycleScans:(st.cycleScans||0)+1, lastScanAt:now });
       updateMaintBadge_();
     }catch(e){ console.warn('스캔 기록 저장 실패 (Firestore 규칙 게시가 필요할 수 있습니다)', e); }
   })();
 }
 
+/** 방금 스캔한 박스의 식별 스티커를 게임 이름 옆에 보여줍니다 (QR에 들어 있으므로 따로 고를 필요 없음). */
 function scanChipsHtml_(g){
-  if (!g || !currentScan_ || currentScan_.gameId !== String(g.id)) return '';
-  const colors = getOwnedColors_(g.id);
-  if (colors.length < 2) return '';
-  return `<span class="sc-lb">식별 스티커</span>` + colors.map(name=>{
-    const c = colorInfo_(name);
-    const sel = currentScan_.color === name;
-    return `<button class="sc-chip ${sel?'sel':''} ${c.light?'light':''}" style="background:${c.hex};" onclick="pickScanColor_('${jsq_(name)}')" title="${escHtml_(name)}">${sel?'✓':''}</button>`;
-  }).join('');
-}
-function refreshScanChips_(){
-  const slot = document.getElementById('scanChipsSlot');
-  if (!slot) return;
-  const g = games.find(x=>x.id===currentGameId);
-  slot.innerHTML = scanChipsHtml_(g);
-}
-async function pickScanColor_(name){
-  if (!currentScan_) return;
-  currentScan_.color = name;
-  refreshScanChips_();
-  const cs = currentScan_;
-  await cs.ready;
-  if (cs.scanId && activeStoreCode_){
-    try{ await updateDoc(doc(db, 'stores', activeStoreCode_, 'scans', cs.scanId), { color:name }); }
-    catch(e){ console.warn('색상 저장 실패', e); }
-  }
+  if (!g || !currentScan_ || currentScan_.gameId !== String(g.id) || !currentScan_.sticker) return '';
+  return `<span class="sc-sticker" title="스캔한 박스의 식별 스티커">🏷️ ${escHtml_(currentScan_.label)}</span>`;
 }
 
 async function fetchScans_(fromMs, toMs){
@@ -7070,7 +7069,7 @@ async function openScanHistory_(){
         ${list.map(s=>`
           <div class="row-card clickable" onclick="openGameFromHistory_('${jsq_(s.gameId)}')">
             <div class="row-top">
-              <div style="flex:1; min-width:0;"><div class="row-name">${escHtml_(gameNameById_(s.gameId, s.gameName))} ${colorDotHtml_(s.color)}</div><div class="row-sub">${fmtTime_(s.ts)}${s.color?` · ${escHtml_(s.color)} 스티커`:''}</div></div>
+              <div style="flex:1; min-width:0;"><div class="row-name">${escHtml_(gameNameById_(s.gameId, s.gameName))}${s.color?` <span class="sc-sticker">🏷️ ${escHtml_(s.color)}</span>`:''}</div><div class="row-sub">${fmtTime_(s.ts)}${s.color?` · 스티커 ${escHtml_(s.color)}`:''}</div></div>
             </div>
           </div>`).join('')}
       `).join('') : `<div class="empty">아직 스캔 기록이 없습니다.</div>`}`;
@@ -7194,7 +7193,9 @@ function getMaintRows_(){
   const rows = [];
   gameStatsMap_.forEach((v, id)=>{
     if ((v.cycleScans||0) <= 0 && !(maintShowAll_ && (v.totalScans||0) > 0)) return;
-    rows.push({ id, name: gameNameById_(id, v.gameName), cycle: v.cycleScans||0, total: v.totalScans||0, last: v.lastCheckedAt||0, memo: v.memo||'' });
+    const gid = v.gameId || id;
+    const label = v.stickerCode ? (getOwnedStickers_(gid).find(x=>x.code===String(v.stickerCode))?.label || v.stickerLabel || `#${v.stickerCode}`) : '';
+    rows.push({ id, name: gameNameById_(gid, v.gameName) + (label ? ` · ${label}` : ''), cycle: v.cycleScans||0, total: v.totalScans||0, last: v.lastCheckedAt||0, memo: v.memo||'' });
   });
   rows.sort((a,b)=> b.cycle - a.cycle || b.total - a.total);
   return maintShowAll_ ? rows : rows.filter(r=>r.cycle >= MAINT_THRESHOLD_);
@@ -7202,7 +7203,7 @@ function getMaintRows_(){
 
 async function openMaintenance_(){
   if (!prepPage_('maint', openMaintenance_)) return;
-  appEl.innerHTML = `${pageHeadHtml_('🔧 정기 점검', `마지막 점검 이후 QR로 ${MAINT_THRESHOLD_}회 이상 찍힌 게임이 자동으로 점검 대상이 되고, 많이 찍힌 순서로 정렬됩니다. 게임을 누르면 메모와 점검 이력이 보입니다.`)}
+  appEl.innerHTML = `${pageHeadHtml_('🔧 정기 점검', `마지막 점검 이후 QR로 ${MAINT_THRESHOLD_}회 이상 찍힌 게임이 자동으로 점검 대상이 되고, 많이 찍힌 순서로 정렬됩니다. 같은 게임을 여러 개 운영하면 식별 스티커별로 따로 셉니다. 게임을 누르면 메모와 점검 이력이 보입니다.`)}
     <div class="st-bar">${storeBarHtml_()}</div><div id="maintBody"><p style="padding:20px 4px;">불러오는 중...</p></div>`;
   if (!activeStoreCode_){ document.getElementById('maintBody').innerHTML = noStoreHtml_(); return; }
   await loadStoreData_();
@@ -7269,7 +7270,7 @@ async function saveMaintMemo_(id, val){
 /** 점검 완료: "점검 이후 횟수"만 0으로 되돌립니다. 누적 횟수와 스캔 기록(히스토리·랭킹)은 그대로 남습니다. */
 async function completeMaint_(id){
   const st = gameStatsMap_.get(id) || {};
-  const name = gameNameById_(id, st.gameName);
+  const name = (getMaintRows_().find(r=>r.id===id) || {}).name || gameNameById_(st.gameId || id, st.gameName);
   if (!confirm(`"${name}" 점검을 완료 처리할까요?\n\n점검 이후 횟수만 0으로 초기화되고, 누적 스캔 기록(히스토리·랭킹)은 그대로 유지됩니다.`)) return;
   const now = Date.now();
   const by = (auth.currentUser?.email || '').toLowerCase();
@@ -7311,7 +7312,7 @@ function setOwnedSearch_(v){ ownedSearch_ = v; renderOwnedList_(); }
 async function openOwnedGames_(){
   if (!prepPage_('more', openOwnedGames_)) return;
   ownedSearch_ = ''; ownedPickerFor_ = null;
-  appEl.innerHTML = `${pageHeadHtml_('🗂️ 보유 게임 관리', '이 매장에서 보유한 게임을 켜고, 같은 게임을 여러 개 운영하면 식별 스티커 색상을 추가하세요. 추가한 색상이 반납대 가이드에서 스캔 후 선택 칩으로 나타납니다.')}
+  appEl.innerHTML = `${pageHeadHtml_('🗂️ 보유 게임 관리', '이 매장에서 보유한 게임을 켜고, 같은 게임을 여러 개 운영하면 박스마다 붙인 식별 스티커 값(예: 빨강, A, 2호)을 추가하세요. QR 라벨 인쇄에서 스티커별 QR을 만들 수 있고, 정기 점검은 스티커별로 따로 셉니다.')}
     <div class="st-bar">${storeBarHtml_()}<input type="text" class="pg-search" style="margin:0; flex:1; min-width:160px;" placeholder="게임 이름 검색 (초성 가능)" oninput="setOwnedSearch_(this.value)"></div>
     <div id="ownedBody"></div>`;
   if (!activeStoreCode_){ document.getElementById('ownedBody').innerHTML = noStoreHtml_(); return; }
@@ -7330,7 +7331,7 @@ function renderOwnedList_(){
       const id = String(g.id);
       const o = ownedGamesMap_.get(id);
       const owned = !!o && o.owned !== false;
-      const colors = owned && Array.isArray(o.colors) ? o.colors : [];
+      const stickers = owned ? getOwnedStickers_(id) : [];
       const metaBits = [g.intro, g.difficulty, g.displayGrade].filter(Boolean).join(' · ');
       return `
       <div class="row-card" style="${owned?'':'opacity:.7;'}">
@@ -7340,11 +7341,12 @@ function renderOwnedList_(){
         </div>
         ${owned ? `
         <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:9px; padding-top:9px; border-top:1px dashed var(--line);">
-          <span class="row-sub" style="font-weight:700;">${colors.length>=2?`${colors.length}개 운영 · `:''}식별 스티커</span>
-          ${colors.map(name=>`<span style="display:inline-flex; align-items:center; gap:4px; border:1px solid var(--line); border-radius:999px; padding:2px 4px 2px 8px; font-size:12px;">${colorDotHtml_(name)} ${escHtml_(name)} <button style="border:none; background:none; cursor:pointer; color:var(--ink-soft); font-size:13px;" onclick="removeOwnedColor_('${jsq_(id)}','${jsq_(name)}')" title="삭제">✕</button></span>`).join('')}
-          <button class="chip-btn" style="border-style:dashed; color:var(--accent); border-color:var(--accent);" onclick="toggleOwnedPicker_('${jsq_(id)}')">+ 색상</button>
+          <span class="row-sub" style="font-weight:700;">${stickers.length>=2?`${stickers.length}개 운영 · `:''}식별 스티커</span>
+          ${stickers.map(st=>`<span class="sc-sticker">${escHtml_(st.label)} <button style="border:none; background:none; cursor:pointer; color:var(--ink-soft); font-size:13px; padding:0 0 0 2px;" onclick="removeOwnedColor_('${jsq_(id)}','${jsq_(st.code)}')" title="삭제">✕</button></span>`).join('')}
+          ${ownedPickerFor_===id
+            ? `<span style="display:inline-flex; gap:6px; align-items:center;"><input type="text" id="stickerInput_${escHtml_(id)}" maxlength="20" placeholder="예: 빨강, A, 2호" style="width:130px; padding:6px 8px; border:1px solid var(--line); border-radius:8px; font-size:12.5px;" onkeydown="if(event.key==='Enter') addOwnedColor_('${jsq_(id)}', this.value)"><button class="chip-btn on" onclick="addOwnedColor_('${jsq_(id)}', document.getElementById('stickerInput_${jsq_(id)}').value)">추가</button><button class="chip-btn" onclick="toggleOwnedPicker_('${jsq_(id)}')">취소</button></span>`
+            : `<button class="chip-btn" style="border-style:dashed; color:var(--accent); border-color:var(--accent);" onclick="toggleOwnedPicker_('${jsq_(id)}')">+ 스티커</button>`}
         </div>
-        ${ownedPickerFor_===id ? `<div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:9px;">${STICKER_COLORS_.filter(c=>!colors.includes(c.name)).map(c=>`<button class="sc-chip ${c.light?'light':''}" style="background:${c.hex}; width:38px; height:38px; flex-basis:38px; font-size:11px;" onclick="addOwnedColor_('${jsq_(id)}','${jsq_(c.name)}')" title="${c.name}"></button>`).join('')}</div>` : ''}
         ` : ''}
       </div>`;
     }).join('') || `<div class="empty">검색 결과가 없습니다.</div>`}`;
@@ -7359,20 +7361,36 @@ async function saveOwned_(id, data){
   }catch(e){ console.error(e); alert('저장하지 못했습니다. 잠시 후 다시 시도해주세요.'); return false; }
 }
 async function toggleOwnedGame_(id, on){
-  if (on) await saveOwned_(id, { owned:true, colors:[] });
+  if (on) await saveOwned_(id, { owned:true, stickers:[] });
   else { ownedPickerFor_ = null; await saveOwned_(id, null); }
   renderOwnedList_();
 }
-function toggleOwnedPicker_(id){ ownedPickerFor_ = ownedPickerFor_ === id ? null : id; renderOwnedList_(); }
-async function addOwnedColor_(id, name){
-  const o = ownedGamesMap_.get(id) || { owned:true, colors:[] };
-  const colors = [...(o.colors||[])]; if (!colors.includes(name)) colors.push(name);
-  await saveOwned_(id, { owned:true, colors });
+function toggleOwnedPicker_(id){
+  ownedPickerFor_ = ownedPickerFor_ === id ? null : id;
+  renderOwnedList_();
+  if (ownedPickerFor_) document.getElementById(`stickerInput_${id}`)?.focus();
+}
+/** 식별 스티커 값을 추가합니다. 값은 매장이 자유롭게 정하는 글자이고, 각각 바뀌지 않는 숫자 코드를 받아
+ *  QR에 들어갑니다 (나중에 글자를 지우거나 바꿔도 이미 붙인 QR의 코드는 그대로 유지). */
+async function addOwnedColor_(id, label){
+  label = String(label||'').trim();
+  if (!label){ document.getElementById(`stickerInput_${id}`)?.focus(); return; }
+  const stickers = getOwnedStickers_(id).map(st=>({ ...st }));
+  if (stickers.some(st=>st.label === label)){ alert(`"${label}"은(는) 이미 등록된 식별 스티커입니다.`); return; }
+  const o = ownedGamesMap_.get(id) || {};
+  const used = [...stickers.map(st=>Number(st.code)||0), Number(o.lastStickerCode)||0];
+  const code = String(Math.max(0, ...used) + 1);
+  stickers.push({ code, label });
+  ownedPickerFor_ = null;
+  await saveOwned_(id, { owned:true, stickers, lastStickerCode: Number(code) });
   renderOwnedList_();
 }
-async function removeOwnedColor_(id, name){
-  const o = ownedGamesMap_.get(id); if (!o) return;
-  await saveOwned_(id, { owned:true, colors:(o.colors||[]).filter(c=>c!==name) });
+async function removeOwnedColor_(id, code){
+  const st = getOwnedStickers_(id).find(x=>x.code===String(code));
+  if (!st || !confirm(`식별 스티커 "${st.label}"을(를) 삭제할까요?\n이미 붙인 QR은 스캔하면 "#${st.code}"로 표시됩니다.`)) return;
+  const o = ownedGamesMap_.get(id) || {};
+  const used = getOwnedStickers_(id).map(x=>Number(x.code)||0);
+  await saveOwned_(id, { owned:true, stickers: getOwnedStickers_(id).filter(x=>x.code!==String(code)), lastStickerCode: Math.max(Number(o.lastStickerCode)||0, ...used) });
   renderOwnedList_();
 }
 
@@ -7589,7 +7607,7 @@ async function applyGameXlsx_(){
 Object.assign(window, {
   updateEstMinutes_,
   toggleReturnViewer_, enterReturnViewer_, exitReturnViewer_,
-  switchStore_, toggleMoreMenu_, closeMoreMenu_, pickScanColor_, openScanHistory_, setHistRange_, openGameFromHistory_,
+  switchStore_, toggleMoreMenu_, closeMoreMenu_, openScanHistory_, setHistRange_, openGameFromHistory_,
   openScanRanking_, setRankRange_, setRankCustom_, selectRankGame_, openMaintenance_, toggleMaintShowAll_, toggleMaintDetail_,
   saveMaintMemo_, completeMaint_, printMaintenance_, openOwnedGames_, toggleOwnedGame_, toggleOwnedPicker_, addOwnedColor_, removeOwnedColor_,
   openGameDbAdmin_, addSingleGame_, downloadGameXlsxTemplate_, parseGameXlsx_, applyGameXlsx_, updateGameMeta_, renderOwnedList_, renderGdbList_, setOwnedSearch_, setGdbSearch_,
@@ -7616,7 +7634,7 @@ Object.assign(window, {
   openConditionStandardsAdmin_, addConditionStandard_, deleteConditionStandard_, updateStandardGrade_, updateStandardDetail_,
   triggerStandardPhotoUpload_, removeStandardPhoto_,
   openGameQrModal_, downloadGameQr_, copyGameQrLink_, shareGameQrLink_, toggleNavDropdown_, closeAllNavDropdowns_,
-  toggleQrScanMode_, openQrPrintTool_, toggleQrPrintGameSelect_, updateQrPrintQty_, removeQrPrintGame_, generateQrLabelsPdf_, generateQrGuidePdf_, renderQrPrintSelectedList_,
+  toggleQrScanMode_, openQrPrintTool_, toggleQrPrintGameSelect_, updateQrPrintQty_, removeQrPrintGame_, generateQrLabelsPdf_, toggleQrPrintSticker_, renderQrPrintSelectedList_,
   openHelpModal,
   cycleTheme_, toggleFavorite_, setDashboardStore_,
   setPurchaseStock_, setPurchasePrice_, clearPurchaseStock_, copyPurchaseList_,
