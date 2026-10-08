@@ -1002,7 +1002,7 @@ function openGameFromQr_(gameId, mode){
     renderGuideAccessError_('등록된 게임 가이드를 찾을 수 없습니다.');
     return;
   }
-  const wantsReturnGuide = mode !== 'photo' && mode !== 'table';
+  const wantsReturnGuide = isStoreAccount_() || (mode !== 'photo' && mode !== 'table');
   const isPublished = !!(target.returnGuide && target.returnGuide.published === true);
   if (wantsReturnGuide && !isPublished){
     renderGuideAccessError_('현재 사용할 수 없는 가이드입니다.');
@@ -3517,7 +3517,7 @@ async function openGame(id, mode){
   leavePresence_(); // 이전 게임에 있던 접속/잠금 정리
   showDashboard_ = false;
   currentGameId = id;
-  currentMode = rvMode_ ? 'return' : (mode || 'photo');
+  currentMode = (rvMode_ || isStoreAccount_()) ? 'return' : (mode || 'photo');
   currentPhotoIdx = 0;
   pushRecent_(id);
   resetChangeTracking_();
@@ -3538,7 +3538,7 @@ async function openGame(id, mode){
 function renderDetail(){
   const g = games.find(x=>x.id===currentGameId);
   if (!g){ resetChangeTracking_(); currentGameId = null; renderList(); return; }
-  if (rvMode_) currentMode = 'return';
+  if (rvMode_ || isStoreAccount_()) currentMode = 'return';
   const editable = currentRole === 'editor' && !rvMode_;
   setNavActive_(rvMode_ ? 'none' : 'home');
   const fav = isFavorite_(g.id);
@@ -3607,11 +3607,12 @@ function renderDetail(){
           <button class="viewer-back" onclick="printGameGuide_()" title="사진·표·체크리스트·QR을 한 장으로 정리해서 인쇄">🖨️</button>
         </span>
         ${estMinutesBadgeHtml_(g)}
+        ${isStoreAccount_() ? '' : `
         <div class="tabs" style="margin:0;">
           <button class="${currentMode==='photo'?'active':''}" onclick="switchMode('photo')">사진</button>
           <button class="${currentMode==='table'?'active':''}" onclick="switchMode('table')">표</button>
           <button class="${currentMode==='return'?'active':''}" onclick="switchMode('return')">반납대 가이드</button>
-        </div>
+        </div>`}
       </div>
       <div id="reportBannerSlot">${renderReportBanner_(g)}</div>
       <div id="tabBody"></div>
@@ -3694,7 +3695,11 @@ async function changeGameId_(){
   }
 }
 
+/** 매장 계정(편집 권한이 없는 계정): 게임 화면에서 반납대 가이드만 봅니다 (사진·표 탭은 가이드 제작용). */
+function isStoreAccount_(){ return myApprovedRole !== 'editor'; }
+
 function switchMode(m){
+  if (isStoreAccount_()) m = 'return';
   currentMode = m;
   currentPhotoIdx = 0;
   renderDetail();
