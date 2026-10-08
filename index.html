@@ -2295,6 +2295,7 @@ function buildGameDeepLink_(gameId, mode){
 /** 게임 상세 화면에서 QR코드 버튼을 누르면, 이 게임의 매장 QR(RB/게임ID)을 보여줍니다.
  *  반납대 뷰어를 켜고 스캐너로 찍으면 반납대 가이드가 열립니다. 직원끼리 바로 여는 링크는 따로 복사할 수 있습니다. */
 async function openGameQrModal_(gameId){
+  if (isStoreAccount_()) return; // 링크·QR 공유는 편집자 전용 (매장 계정에서는 버튼도 그리지 않음)
   const g = games.find(x=>String(x.id)===String(gameId));
   if (!g) return;
   const link = buildGameDeepLink_(g.id, 'return');
@@ -2350,6 +2351,7 @@ function downloadGameQr_(gameId){
 }
 
 function copyGameQrLink_(gameId){
+  if (isStoreAccount_()) return;
   const g = games.find(x=>String(x.id)===String(gameId));
   if (!g) return;
   const link = buildGameDeepLink_(g.id, 'return');
@@ -3603,7 +3605,7 @@ function renderDetail(){
         </div>
         <span class="viewer-tools">
           ${favBtn}
-          <button class="viewer-back" onclick="openGameQrModal_('${jsq_(g.id)}')" title="이 게임으로 바로 들어오는 링크 · QR코드">🔗</button>
+          ${isStoreAccount_() ? '' : `<button class="viewer-back" onclick="openGameQrModal_('${jsq_(g.id)}')" title="이 게임으로 바로 들어오는 링크 · QR코드">🔗</button>`}
           <button class="viewer-back" onclick="printGameGuide_()" title="사진·표·체크리스트·QR을 한 장으로 정리해서 인쇄">🖨️</button>
         </span>
         ${estMinutesBadgeHtml_(g)}
@@ -6587,6 +6589,7 @@ async function resolveReport_(reportId){
  * ============================================================
  */
 async function shareGameQrLink_(gameId){
+  if (isStoreAccount_()) return;
   const g = games.find(x=>String(x.id)===String(gameId));
   if (!g || !navigator.share) return;
   try{ await navigator.share({ title: `${g.name || ''} 반납대 가이드`, url: buildGameDeepLink_(g.id, 'return') }); }catch(e){}
