@@ -2580,6 +2580,20 @@ const QR_SHEET_TOP_MM = 18, QR_SHEET_LEFT_MM = 14.5, QR_COL_GAP_MM = 3, QR_ROW_G
 // 프린터마다 종이가 1~2mm 밀리므로, 인쇄 내용은 칸(20mm)보다 작은 17×17mm로 칸 가운데에 둡니다 (사방 1.5mm 여유).
 const QR_PRINT_MM = 17;
 const QR_PRINT_INSET_MM = (QR_LABEL_MM - QR_PRINT_MM) / 2;
+// 라벨지는 세로가 A4(297mm)보다 약 2.5mm 짧아서(약 294.5mm) 프린터에서 내용이 칸보다 위로 찍힙니다.
+// 기본으로 2.5mm 아래로 내려 찍고, 프린터마다 다를 수 있어 인쇄 화면에서 0.5mm 단위로 조정할 수 있게 합니다(기기에 기억).
+const QR_Y_OFFSET_DEFAULT_MM = 2.5;
+function qrYOffsetMm_(){
+  try{ const v = parseFloat(localStorage.getItem('rb_qr_y_offset')); if (isFinite(v)) return v; }catch(e){}
+  return QR_Y_OFFSET_DEFAULT_MM;
+}
+function setQrYOffset_(delta){
+  const v = delta === null ? QR_Y_OFFSET_DEFAULT_MM : Math.max(-10, Math.min(10, Math.round((qrYOffsetMm_() + delta) * 2) / 2));
+  try{ localStorage.setItem('rb_qr_y_offset', String(v)); }catch(e){}
+  const el = document.getElementById('qrYOffsetVal');
+  if (el) el.textContent = qrYOffsetText_(v);
+}
+function qrYOffsetText_(v){ return v === 0 ? '0mm' : `${v > 0 ? '아래로' : '위로'} ${Math.abs(v)}mm`; }
 
 let qrPrintSelected_ = new Map(); // 게임ID(문자열) -> 필요 수량
 let qrPrintSearch_ = '';
@@ -2620,6 +2634,14 @@ function openQrPrintTool_(){
           <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
             <input type="checkbox" id="qrPrintNewRow" onchange="renderQrPrintSelectedList_()"> 게임(스티커)이 바뀔 때마다 새 줄에서 시작
           </label>
+          <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+            세로 위치 보정
+            <button class="chip-btn" onclick="setQrYOffset_(-0.5)" title="0.5mm 위로">▲</button>
+            <b id="qrYOffsetVal" style="min-width:76px; text-align:center;">${qrYOffsetText_(qrYOffsetMm_())}</b>
+            <button class="chip-btn" onclick="setQrYOffset_(0.5)" title="0.5mm 아래로">▼</button>
+            <button class="chip-btn" onclick="setQrYOffset_(null)">기본값(아래로 ${QR_Y_OFFSET_DEFAULT_MM}mm)</button>
+            <span style="color:var(--ink-soft);">라벨지가 A4보다 세로로 약 2.5mm 짧아 기본으로 아래로 내려 찍습니다. 인쇄가 위·아래로 밀리면 0.5mm씩 조정하세요 (이 기기에 기억).</span>
+          </div>
         </div>
         <p id="qrPrintTotalInfo" style="font-size:12.5px; color:var(--ink-soft); margin-bottom:14px;"></p>
         <button class="btn btn-primary2" style="width:auto;" onclick="generateQrLabelsPdf_()">QR 라벨 PDF 만들기</button>
@@ -2789,7 +2811,7 @@ function qrCellPosMm_(cell){
   return {
     page: Math.floor(cell / QR_LABELS_PER_PAGE),
     x: QR_SHEET_LEFT_MM + (posInPage % QR_LABEL_COLS) * (QR_LABEL_MM + QR_COL_GAP_MM),
-    y: QR_SHEET_TOP_MM + Math.floor(posInPage / QR_LABEL_COLS) * (QR_LABEL_MM + QR_ROW_GAP_MM),
+    y: QR_SHEET_TOP_MM + qrYOffsetMm_() + Math.floor(posInPage / QR_LABEL_COLS) * (QR_LABEL_MM + QR_ROW_GAP_MM),
   };
 }
 
@@ -8489,7 +8511,7 @@ Object.assign(window, {
   openConditionStandardsAdmin_, addConditionStandard_, deleteConditionStandard_, updateStandardGrade_, updateStandardDetail_,
   triggerStandardPhotoUpload_, removeStandardPhoto_,
   openGameQrModal_, downloadGameQr_, copyGameQrLink_, shareGameQrLink_, toggleNavDropdown_, closeAllNavDropdowns_,
-  toggleQrScanMode_, openQrPrintTool_, toggleQrPrintGameSelect_, updateQrPrintQty_, removeQrPrintGame_, generateQrLabelsPdf_, toggleQrPrintSticker_, renderQrPrintSelectedList_,
+  toggleQrScanMode_, openQrPrintTool_, toggleQrPrintGameSelect_, updateQrPrintQty_, removeQrPrintGame_, generateQrLabelsPdf_, setQrYOffset_, toggleQrPrintSticker_, renderQrPrintSelectedList_,
   openHelpModal,
   cycleTheme_, toggleFavorite_, setDashboardStore_,
   setPurchaseStock_, setPurchasePrice_, clearPurchaseStock_, copyPurchaseList_,
