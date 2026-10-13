@@ -2574,6 +2574,9 @@ const QR_LABEL_COLS = 8;      // 8 x 13 = 104칸 라벨지 기준
 const QR_LABEL_ROWS = 13;
 const QR_LABELS_PER_PAGE = QR_LABEL_COLS * QR_LABEL_ROWS;
 const QR_PAGE_W_MM = 210, QR_PAGE_H_MM = 297; // A4
+// 실제 라벨지 칸 위치: 위 여백 18mm, 좌우 여백 14.5mm, 칸 사이 가로 3mm · 세로 0mm
+// (14.5 + 20×8 + 3×7 + 14.5 = 210mm, 18 + 20×13 = 278mm → 아래 여백 19mm)
+const QR_SHEET_TOP_MM = 18, QR_SHEET_LEFT_MM = 14.5, QR_COL_GAP_MM = 3, QR_ROW_GAP_MM = 0;
 
 let qrPrintSelected_ = new Map(); // 게임ID(문자열) -> 필요 수량
 let qrPrintSearch_ = '';
@@ -2589,7 +2592,7 @@ function openQrPrintTool_(){
     <div class="pg-head">
       <h2>🖨️ QR 라벨 인쇄</h2>
       <p class="pg-desc">
-        게임을 검색해서 선택하고 필요한 수량을 입력하세요. A4·20×20mm·한 장 104칸(8×13) 라벨지 기준이며,
+        게임을 검색해서 선택하고 필요한 수량을 입력하세요. A4·20×20mm·한 장 104칸(8×13) 라벨지 기준(위 여백 18mm, 좌우 여백 14.5mm, 칸 사이 가로 3mm)이며,
         한 칸 안에 <b>QR(위)과 게임 이름·식별 스티커(아래 한 줄, 길면 …로 줄임)</b>를 함께 인쇄합니다.
         QR에는 사이트 주소 없이 게임 코드만 들어가서 외부인이 찍어도 가이드가 열리지 않고, 반납대 뷰어에서 스캐너로 찍을 때만 열립니다.
         "보유 게임 관리"에서 식별 스티커를 등록한 게임은 오른쪽에서 인쇄할 스티커를 고를 수 있습니다 (수량은 스티커마다 적용).
@@ -2779,12 +2782,11 @@ function qrLabelSlots_(){
 }
 
 function qrCellPosMm_(cell){
-  const gridW = QR_LABEL_MM * QR_LABEL_COLS, gridH = QR_LABEL_MM * QR_LABEL_ROWS;
   const posInPage = cell % QR_LABELS_PER_PAGE;
   return {
     page: Math.floor(cell / QR_LABELS_PER_PAGE),
-    x: (QR_PAGE_W_MM - gridW) / 2 + (posInPage % QR_LABEL_COLS) * QR_LABEL_MM,
-    y: (QR_PAGE_H_MM - gridH) / 2 + Math.floor(posInPage / QR_LABEL_COLS) * QR_LABEL_MM,
+    x: QR_SHEET_LEFT_MM + (posInPage % QR_LABEL_COLS) * (QR_LABEL_MM + QR_COL_GAP_MM),
+    y: QR_SHEET_TOP_MM + Math.floor(posInPage / QR_LABEL_COLS) * (QR_LABEL_MM + QR_ROW_GAP_MM),
   };
 }
 
