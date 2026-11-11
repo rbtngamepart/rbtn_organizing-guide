@@ -165,6 +165,7 @@
   .case-photo-wrap{position:relative; display:inline-block; width:4.5em; height:4.5em; border-radius:0.5em; overflow:hidden; border:1px solid var(--line); margin-bottom:0.4em;}
   .case-photo-wrap.mini{width:3.4em; height:3.4em; border-radius:0.4em; margin-bottom:0; flex-shrink:0;}
   .case-photo-thumb{width:100%; height:100%; object-fit:contain; display:block; cursor:zoom-in;}
+  .case-photo-edit{position:absolute; top:1px; left:1px; width:16px; height:16px; border-radius:50%; background:rgba(0,0,0,.6); color:#fff; border:none; font-size:10px; line-height:16px; cursor:pointer; padding:0; z-index:2;}
   .case-photo-remove{position:absolute; top:1px; right:1px; width:16px; height:16px; border-radius:50%; background:rgba(0,0,0,.6); color:#fff; border:none; font-size:10px; line-height:16px; cursor:pointer; padding:0; z-index:2;}
   .anno-item-row{margin-bottom:0.35em;}
   .anno-item-photo-row{display:flex; align-items:center; margin:0.17em 0 0.26em;}
@@ -3058,7 +3059,7 @@ function openHelpModal(){
         <li><b>여러 장의 사진</b> — 사진을 여러 장 올린 경우 "◀ 순서"/"순서 ▶"로 순서를 바꿀 수 있습니다.</li>
         <li><b>표 기준 마커 자동 생성</b> — 표에는 있지만 아직 사진에 마커가 없는 케이스들을 한 번에 격자로 배치합니다. 이후 드래그로 실제 위치에 맞게 옮겨주세요.</li>
         <li><b>마커·텍스트박스</b> — 사진의 빈 곳을 더블클릭하면 마커(알파벳 원)와 텍스트박스가 함께 생깁니다. 각각 드래그로 옮길 수 있고, 텍스트박스에서 케이스종류·구성품·수량·비고를 바로 수정할 수 있습니다. "복제"로 통째로 복제하거나, ✕로 마커+케이스를 통째로 삭제합니다. 오른쪽의 "마커 크기"·"연결선 굵기"·"텍스트박스 크기" 슬라이더로 사진에 맞게 크기를 조절할 수 있습니다 (구성품이 몇 개 안 되는 사진에서 글씨를 크게 키우고 싶을 때 유용합니다).</li>
-        <li><b>구성품 사진</b> — 텍스트박스 안의 각 구성품 항목마다 "📷 사진 추가"로 실제 사진을 넣을 수 있습니다 (한 케이스에 여러 종류의 구성품이 있으면 항목별로 따로 넣을 수 있습니다. 반납대 가이드처럼 사진으로 바로 알아볼 수 있게 하고 싶을 때 유용합니다). 사진을 고르면 네 귀퉁이 색을 기준으로 배경을 자동으로 지워주는데, 결과가 마음에 안 들면 민감도 슬라이더로 조절하거나 "배경 유지하고 사용"을 누르면 됩니다. 넣은 사진은 항목 옆 ✕ 버튼으로 지울 수 있습니다.</li>
+        <li><b>구성품 사진</b> — 텍스트박스 안의 각 구성품 항목마다 "📷 사진 추가"로 실제 사진을 넣을 수 있습니다 (한 케이스에 여러 종류의 구성품이 있으면 항목별로 따로 넣을 수 있습니다. 반납대 가이드처럼 사진으로 바로 알아볼 수 있게 하고 싶을 때 유용합니다). 사진을 고르면 먼저 사진 탭과 같은 자르기·회전·축소 편집창이 뜨고, 이어서 네 귀퉁이 색을 기준으로 배경을 자동으로 지워주는데, 결과가 마음에 안 들면 민감도 슬라이더로 조절하거나 "배경 유지하고 사용"을 누르면 됩니다. 넣은 사진은 왼쪽 위 ✎ 버튼으로 다시 편집(자르기·회전·축소)하고, 오른쪽 위 ✕ 버튼으로 지울 수 있습니다 (반납대 가이드 구성품 사진도 같음).</li>
         <li><b>라벨</b> — 텍스트박스의 "라벨 만들기"로 실제 인쇄 미리보기(검정 바탕 흰 글씨)를 만듭니다. 드래그 이동, 글자 클릭 후 직접 수정, A-/A+ 글자 크기, ⟳ 90도 회전, ⧉ 복제, 손잡이로 크기 조절이 가능합니다. 다른 라벨과 가장자리·중앙이 맞으면 빨간 점선으로 자동 정렬(스냅)됩니다.</li>
         <li><b>표 편집</b> — 표 탭에서 케이스 추가/삭제, 구성품·수량·비고를 직접 입력합니다. 종류 선택에는 플라스틱 케이스(A~L)와 지퍼백 외에, 케이스를 쓰지 않는 구성품을 화살표로 가리키는 "구성품" 옵션도 있습니다.</li>
         <li><b>저장 · 자동 저장 · 실행 취소</b> — "💾 저장"(<span class="kbd">Ctrl</span>+<span class="kbd">S</span>)으로 저장합니다. "자동 저장"을 켜두면 수정하고 몇 초 뒤 알아서 저장되고, 저장 안 된 변경이 있으면 저장 버튼에 점(●)이 표시됩니다. 저장하지 않고 다른 화면으로 가거나 창을 닫으려 하면 먼저 물어봅니다. ↶ ↷ 버튼(<span class="kbd">Ctrl</span>+<span class="kbd">Z</span> / <span class="kbd">Ctrl</span>+<span class="kbd">Shift</span>+<span class="kbd">Z</span>)으로 마커·라벨·표 편집을 한 단계씩 되돌립니다. 마커·라벨을 선택하고 <span class="kbd">Delete</span>를 누르면 삭제됩니다.</li>
@@ -4021,6 +4022,7 @@ function drawMarkers(stage, photo, editable){
                   <div class="case-photo-wrap mini checkerboard-bg" data-photo="${it.photo}">
                     <img class="case-photo-thumb" alt="" onclick="event.stopPropagation(); openPhotoLightbox_(this.src)">
                     <button class="case-photo-remove" title="사진 삭제" onclick="removeCasePhoto_(${mi},${ii})">✕</button>
+                    <button class="case-photo-edit" title="사진 편집 (자르기·회전·축소)" onclick="event.stopPropagation(); editCasePhoto_(${mi},${ii})">✎</button>
                   </div>
                 ` : `<button class="anno-item-photo-btn" onclick="triggerCasePhotoUpload_(${mi},${ii})">📷 사진 추가</button>`}
               </div>
@@ -4349,19 +4351,14 @@ function triggerPhotoUploadFor_(target){
   casePhotoFileInput_.onchange = ()=>{
     const file = casePhotoFileInput_.files[0];
     casePhotoFileInput_.value = '';
-    if (file) openCasePhotoModal_(target, file);
+    // 사진 탭 업로드와 같은 편집창(자르기·회전·축소)을 먼저 거친 뒤 배경 제거 단계로 넘어갑니다.
+    if (file) openCropModal_(file, {
+      title: '구성품 사진 자르기 · 회전',
+      applyLabel: '다음: 배경 제거',
+      onApply: (canvas)=>{ casePhotoState_ = { target, img: canvas, srcImageData: null }; renderCasePhotoModal_(); },
+    });
   };
   casePhotoFileInput_.click();
-}
-
-function openCasePhotoModal_(target, file){
-  const url = URL.createObjectURL(file);
-  const img = new Image();
-  img.onload = ()=>{
-    casePhotoState_ = { target, img, srcImageData: null };
-    renderCasePhotoModal_();
-  };
-  img.src = url;
 }
 
 function renderCasePhotoModal_(){
@@ -4446,23 +4443,65 @@ async function applyCasePhoto_(keepBackground){
   if (keepBackground) ctx.putImageData(casePhotoState_.srcImageData, 0, 0);
 
   const { target } = casePhotoState_;
+  if (await saveTargetPhotoCanvas_(target, canvas)) closeCasePhotoModal_();
+}
+
+/** 완성된 구성품 사진(캔버스)을 PNG로 올려 그 항목의 사진으로 바꾸고, 예전 파일은 지웁니다. */
+async function saveTargetPhotoCanvas_(target, canvas){
   const g = games.find(x=>x.id===currentGameId);
   const item = resolvePhotoTargetItem_(target);
   const oldPath = item.photo;
-
   try{
-    const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+    // 휴대폰 원본처럼 큰 사진은 긴 변 600px로 줄여서 올립니다 (구성품 사진은 작게 보이므로 충분)
+    const MAX = 600;
+    let out = canvas;
+    if (Math.max(canvas.width, canvas.height) > MAX){
+      const k = MAX / Math.max(canvas.width, canvas.height);
+      out = document.createElement('canvas');
+      out.width = Math.round(canvas.width * k); out.height = Math.round(canvas.height * k);
+      out.getContext('2d').drawImage(canvas, 0, 0, out.width, out.height);
+    }
+    const blob = await new Promise(res => out.toBlob(res, 'image/png'));
     const folder = target.type === 'case' ? 'case-photos' : 'return-guide-photos';
     const storagePath = `games/${g.id}/${folder}/${Date.now()}_${Math.random().toString(36).slice(2)}.png`;
     await uploadBytes(ref(storage, storagePath), blob);
     item.photo = storagePath;
     await persistGame_(g);
     if (oldPath && oldPath !== storagePath) deleteObject(ref(storage, oldPath)).catch(()=>{});
-    closeCasePhotoModal_();
     if (target.type === 'case') redrawCurrentPhoto_(); else renderReturnGuideTab();
+    return true;
   }catch(e){
     alert('사진을 저장하는 중 문제가 발생했습니다: ' + e.message);
+    return false;
   }
+}
+
+/** 이미 올린 구성품 사진을 다시 편집(자르기·회전·축소)합니다. 배경을 지운 투명 부분은 그대로 유지합니다. */
+function editCasePhoto_(mi, ii){ editPhotoFor_({ type:'case', mi, ii }); }
+function editReturnPhoto_(section, idx){ editPhotoFor_({ type:'return', section, idx }); }
+async function editPhotoFor_(target){
+  const item = resolvePhotoTargetItem_(target);
+  if (!item || !item.photo) return;
+  let img;
+  try{
+    const url = await resolvePhotoUrl_(item.photo);
+    img = await new Promise((resolve, reject)=>{
+      const im = new Image();
+      im.crossOrigin = 'anonymous'; // 캔버스로 다시 저장하려면 필요합니다
+      im.onload = ()=>resolve(im);
+      im.onerror = ()=>reject(new Error('CORS_OR_NETWORK'));
+      im.src = url;
+    });
+  }catch(e){
+    alert('사진을 편집용으로 불러오지 못했습니다. 잠시 후 다시 시도하거나, 사진을 삭제하고 새로 올려주세요.');
+    return;
+  }
+  openCropModalFromImage_(img, {
+    title: '구성품 사진 편집 (자르기 · 회전 · 축소)',
+    applyLabel: '적용하고 저장',
+    transparent: true,
+    onApply: (canvas)=> saveTargetPhotoCanvas_(target, canvas),
+  });
 }
 
 async function removeCasePhoto_(mi, ii){
@@ -5150,14 +5189,17 @@ function uploadPhoto(){
  */
 let cropState_ = null;
 
-function openCropModal_(file){
+/** opts (선택): 사진 탭 업로드 말고 다른 곳(구성품 사진 등)에서 같은 편집창을 쓸 때.
+ *  { title, applyLabel, transparent(축소 여백을 투명으로·PNG), onApply(canvas) } */
+function openCropModal_(file, opts){
   const url = URL.createObjectURL(file);
   const img = new Image();
-  img.onload = ()=>{
-    cropState_ = { originalImg: img, img, rotation: 0, fileName: file.name };
-    renderCropModal_();
-  };
+  img.onload = ()=> openCropModalFromImage_(img, { fileName: file.name, ...(opts||{}) });
   img.src = url;
+}
+function openCropModalFromImage_(img, opts){
+  cropState_ = { originalImg: img, img, rotation: 0, ...(opts||{}) };
+  renderCropModal_();
 }
 
 function renderCropModal_(){
@@ -5169,7 +5211,7 @@ function renderCropModal_(){
   backdrop.id = 'cropBackdrop';
   backdrop.innerHTML = `
     <div class="modal">
-      <h3>사진 자르기 · 회전</h3>
+      <h3>${escHtml_(cropState_.title || '사진 자르기 · 회전')}</h3>
       <div class="crop-toolbar">
         <button onclick="rotateCrop_(-90)">↺ 왼쪽으로 회전</button>
         <button onclick="rotateCrop_(90)">회전 ↻ 오른쪽으로</button>
@@ -5198,7 +5240,7 @@ function renderCropModal_(){
       </div>
       <div class="modal-actions">
         <button class="btn-cancel" onclick="closeCropModal_()">취소</button>
-        <button class="btn-apply" onclick="applyCropAndUpload_()">적용하고 업로드</button>
+        <button class="btn-apply" onclick="applyCropAndUpload_()">${escHtml_(cropState_.applyLabel || '적용하고 업로드')}</button>
       </div>
     </div>
   `;
@@ -5234,6 +5276,7 @@ function updateCropResultPreview_(){
   const sx = x*scale, sy = y*scale, sw = w*scale, sh = h*scale;
   if (sw <= 0 || sh <= 0) return;
 
+  if (cropState_.transparent) ctx.clearRect(0,0,outW,outH);
   const fitScale = Math.min(outW/sw, outH/sh);
   const baseW = sw*fitScale, baseH = sh*fitScale;
   const shrink = (cropState_.shrinkPct || 100) / 100;
@@ -5374,13 +5417,20 @@ async function applyCropAndUpload_(){
   const shrink = (cropState_.shrinkPct || 100) / 100;
   if (shrink < 1){
     // 선택 영역 프레임은 그대로 두고, 그 안의 내용만 축소해서 가운데 배치 (남는 자리는 여백)
-    ctx.fillStyle = '#F6F6F3';
-    ctx.fillRect(0, 0, sw, sh);
+    if (!cropState_.transparent){ ctx.fillStyle = '#F6F6F3'; ctx.fillRect(0, 0, sw, sh); }
     const drawW = sw*shrink, drawH = sh*shrink;
     const drawX = (sw-drawW)/2, drawY = (sh-drawH)/2;
     ctx.drawImage(img, sx, sy, sw, sh, drawX, drawY, drawW, drawH);
   } else {
     ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+  }
+
+  // 다른 곳에서 편집창만 빌려 쓴 경우: 결과 캔버스를 넘겨주고 끝 (업로드는 그쪽에서)
+  if (cropState_.onApply){
+    const cb = cropState_.onApply;
+    closeCropModal_();
+    cb(outCanvas);
+    return;
   }
 
   const blob = await new Promise(res => outCanvas.toBlob(res, 'image/jpeg', 0.9));
@@ -5903,6 +5953,7 @@ function rgPhotoControl_(section, idx, photo){
     <div class="case-photo-wrap mini checkerboard-bg" data-photo="${photo}">
       <img class="case-photo-thumb" alt="" onclick="event.stopPropagation(); openPhotoLightbox_(this.src)">
       <button class="case-photo-remove" title="사진 삭제" onclick="removeReturnPhoto_('${section}',${idx})">✕</button>
+      <button class="case-photo-edit" title="사진 편집 (자르기·회전·축소)" onclick="event.stopPropagation(); editReturnPhoto_('${section}',${idx})">✎</button>
     </div>
   ` : `<button class="anno-item-photo-btn" onclick="triggerReturnPhotoUpload_('${section}',${idx})">📷 사진</button>`;
 }
@@ -8598,7 +8649,7 @@ Object.assign(window, {
   downloadGuideImage, downloadAllGuideImages,
   addCase, updateCaseType, updateCaseNote, updateItem, deleteItem, saveGame, doLogout,
   addGuideItem_, updateGuideItem_, deleteGuideItem_, updateProtectorInfo_, toggleGuidePublished_, updateReturnGuideCommonNotice_,
-  triggerReturnPhotoUpload_, removeReturnPhoto_, toggleGuideItemStandard_, openConditionPopup_,
+  triggerReturnPhotoUpload_, removeReturnPhoto_, editReturnPhoto_, editCasePhoto_, toggleGuideItemStandard_, openConditionPopup_,
   updateMarkerCaseType, updateMarkerItem, addMarkerItem, deleteMarkerItem, removeMarkerCase, duplicateMarkerCase,
   triggerCasePhotoUpload_, previewCasePhotoThreshold_, applyCasePhoto_, closeCasePhotoModal_, removeCasePhoto_, openPhotoLightbox_,
   previewMarkerSize, updateMarkerSize, previewLineWidth, updateLineWidth, previewAnnoScale, updateAnnoScale,
