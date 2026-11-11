@@ -165,6 +165,9 @@
   .case-photo-wrap{position:relative; display:inline-block; width:4.5em; height:4.5em; border-radius:0.5em; overflow:hidden; border:1px solid var(--line); margin-bottom:0.4em;}
   .case-photo-wrap.mini{width:3.4em; height:3.4em; border-radius:0.4em; margin-bottom:0; flex-shrink:0;}
   .case-photo-thumb{width:100%; height:100%; object-fit:contain; display:block; cursor:zoom-in;}
+  .bg-tools{display:flex; gap:6px; flex-wrap:wrap; margin-top:10px;}
+  .bg-tools button{flex:1; min-width:84px; border:1.5px solid var(--line-strong); background:var(--surface); border-radius:8px; padding:8px 6px; font-size:12.5px; font-weight:700; cursor:pointer; font-family:var(--sans); color:var(--ink-mid);}
+  .bg-tools button.on{background:var(--ink); color:var(--surface); border-color:var(--ink);}
   .case-photo-edit{position:absolute; top:1px; left:1px; width:16px; height:16px; border-radius:50%; background:rgba(0,0,0,.6); color:#fff; border:none; font-size:10px; line-height:16px; cursor:pointer; padding:0; z-index:2;}
   .case-photo-remove{position:absolute; top:1px; right:1px; width:16px; height:16px; border-radius:50%; background:rgba(0,0,0,.6); color:#fff; border:none; font-size:10px; line-height:16px; cursor:pointer; padding:0; z-index:2;}
   .anno-item-row{margin-bottom:0.35em;}
@@ -4319,7 +4322,7 @@ function duplicateMarkerCase(mi){
  * "배경 유지"를 선택할 수 있습니다.
  * ============================================================
  */
-let casePhotoState_ = null; // { target, img, srcImageData }
+let casePhotoState_ = null; // { target, img, srcImageData, analysis, manual, extraCenters, sens, tool, brush, history }
 let casePhotoFileInput_ = null;
 
 /** target을 실제 데이터의 item 객체로 바꿔줍니다. 케이스 항목({type:'case',mi,ii})과
@@ -4355,30 +4358,189 @@ function triggerPhotoUploadFor_(target){
     if (file) openCropModal_(file, {
       title: '구성품 사진 자르기 · 회전',
       applyLabel: '다음: 배경 제거',
-      onApply: (canvas)=>{ casePhotoState_ = { target, img: canvas, srcImageData: null }; renderCasePhotoModal_(); },
+      onApply: (canvas)=> openBgRemovalFor_(target, canvas),
     });
   };
   casePhotoFileInput_.click();
 }
 
+/**
+ * 구성품 사진 배경 제거 (개선판)
+ * ------------------------------------------------------------
+ * 예전 방식은 "네 귀퉁이 평균색과 비슷한 색"을 사진 전체에서 지워서, 구성품 안쪽에 배경과 비슷한
+ * 색이 있으면 구멍이 났습니다. 이제는
+ *  1) 사진 가장자리 전체에서 배경색 몇 가지를 뽑고(색 군집),
+ *  2) 가장자리에서 시작해 "이어져 있는" 배경만 채워 나가며(구성품 안쪽은 건드리지 않음),
+ *  3) 색이 크게 바뀌는 경계(물체 윤곽)에서는 멈추고,
+ *  4) 남은 작은 얼룩은 정리하고 윤곽은 부드럽게 다듬습니다.
+ * 자동 결과가 아쉬우면 🎯 배경 찍기(탭한 곳 색을 배경으로 추가), 🧽 지우기 붓, 🖌️ 되살리기 붓으로 손질합니다.
+ * 배경을 지우기 전 원본(자른 사진)도 함께 저장해서, 나중에 ✎ 편집으로 배경 제거를 되돌리거나 다시 할 수 있습니다.
+ */
+const BG_DEFAULT_SENS_ = 35;
+
+function srgbToLab_(r, g, b){
+  const f = v => { v /= 255; return v <= 0.04045 ? v/12.92 : Math.pow((v+0.055)/1.055, 2.4); };
+  const R = f(r), G = f(g), B = f(b);
+  let x = (R*0.4124 + G*0.3576 + B*0.1805) / 0.95047;
+  let y = (R*0.2126 + G*0.7152 + B*0.0722);
+  let z = (R*0.0193 + G*0.1192 + B*0.9505) / 1.08883;
+  const h = t => t > 0.008856 ? Math.cbrt(t) : (7.787*t + 16/116);
+  x = h(x); y = h(y); z = h(z);
+  return [116*y - 16, 500*(x - y), 200*(y - z)];
+}
+
+/** 사진 한 장에 대해 한 번만 계산해 두는 값들: Lab 색, 밝기 경계 세기, 가장자리 배경색 군집 */
+function prepareBgAnalysis_(src){
+  const { width:w, height:h, data } = src;
+  const n = w*h;
+  const lab = new Float32Array(n*3);
+  const transparent = new Uint8Array(n);
+  for (let i=0; i<n; i++){
+    const [L, A, B] = srgbToLab_(data[i*4], data[i*4+1], data[i*4+2]);
+    lab[i*3] = L; lab[i*3+1] = A; lab[i*3+2] = B;
+    if (data[i*4+3] < 16) transparent[i] = 1;
+  }
+  // 경계 세기 (Lab 색 차이 기반 Sobel): 물체 윤곽에서 크고, 고른 배경에서는 작습니다
+  const grad = new Float32Array(n);
+  for (let y=1; y<h-1; y++) for (let x=1; x<w-1; x++){
+    let gx = 0, gy = 0;
+    for (let c=0; c<3; c++){
+      const p = (yy, xx) => lab[(yy*w+xx)*3+c];
+      const sx = (p(y-1,x+1) + 2*p(y,x+1) + p(y+1,x+1)) - (p(y-1,x-1) + 2*p(y,x-1) + p(y+1,x-1));
+      const sy = (p(y+1,x-1) + 2*p(y+1,x) + p(y+1,x+1)) - (p(y-1,x-1) + 2*p(y-1,x) + p(y-1,x+1));
+      gx += sx*sx; gy += sy*sy;
+    }
+    grad[y*w+x] = Math.sqrt(gx + gy) / 4;
+  }
+  // 가장자리 3px 띠에서 배경색 표본을 모아 k-평균(최대 5개)으로 대표색을 구합니다
+  const samples = [];
+  const band = Math.max(2, Math.round(Math.min(w, h) * 0.01));
+  for (let y=0; y<h; y++) for (let x=0; x<w; x++){
+    if (x >= band && x < w-band && y >= band && y < h-band) continue;
+    const i = y*w+x;
+    if (transparent[i] || (x + y) % 2) continue;
+    samples.push([lab[i*3], lab[i*3+1], lab[i*3+2]]);
+  }
+  const k = Math.min(5, samples.length);
+  let centers = [];
+  for (let c=0; c<k; c++) centers.push(samples[Math.floor((c + 0.5) * samples.length / k)].slice());
+  for (let it=0; it<8 && k; it++){
+    const sum = centers.map(()=>[0,0,0,0]);
+    samples.forEach(s=>{
+      let best = 0, bd = Infinity;
+      centers.forEach((c, ci)=>{ const d = (s[0]-c[0])**2 + (s[1]-c[1])**2 + (s[2]-c[2])**2; if (d < bd){ bd = d; best = ci; } });
+      const t = sum[best]; t[0]+=s[0]; t[1]+=s[1]; t[2]+=s[2]; t[3]++;
+    });
+    centers = centers.map((c, ci)=> sum[ci][3] ? [sum[ci][0]/sum[ci][3], sum[ci][1]/sum[ci][3], sum[ci][2]/sum[ci][3]] : c);
+  }
+  // 아주 적은 표본만 가진 군집(가장자리에 살짝 걸친 구성품 등)은 배경색에서 뺍니다
+  const counts = centers.map(()=>0);
+  samples.forEach(s=>{ let best = 0, bd = Infinity; centers.forEach((c, ci)=>{ const d = (s[0]-c[0])**2 + (s[1]-c[1])**2 + (s[2]-c[2])**2; if (d < bd){ bd = d; best = ci; } }); counts[best]++; });
+  centers = centers.filter((c, ci)=> counts[ci] >= samples.length * 0.08);
+  return { w, h, n, lab, grad, transparent, centers };
+}
+
+function bgDistance_(A, i, centers){
+  const L = A.lab[i*3], a = A.lab[i*3+1], b = A.lab[i*3+2];
+  let best = Infinity;
+  for (const c of centers){ const d = (L-c[0])**2 + (a-c[1])**2 + (b-c[2])**2; if (d < best) best = d; }
+  return Math.sqrt(best);
+}
+
+/** 강도(0~100)와 사용자가 찍은 배경색·붓질을 반영한 투명도(0~255) 배열 */
+function computeBgAlpha_(A, sens, extraCenters, manual){
+  const { w, h, n } = A;
+  const centers = A.centers.concat(extraCenters || []);
+  const T = 6 + sens * 0.45;          // 배경색과의 색 차이 허용치
+  const G = 10 + sens * 0.5;          // 이 이상 경계가 강하면 물체 윤곽으로 보고 멈춤
+  const dist = new Float32Array(n);
+  for (let i=0; i<n; i++) dist[i] = A.transparent[i] ? 0 : bgDistance_(A, i, centers);
+  const bg = new Uint8Array(n);
+  const queue = new Int32Array(n);
+  let qh = 0, qt = 0;
+  const canEnter = i => !bg[i] && manual[i] !== 1 && (A.transparent[i] || (dist[i] < T && (A.grad[i] < G || dist[i] < T * 0.4)));
+  const seed = i => { if (canEnter(i)){ bg[i] = 1; queue[qt++] = i; } };
+  for (let x=0; x<w; x++){ seed(x); seed((h-1)*w + x); }
+  for (let y=0; y<h; y++){ seed(y*w); seed(y*w + w-1); }
+  // 사용자가 지우기 붓으로 칠한 곳과 투명 픽셀도 출발점이 됩니다
+  for (let i=0; i<n; i++) if (manual[i] === -1 && !bg[i]){ bg[i] = 1; queue[qt++] = i; }
+  while (qh < qt){
+    const i = queue[qh++];
+    const x = i % w, y = (i - x) / w;
+    if (x > 0) seed(i-1);
+    if (x < w-1) seed(i+1);
+    if (y > 0) seed(i-w);
+    if (y < h-1) seed(i+w);
+  }
+  // 남은 물체 중 아주 작은 조각(얼룩·잡티)은 배경으로 정리
+  const minIsland = Math.max(20, Math.round(n * 0.0015));
+  const seen = new Uint8Array(n);
+  for (let s=0; s<n; s++){
+    if (bg[s] || seen[s]) continue;
+    const comp = [s]; seen[s] = 1;
+    let keep = false;
+    for (let ci=0; ci<comp.length; ci++){
+      const i = comp[ci];
+      if (manual[i] === 1) keep = true;
+      const x = i % w, y = (i - x) / w;
+      const nb = [];
+      if (x > 0) nb.push(i-1); if (x < w-1) nb.push(i+1); if (y > 0) nb.push(i-w); if (y < h-1) nb.push(i+w);
+      for (const j of nb) if (!bg[j] && !seen[j]){ seen[j] = 1; comp.push(j); }
+      if (comp.length > minIsland) { keep = true; }
+    }
+    if (!keep) comp.forEach(i => { bg[i] = 1; });
+  }
+  for (let i=0; i<n; i++){ if (manual[i] === 1) bg[i] = 0; else if (manual[i] === -1) bg[i] = 1; }
+  // 윤곽 다듬기: 배경과 맞닿은 물체 가장자리만 주변 비율과 색 차이로 반투명하게
+  const alpha = new Uint8ClampedArray(n);
+  for (let y=0; y<h; y++) for (let x=0; x<w; x++){
+    const i = y*w+x;
+    if (bg[i]){ alpha[i] = 0; continue; }
+    let bgCount = 0, total = 0;
+    for (let dy=-1; dy<=1; dy++) for (let dx=-1; dx<=1; dx++){
+      const xx = x+dx, yy = y+dy;
+      if (xx < 0 || yy < 0 || xx >= w || yy >= h) continue;
+      total++; if (bg[yy*w+xx]) bgCount++;
+    }
+    if (!bgCount || manual[i] === 1){ alpha[i] = 255; continue; }
+    const colorSoft = Math.min(1, Math.max(0, (dist[i] - T*0.5) / (T*0.9)));
+    alpha[i] = Math.round(255 * Math.max(0.35, Math.min(1, 1 - (bgCount/total) * 0.5)) * (0.55 + 0.45*colorSoft));
+  }
+  return alpha;
+}
+
 function renderCasePhotoModal_(){
+  const st = casePhotoState_;
   const backdrop = document.createElement('div');
   backdrop.className = 'modal-backdrop';
   backdrop.id = 'casePhotoBackdrop';
   backdrop.innerHTML = `
-    <div class="modal" style="max-width:420px;">
+    <div class="modal" style="max-width:460px;">
       <h3>구성품 사진 배경 제거</h3>
       <div class="checkerboard-bg" style="width:100%; aspect-ratio:1; border-radius:8px; overflow:hidden; border:1px solid var(--line); display:flex; align-items:center; justify-content:center;">
-        <canvas id="casePhotoCanvas" style="max-width:100%; max-height:100%;"></canvas>
+        <canvas id="casePhotoCanvas" style="max-width:100%; max-height:100%; touch-action:none;"></canvas>
       </div>
-      <div style="margin-top:12px;">
+      <div class="bg-tools" id="bgTools">
+        <button data-tool="view" onclick="setBgTool_('view')">👁 보기</button>
+        <button data-tool="pick" onclick="setBgTool_('pick')" title="배경인데 안 지워진 곳을 탭하면 그 색을 배경으로 추가합니다">🎯 배경 찍기</button>
+        <button data-tool="erase" onclick="setBgTool_('erase')" title="문질러서 지웁니다">🧽 지우기 붓</button>
+        <button data-tool="restore" onclick="setBgTool_('restore')" title="잘못 지워진 구성품을 문질러 되살립니다">🖌️ 되살리기 붓</button>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px; margin-top:8px; font-size:12px; color:var(--ink-soft);">
+        <span style="white-space:nowrap;">붓 크기</span>
+        <input type="range" id="bgBrushSize" min="6" max="60" value="${st.brush}" style="flex:1;" oninput="casePhotoState_.brush = Number(this.value)">
+        <button class="chip-btn" onclick="undoBgEdit_()">↶ 되돌리기</button>
+        <button class="chip-btn" onclick="resetBgEdits_()">손질 초기화</button>
+      </div>
+      <div style="margin-top:10px;">
         <label style="font-size:12.5px; color:var(--ink-soft); display:flex; justify-content:space-between;">
-          <span>배경 제거 민감도</span><span id="casePhotoThresholdLabel">32</span>
+          <span>배경 제거 강도 (높을수록 더 많이 지움)</span><span id="casePhotoThresholdLabel">${st.sens}</span>
         </label>
-        <input type="range" id="casePhotoThresholdSlider" min="0" max="100" value="32" style="width:100%;" oninput="previewCasePhotoThreshold_(this.value)">
+        <input type="range" id="casePhotoThresholdSlider" min="0" max="100" value="${st.sens}" style="width:100%;" oninput="previewCasePhotoThreshold_(this.value)">
       </div>
-      <p style="font-size:11.5px; color:var(--ink-soft); margin-top:8px; line-height:1.5;">
-        사진 네 귀퉁이 색을 배경으로 추정해서 지웁니다. 결과가 이상하면 민감도를 조절하거나, 배경을 그대로 둔 채 사용하세요.
+      <p style="font-size:11.5px; color:var(--ink-soft); margin-top:6px; line-height:1.5;">
+        사진 가장자리와 이어진 배경만 지우고, 구성품 안쪽은 건드리지 않습니다. 남은 배경은 🎯 배경 찍기나 🧽 지우기 붓으로,
+        잘못 지워진 부분은 🖌️ 되살리기 붓으로 손질하세요. 지우기 전 원본도 함께 저장되어 나중에 ✎ 편집에서 되돌릴 수 있습니다.
       </p>
       <div class="modal-actions">
         <button class="btn-cancel" onclick="closeCasePhotoModal_()">취소</button>
@@ -4390,15 +4552,99 @@ function renderCasePhotoModal_(){
   document.body.appendChild(backdrop);
 
   const canvas = document.getElementById('casePhotoCanvas');
-  const img = casePhotoState_.img;
+  const img = st.img;
   const maxDim = 600;
   const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
-  canvas.width = Math.round(img.width * scale);
-  canvas.height = Math.round(img.height * scale);
+  canvas.width = Math.max(1, Math.round(img.width * scale));
+  canvas.height = Math.max(1, Math.round(img.height * scale));
   const ctx = canvas.getContext('2d');
   ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-  casePhotoState_.srcImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  previewCasePhotoThreshold_(32);
+  st.srcImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  st.analysis = prepareBgAnalysis_(st.srcImageData);
+  st.manual = new Int8Array(canvas.width * canvas.height);
+  st.extraCenters = [];
+  st.history = [];
+  setBgTool_(st.tool || 'view');
+  recomputeBgPreview_();
+
+  // 붓·배경 찍기: 손가락/펜/마우스 모두 pointer 이벤트로 처리
+  let painting = false;
+  const toCanvas = (e)=>{ const r = canvas.getBoundingClientRect(); return { x: (e.clientX - r.left) * canvas.width / r.width, y: (e.clientY - r.top) * canvas.height / r.height, k: canvas.width / r.width }; };
+  canvas.onpointerdown = (e)=>{
+    const s = casePhotoState_; if (!s) return;
+    const p = toCanvas(e);
+    if (s.tool === 'pick'){
+      pushBgHistory_();
+      const A = s.analysis, i = Math.min(A.n-1, Math.floor(p.y) * A.w + Math.floor(p.x));
+      s.extraCenters.push([A.lab[i*3], A.lab[i*3+1], A.lab[i*3+2]]);
+      // 찍은 곳에서도 채우기가 시작되도록 그 점을 지우기 표시
+      s.manual[i] = -1;
+      recomputeBgPreview_();
+      return;
+    }
+    if (s.tool !== 'erase' && s.tool !== 'restore') return;
+    pushBgHistory_();
+    painting = true;
+    canvas.setPointerCapture(e.pointerId);
+    paintBg_(p);
+  };
+  canvas.onpointermove = (e)=>{ if (painting) paintBg_(toCanvas(e)); };
+  canvas.onpointerup = canvas.onpointercancel = ()=>{ if (painting){ painting = false; recomputeBgPreview_(); } };
+}
+
+function setBgTool_(tool){
+  if (!casePhotoState_) return;
+  casePhotoState_.tool = tool;
+  document.querySelectorAll('#bgTools button').forEach(b=>b.classList.toggle('on', b.dataset.tool === tool));
+}
+function pushBgHistory_(){
+  const s = casePhotoState_;
+  s.history.push({ manual: s.manual.slice(), extra: s.extraCenters.length });
+  if (s.history.length > 20) s.history.shift();
+}
+function undoBgEdit_(){
+  const s = casePhotoState_; if (!s || !s.history.length) return;
+  const h = s.history.pop();
+  s.manual = h.manual; s.extraCenters.length = h.extra;
+  recomputeBgPreview_();
+}
+function resetBgEdits_(){
+  const s = casePhotoState_; if (!s) return;
+  pushBgHistory_();
+  s.manual.fill(0); s.extraCenters = [];
+  recomputeBgPreview_();
+}
+function paintBg_(p){
+  const s = casePhotoState_;
+  const A = s.analysis;
+  const r = Math.max(2, s.brush * p.k / 2);
+  const v = s.tool === 'erase' ? -1 : 1;
+  const x0 = Math.max(0, Math.floor(p.x - r)), x1 = Math.min(A.w-1, Math.ceil(p.x + r));
+  const y0 = Math.max(0, Math.floor(p.y - r)), y1 = Math.min(A.h-1, Math.ceil(p.y + r));
+  for (let y=y0; y<=y1; y++) for (let x=x0; x<=x1; x++){
+    if ((x-p.x)**2 + (y-p.y)**2 <= r*r) s.manual[y*A.w+x] = v;
+  }
+  // 칠하는 동안은 가볍게 미리보기만 (손을 떼면 전체를 다시 계산)
+  if (!s.paintRaf) s.paintRaf = requestAnimationFrame(()=>{ s.paintRaf = 0; drawBgPreviewFast_(); });
+}
+function drawBgPreviewFast_(){
+  const s = casePhotoState_; if (!s || !s.alpha) return;
+  const n = s.analysis.n;
+  for (let i=0; i<n; i++){ if (s.manual[i] === 1) s.alpha[i] = 255; else if (s.manual[i] === -1) s.alpha[i] = 0; }
+  drawBgAlpha_();
+}
+function recomputeBgPreview_(){
+  const s = casePhotoState_; if (!s) return;
+  s.alpha = computeBgAlpha_(s.analysis, s.sens, s.extraCenters, s.manual);
+  drawBgAlpha_();
+}
+function drawBgAlpha_(){
+  const s = casePhotoState_;
+  const canvas = document.getElementById('casePhotoCanvas');
+  if (!canvas) return;
+  const out = new ImageData(new Uint8ClampedArray(s.srcImageData.data), s.srcImageData.width, s.srcImageData.height);
+  for (let i=0; i<s.alpha.length; i++) out.data[i*4+3] = Math.min(out.data[i*4+3], s.alpha[i]);
+  canvas.getContext('2d').putImageData(out, 0, 0);
 }
 
 function closeCasePhotoModal_(){
@@ -4407,67 +4653,73 @@ function closeCasePhotoModal_(){
   casePhotoState_ = null;
 }
 
-
-/** 원본 픽셀 데이터를 기준으로, 네 귀퉁이 평균색과의 색 거리(threshold)에 따라
- *  배경을 투명하게 만든 새 ImageData를 계산합니다 (원본은 건드리지 않습니다). */
-function computeBgRemovedImageData_(srcData, threshold){
-  const { width, height, data: src } = srcData;
-  const out = new Uint8ClampedArray(src);
-  const corners = [[0,0],[width-1,0],[0,height-1],[width-1,height-1]];
-  let br=0, bg=0, bb=0;
-  corners.forEach(([x,y])=>{ const i=(y*width+x)*4; br+=src[i]; bg+=src[i+1]; bb+=src[i+2]; });
-  br/=4; bg/=4; bb/=4;
-  const soft = Math.max(6, threshold*0.5);
-  for (let i=0; i<out.length; i+=4){
-    const dr = src[i]-br, dg = src[i+1]-bg, db = src[i+2]-bb;
-    const dist = Math.sqrt(dr*dr + dg*dg + db*db);
-    if (dist < threshold) out[i+3] = 0;
-    else if (dist < threshold + soft) out[i+3] = Math.round(255 * (dist-threshold) / soft);
-  }
-  return new ImageData(out, width, height);
-}
-
 function previewCasePhotoThreshold_(v){
   if (!casePhotoState_) return;
+  const st = casePhotoState_;
+  st.sens = Number(v);
   document.getElementById('casePhotoThresholdLabel').textContent = v;
-  const canvas = document.getElementById('casePhotoCanvas');
-  const ctx = canvas.getContext('2d');
-  const processed = computeBgRemovedImageData_(casePhotoState_.srcImageData, Number(v));
-  ctx.putImageData(processed, 0, 0);
+  // 슬라이더를 끄는 동안 계산이 밀리지 않게 한 프레임에 한 번만 다시 계산합니다
+  if (!st.sensRaf) st.sensRaf = requestAnimationFrame(()=>{ st.sensRaf = 0; if (casePhotoState_ === st) recomputeBgPreview_(); });
 }
 
 async function applyCasePhoto_(keepBackground){
-  if (!casePhotoState_) return;
-  const canvas = document.getElementById('casePhotoCanvas');
-  const ctx = canvas.getContext('2d');
-  if (keepBackground) ctx.putImageData(casePhotoState_.srcImageData, 0, 0);
-
-  const { target } = casePhotoState_;
-  if (await saveTargetPhotoCanvas_(target, canvas)) closeCasePhotoModal_();
+  const s = casePhotoState_;
+  if (!s) return;
+  // 배경 제거 전 원본(자른 사진)도 함께 저장해 두면 나중에 ✎ 편집에서 되돌리거나 다시 지울 수 있습니다.
+  const orig = document.createElement('canvas');
+  orig.width = s.srcImageData.width; orig.height = s.srcImageData.height;
+  orig.getContext('2d').putImageData(s.srcImageData, 0, 0);
+  const result = keepBackground ? orig : document.getElementById('casePhotoCanvas');
+  if (await saveTargetPhotoCanvas_(s.target, result, orig)) closeCasePhotoModal_();
 }
 
-/** 완성된 구성품 사진(캔버스)을 PNG로 올려 그 항목의 사진으로 바꾸고, 예전 파일은 지웁니다. */
-async function saveTargetPhotoCanvas_(target, canvas){
+function openBgRemovalFor_(target, canvas){
+  casePhotoState_ = { target, img: canvas, srcImageData: null, sens: BG_DEFAULT_SENS_, tool: 'view', brush: 22 };
+  renderCasePhotoModal_();
+}
+
+/** 캔버스를 긴 변 600px 이하로 줄입니다 (구성품 사진은 작게 보이므로 충분하고 용량이 줄어듦). */
+function shrinkCanvas_(canvas, MAX){
+  if (Math.max(canvas.width, canvas.height) <= MAX) return canvas;
+  const k = MAX / Math.max(canvas.width, canvas.height);
+  const out = document.createElement('canvas');
+  out.width = Math.round(canvas.width * k); out.height = Math.round(canvas.height * k);
+  out.getContext('2d').drawImage(canvas, 0, 0, out.width, out.height);
+  return out;
+}
+function canvasHasTransparency_(canvas){
+  const d = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+  for (let i=3; i<d.length; i+=4) if (d[i] < 250) return true;
+  return false;
+}
+
+/** 완성된 구성품 사진(캔버스)을 PNG로 올려 그 항목의 사진으로 바꾸고, 예전 파일은 지웁니다.
+ *  origCanvas(배경 제거 전 원본)를 주면 함께 올려 item.photoOrig 에 둡니다 (나중에 배경 제거 되돌리기용).
+ *  origCanvas 를 주지 않으면(예전 사진의 자르기·회전만 편집) 원본 정보는 그대로 둡니다. */
+async function saveTargetPhotoCanvas_(target, canvas, origCanvas){
   const g = games.find(x=>x.id===currentGameId);
   const item = resolvePhotoTargetItem_(target);
-  const oldPath = item.photo;
+  const oldPath = item.photo, oldOrig = item.photoOrig || null;
   try{
-    // 휴대폰 원본처럼 큰 사진은 긴 변 600px로 줄여서 올립니다 (구성품 사진은 작게 보이므로 충분)
-    const MAX = 600;
-    let out = canvas;
-    if (Math.max(canvas.width, canvas.height) > MAX){
-      const k = MAX / Math.max(canvas.width, canvas.height);
-      out = document.createElement('canvas');
-      out.width = Math.round(canvas.width * k); out.height = Math.round(canvas.height * k);
-      out.getContext('2d').drawImage(canvas, 0, 0, out.width, out.height);
-    }
+    const out = shrinkCanvas_(canvas, 600);
     const blob = await new Promise(res => out.toBlob(res, 'image/png'));
     const folder = target.type === 'case' ? 'case-photos' : 'return-guide-photos';
-    const storagePath = `games/${g.id}/${folder}/${Date.now()}_${Math.random().toString(36).slice(2)}.png`;
+    const base = `games/${g.id}/${folder}/${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    const storagePath = `${base}.png`;
     await uploadBytes(ref(storage, storagePath), blob);
+    let origPath = oldOrig;
+    if (origCanvas){
+      const o = shrinkCanvas_(origCanvas, 600);
+      const png = canvasHasTransparency_(o);
+      const oBlob = await new Promise(res => o.toBlob(res, png ? 'image/png' : 'image/jpeg', 0.92));
+      origPath = `${base}_orig.${png ? 'png' : 'jpg'}`;
+      await uploadBytes(ref(storage, origPath), oBlob);
+    }
     item.photo = storagePath;
+    item.photoOrig = origPath || null;
     await persistGame_(g);
     if (oldPath && oldPath !== storagePath) deleteObject(ref(storage, oldPath)).catch(()=>{});
+    if (oldOrig && oldOrig !== origPath) deleteObject(ref(storage, oldOrig)).catch(()=>{});
     if (target.type === 'case') redrawCurrentPhoto_(); else renderReturnGuideTab();
     return true;
   }catch(e){
@@ -4482,9 +4734,11 @@ function editReturnPhoto_(section, idx){ editPhotoFor_({ type:'return', section,
 async function editPhotoFor_(target){
   const item = resolvePhotoTargetItem_(target);
   if (!item || !item.photo) return;
+  // 배경 제거 전 원본이 있으면 원본에서 다시 시작합니다 → 다음 화면에서 "배경 유지하고 사용"이 곧 되돌리기
+  const fromOrig = !!item.photoOrig;
   let img;
   try{
-    const url = await resolvePhotoUrl_(item.photo);
+    const url = await resolvePhotoUrl_(fromOrig ? item.photoOrig : item.photo);
     img = await new Promise((resolve, reject)=>{
       const im = new Image();
       im.crossOrigin = 'anonymous'; // 캔버스로 다시 저장하려면 필요합니다
@@ -4496,8 +4750,18 @@ async function editPhotoFor_(target){
     alert('사진을 편집용으로 불러오지 못했습니다. 잠시 후 다시 시도하거나, 사진을 삭제하고 새로 올려주세요.');
     return;
   }
+  if (fromOrig){
+    openCropModalFromImage_(img, {
+      title: '구성품 사진 편집 (배경 지우기 전 원본)',
+      note: '배경을 지우기 전 원본으로 열었습니다. 다음 화면에서 배경을 다시 지우거나, "배경 유지하고 사용"을 눌러 배경 제거를 되돌릴 수 있습니다.',
+      applyLabel: '다음: 배경 제거',
+      onApply: (canvas)=> openBgRemovalFor_(target, canvas),
+    });
+    return;
+  }
   openCropModalFromImage_(img, {
     title: '구성품 사진 편집 (자르기 · 회전 · 축소)',
+    note: '예전에 올린 사진이라 배경을 지우기 전 원본이 없어 배경 제거를 되돌릴 수는 없습니다. 되돌리려면 사진을 삭제하고 다시 올려주세요 (이제부터 올리는 사진은 원본도 함께 저장됩니다).',
     applyLabel: '적용하고 저장',
     transparent: true,
     onApply: (canvas)=> saveTargetPhotoCanvas_(target, canvas),
@@ -4514,10 +4778,12 @@ async function removePhotoFrom_(target){
   if (!confirm('이 사진을 삭제할까요?')) return;
   const g = games.find(x=>x.id===currentGameId);
   const item = resolvePhotoTargetItem_(target);
-  const oldPath = item.photo;
+  const oldPath = item.photo, oldOrig = item.photoOrig;
   item.photo = null;
+  item.photoOrig = null;
   await persistGame_(g);
   if (oldPath) deleteObject(ref(storage, oldPath)).catch(()=>{});
+  if (oldOrig) deleteObject(ref(storage, oldOrig)).catch(()=>{});
   if (target.type === 'case') redrawCurrentPhoto_(); else renderReturnGuideTab();
 }
 
@@ -5212,6 +5478,7 @@ function renderCropModal_(){
   backdrop.innerHTML = `
     <div class="modal">
       <h3>${escHtml_(cropState_.title || '사진 자르기 · 회전')}</h3>
+      ${cropState_.note ? `<p style="font-size:12px; color:var(--ink-soft); margin:-4px 0 10px; line-height:1.5;">${escHtml_(cropState_.note)}</p>` : ''}
       <div class="crop-toolbar">
         <button onclick="rotateCrop_(-90)">↺ 왼쪽으로 회전</button>
         <button onclick="rotateCrop_(90)">회전 ↻ 오른쪽으로</button>
@@ -8651,7 +8918,7 @@ Object.assign(window, {
   addGuideItem_, updateGuideItem_, deleteGuideItem_, updateProtectorInfo_, toggleGuidePublished_, updateReturnGuideCommonNotice_,
   triggerReturnPhotoUpload_, removeReturnPhoto_, editReturnPhoto_, editCasePhoto_, toggleGuideItemStandard_, openConditionPopup_,
   updateMarkerCaseType, updateMarkerItem, addMarkerItem, deleteMarkerItem, removeMarkerCase, duplicateMarkerCase,
-  triggerCasePhotoUpload_, previewCasePhotoThreshold_, applyCasePhoto_, closeCasePhotoModal_, removeCasePhoto_, openPhotoLightbox_,
+  triggerCasePhotoUpload_, previewCasePhotoThreshold_, setBgTool_, undoBgEdit_, resetBgEdits_, applyCasePhoto_, closeCasePhotoModal_, removeCasePhoto_, openPhotoLightbox_,
   previewMarkerSize, updateMarkerSize, previewLineWidth, updateLineWidth, previewAnnoScale, updateAnnoScale,
   createLabelFromMarker, changeLabelFontSize, rotateLabel, deleteLabel, duplicateLabel,
   rotateCrop_, closeCropModal_, applyCropAndUpload_,
