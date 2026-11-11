@@ -258,6 +258,10 @@
   .dash-progress-bar-track{position:relative; width:100%; height:28px; background:var(--bg); border-radius:999px; overflow:hidden; border:1px solid var(--line);}
   .dash-progress-bar-fill{position:absolute; top:0; left:0; bottom:0; background:var(--accent); border-radius:999px; transition:width .3s;}
   .dash-progress-bar-label{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:800; color:var(--ink); font-family:var(--sans); text-shadow:0 0 4px #fff, 0 0 8px #fff, 0 0 2px #fff;}
+  .dash-fill-draft{background:repeating-linear-gradient(45deg, var(--accent-soft) 0 6px, color-mix(in srgb, var(--accent) 35%, var(--accent-soft)) 6px 12px);}
+  .dash-legend{display:inline-block; width:12px; height:12px; border-radius:3px; background:var(--accent); vertical-align:-2px; margin-left:6px;}
+  .dash-legend.draft{background:repeating-linear-gradient(45deg, var(--accent-soft) 0 3px, color-mix(in srgb, var(--accent) 35%, var(--accent-soft)) 3px 6px); border:1px solid var(--line);}
+  .dash-filter-lb{font-size:11.5px; font-weight:700; color:var(--ink-soft); margin-left:8px;}
   .dash-count{font-family:var(--sans); font-size:12px; font-weight:700; color:var(--accent);}
 
   /* ---- 권한 관리 ---- */
@@ -3080,7 +3084,24 @@ function openHelpModal(){
 }
 
 let showDashboard_ = false;
-let dashboardFilter_ = 'all'; // 'all' | 'done' | 'undone'
+let dashboardFilter_ = 'all'; // 'all' | 'done' | 'undone' | 'reports' | 'storeUndone' | 'rgMade' | 'rgPublished' | 'rgDraft' | 'rgNone'
+
+/** 반납대 가이드 작성 상태.
+ *  - 'published': 게시 중 (매장에 보임)
+ *  - 'draft': 무언가 입력했지만 아직 게시 전
+ *  - 'none': 아무것도 입력하지 않음
+ *  빈 항목(추가만 하고 비워 둔 칸)은 내용으로 치지 않습니다. */
+function rgSummary_(g){
+  const rg = g.returnGuide || {};
+  const filled = (arr, keys) => (Array.isArray(arr) ? arr : []).filter(it => it && (it.photo || keys.some(k => String(it[k]||'').trim()))).length;
+  const req = filled(rg.requiredItems, ['name','note']);
+  const steps = filled(rg.sortingSteps, ['title','desc']);
+  const noCount = filled(rg.noCountItems, ['name','desc']);
+  const notes = filled(rg.otherNotes, ['text']);
+  const hasContent = !!(req || steps || noCount || notes || String(rg.protectorInfo||'').trim() || Number(rg.estMinutes) > 0);
+  const status = rg.published === true ? 'published' : hasContent ? 'draft' : 'none';
+  return { status, req, steps, noCount, notes, hasContent };
+}
 
 let dashboardPeople_ = null; // { storeOfEmail: {email: storeCode}, stores: [{code,name,members}] } — 진행현황을 열 때 한 번 불러옵니다
 let dashboardStore_ = ''; // 진행현황 표에서 특정 매장 기준으로 볼 때의 매장 코드
@@ -3146,7 +3167,19 @@ function renderDashboard(){
     return { ...s, done, pct: p };
   }).sort((a,b)=> b.pct - a.pct || String(a.name).localeCompare(String(b.name), 'ko'));
 
+  // ---- 반납대 가이드 작성 현황 ----
+  const rgOf = new Map(games.map(g => [g.id, rgSummary_(g)]));
+  const rgPublished = games.filter(g => rgOf.get(g.id).status === 'published').length;
+  const rgDraft = games.filter(g => rgOf.get(g.id).status === 'draft').length;
+  const rgMade = rgPublished + rgDraft;
+  const rgPubPct = total ? Math.round(rgPublished/total*100) : 0;
+  const rgMadePct = total ? Math.round(rgMade/total*100) : 0;
+
   let filtered = games;
+  if (dashboardFilter_ === 'rgMade') filtered = games.filter(g => rgOf.get(g.id).status !== 'none');
+  if (dashboardFilter_ === 'rgPublished') filtered = games.filter(g => rgOf.get(g.id).status === 'published');
+  if (dashboardFilter_ === 'rgDraft') filtered = games.filter(g => rgOf.get(g.id).status === 'draft');
+  if (dashboardFilter_ === 'rgNone') filtered = games.filter(g => rgOf.get(g.id).status === 'none');
   if (dashboardFilter_ === 'done') filtered = games.filter(g=>g.guideDone);
   if (dashboardFilter_ === 'undone') filtered = games.filter(g=>!g.guideDone);
   if (dashboardFilter_ === 'reports') filtered = games.filter(g=>openReportsOf_(g).length);
@@ -3159,11 +3192,22 @@ function renderDashboard(){
     <button class="back" onclick="closeDashboard()">← 목록으로</button>
     <h2 style="margin:0 0 6px;">📊 작업 진행 현황</h2>
     <div class="dash-progress-card">
+      <p style="font-size:13px; font-weight:700; margin:0 0 4px;">🗂️ 오거나이징 가이드 <a href="javascript:void(0)" onclick="setDashboardFilter('undone')" style="font-weight:400; font-size:12px;">미완료 보기</a></p>
       <p style="font-size:13px; color:var(--ink-soft); margin:0 0 12px;">${pct}% · 가이드 완료 ${doneCount}/${total}개${totalOpenReports ? ` · <b style="color:var(--accent);">미해결 누락 신고 ${totalOpenReports}건</b>` : ''}</p>
       <div class="dash-progress-bar-track">
         <div class="dash-progress-bar-fill" style="width:${pct}%;"></div>
         <div class="dash-progress-bar-label">${pct}%</div>
       </div>
+    </div>
+    <div class="dash-progress-card">
+      <p style="font-size:13px; font-weight:700; margin:0 0 4px;">🧾 반납대 가이드 <a href="javascript:void(0)" onclick="setDashboardFilter('rgMade')" style="font-weight:400; font-size:12px;">작성된 것 보기</a></p>
+      <p style="font-size:13px; color:var(--ink-soft); margin:0 0 12px;">${rgMadePct}% · 작성 ${rgMade}/${total}개 (<b style="color:var(--ink);">게시 중 ${rgPublished}</b> · 작성 중 ${rgDraft} · 미작성 ${total - rgMade})</p>
+      <div class="dash-progress-bar-track">
+        <div class="dash-progress-bar-fill dash-fill-draft" style="width:${rgMadePct}%;" title="작성 중(미게시) ${rgDraft}개"></div>
+        <div class="dash-progress-bar-fill" style="width:${rgPubPct}%;" title="게시 중 ${rgPublished}개"></div>
+        <div class="dash-progress-bar-label">${rgMadePct}%</div>
+      </div>
+      <p style="font-size:11.5px; color:var(--ink-soft); margin:8px 0 0;"><span class="dash-legend"></span> 게시 중(매장에 보임) <span class="dash-legend draft"></span> 작성 중(내용은 있지만 미게시)</p>
     </div>
     <div class="dash-progress-card">
       <p style="font-size:13px; font-weight:700; margin:0 0 4px;">🏪 매장별 작업 완료율</p>
@@ -3178,8 +3222,15 @@ function renderDashboard(){
     </div>
     <div class="crop-toolbar" style="margin-bottom:14px; flex-wrap:wrap; align-items:center;">
       <button onclick="setDashboardFilter('all')" style="${btnStyle('all')}">전체</button>
-      <button onclick="setDashboardFilter('undone')" style="${btnStyle('undone')}">가이드 미완료만</button>
-      <button onclick="setDashboardFilter('done')" style="${btnStyle('done')}">가이드 완료만</button>
+      <span class="dash-filter-lb">오거나이징</span>
+      <button onclick="setDashboardFilter('undone')" style="${btnStyle('undone')}">미완료</button>
+      <button onclick="setDashboardFilter('done')" style="${btnStyle('done')}">완료</button>
+      <span class="dash-filter-lb">반납대 가이드</span>
+      <button onclick="setDashboardFilter('rgMade')" style="${btnStyle('rgMade')}">작성됨 ${rgMade}</button>
+      <button onclick="setDashboardFilter('rgPublished')" style="${btnStyle('rgPublished')}">게시 중 ${rgPublished}</button>
+      <button onclick="setDashboardFilter('rgDraft')" style="${btnStyle('rgDraft')}">작성 중 ${rgDraft}</button>
+      <button onclick="setDashboardFilter('rgNone')" style="${btnStyle('rgNone')}">미작성 ${total - rgMade}</button>
+      <span class="dash-filter-lb"></span>
       <button onclick="setDashboardFilter('reports')" style="${btnStyle('reports')}">누락 신고 있음</button>
       <select onchange="setDashboardStore_(this.value); if (this.value) setDashboardFilter('storeUndone'); else if ('${dashboardFilter_}'==='storeUndone') setDashboardFilter('all');" style="padding:6px 8px; border:1.5px solid var(--line-strong); border-radius:7px; font-size:12.5px; ${btnStyle('storeUndone')}">
         <option value="">매장 선택: 이 매장 미완료 게임 보기</option>
@@ -3188,7 +3239,7 @@ function renderDashboard(){
     </div>
     <div style="overflow-x:auto;">
     <table class="case-table">
-      <thead><tr><th>이름</th><th>사진</th><th>가이드완료</th><th>작업 완료 매장</th>${dashboardStore_ ? `<th>${escHtml_(storeName(dashboardStore_))}</th>` : ''}<th>누락 신고</th><th></th></tr></thead>
+      <thead><tr><th>이름</th><th>사진</th><th>오거나이징<br>가이드완료</th><th>반납대 가이드</th><th>작업 완료 매장</th>${dashboardStore_ ? `<th>${escHtml_(storeName(dashboardStore_))}</th>` : ''}<th>누락 신고</th><th></th></tr></thead>
       <tbody>
         ${filtered.map(g=>{
           const sd = storeDoneSets[games.indexOf(g)];
@@ -3199,16 +3250,28 @@ function renderDashboard(){
             <td>${escHtml_(g.name)}</td>
             <td>${(g.photos||[]).length ? '있음' : '-'}</td>
             <td><input type="checkbox" ${g.guideDone?'checked':''} onchange="toggleGuideDoneFor(this, '${g.id}')"></td>
+            <td>${rgStatusCell_(rgOf.get(g.id))}</td>
             <td><span class="dash-count" title="${escHtml_(names.join(', ') || '없음')} (체크한 사람 ${(g.completedBy||[]).length}명)">${sd.size}개 매장</span></td>
             ${dashboardStore_ ? `<td>${sd.has(dashboardStore_) ? '✅' : '—'}</td>` : ''}
             <td>${reports ? `<span class="mini-badge warn">${reports}건</span>` : '-'}</td>
-            <td><button class="btn btn-ghost2" style="width:auto; padding:5px 10px; font-size:12px;" onclick="openGame('${g.id}')">열기</button></td>
+            <td style="white-space:nowrap;"><button class="btn btn-ghost2" style="width:auto; padding:5px 10px; font-size:12px;" onclick="openGame('${g.id}')">열기</button>
+              ${rgOf.get(g.id).status !== 'none' ? `<button class="btn btn-ghost2" style="width:auto; padding:5px 10px; font-size:12px;" onclick="openGame('${g.id}', 'return')" title="반납대 가이드 탭으로 열기">반납대</button>` : ''}</td>
           </tr>`;
-        }).join('') || `<tr><td colspan="7" style="color:var(--ink-soft);">해당하는 게임이 없습니다.</td></tr>`}
+        }).join('') || `<tr><td colspan="8" style="color:var(--ink-soft);">해당하는 게임이 없습니다.</td></tr>`}
       </tbody>
     </table>
     </div>
   `;
+}
+
+/** 진행 현황 표의 반납대 가이드 칸: 상태 배지 + 무엇이 들어 있는지 짧게 */
+function rgStatusCell_(r){
+  if (r.status === 'none') return '<span style="color:var(--ink-soft);">-</span>';
+  const bits = [r.req ? `필수 ${r.req}` : '', r.steps ? `정리 ${r.steps}` : '', r.noCount ? `수량X ${r.noCount}` : '', r.notes ? `기타 ${r.notes}` : ''].filter(Boolean).join(' · ');
+  const badge = r.status === 'published'
+    ? '<span class="mini-badge" style="background:var(--done-bg); border-color:var(--done-line); color:var(--ink);">게시 중</span>'
+    : '<span class="mini-badge">작성 중</span>';
+  return `${badge}${bits ? `<div style="font-size:11px; color:var(--ink-soft); margin-top:3px; white-space:nowrap;">${bits}</div>` : ''}`;
 }
 
 async function toggleGuideDoneFor(checkbox, gameId){
